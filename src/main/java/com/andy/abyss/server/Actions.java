@@ -41,7 +41,7 @@ public final class Actions {
                     Util.sound(p.serverLevel(), p.position(), ModSounds.CHARGE.get(), 1.2f, 0.5f);
                 } else cast(p, a);
             }
-            case C2SAction.CAST_RELEASE -> release(p);
+            case C2SAction.CAST_RELEASE -> { d.domainVariant = Math.max(0, Math.min(1, arg)); release(p); }
             case C2SAction.SELECT -> { if (Ability.byIndex(arg) != null) { d.selected = arg; d.dirty = true; } }
             case C2SAction.SPREAD_START -> {
                 if (d.sporeMode == AbyssData.SPREAD) {
@@ -66,6 +66,9 @@ public final class Actions {
             case C2SAction.ORDER -> Bodies.order(p, arg / 8, arg % 8);
             case C2SAction.ORDER_ALL -> Bodies.order(p, -1, arg);
             case C2SAction.RECALL_ONE -> Bodies.recall(p, arg);
+            case C2SAction.TOGGLE_COMBAT -> { d.combat = !d.combat; d.comboStep = 0; d.dirty = true; }
+            case C2SAction.M1 -> { if (d.combat) Combat.m1(p, arg); }
+            case C2SAction.HEAVY -> { if (d.combat) Combat.heavy(p, arg); }
             default -> {}
         }
     }
@@ -95,7 +98,8 @@ public final class Actions {
 
     static void cooldown(ServerPlayer p, Ability a) {
         AbyssData d = AbyssData.get(p);
-        d.cooldownUntil[a.ordinal()] = p.level().getGameTime() + a.cooldownSec * 20L;
+        if (!Config.cooldownsEnabled.get()) { d.cooldownUntil[a.ordinal()] = 0; d.dirty = true; return; }
+        d.cooldownUntil[a.ordinal()] = p.level().getGameTime() + (long) (a.cooldownSec * 20L * Config.cooldownMultiplier.get());
         d.dirty = true;
     }
 
@@ -103,8 +107,7 @@ public final class Actions {
         AbyssData d = AbyssData.get(p);
         ServerLevel l = p.serverLevel();
         switch (a) {
-            case DOMAIN_OPEN -> { Domains.open(p, Math.max(d.charge, 20)); }
-            case DOMAIN_CLOSED -> { Domains.closed(p, Math.max(d.charge, 20)); }
+            case DOMAIN -> { if (d.domainVariant == 1) Domains.closed(p, Math.max(d.charge, 20)); else Domains.open(p, Math.max(d.charge, 20)); }
             case RIFT -> { return; } // the client opens the rift screen
             case BEELZEBUB -> {
                 if (!d.spend(30)) { noOutput(p); return; }
@@ -170,9 +173,9 @@ public final class Actions {
         long gt = p.level().getGameTime();
         float cap = d.outputCap();
         if (d.chargeAbility >= 0) {
-            float invest = Math.min(d.output, cap * 0.035f);
-            d.output -= invest;
-            d.charge = Math.min(600, d.charge + invest);
+            float invest = d.isInfinite() ? cap * 0.12f : Math.min(d.output, cap * 0.035f);
+            if (!d.isInfinite()) d.output -= invest;
+            d.charge = Math.min(d.isInfinite() ? 2000 : 600, d.charge + invest);
             if (gt % 5 == 0) Util.fx(p.serverLevel(), S2CFx.CHARGE, p.position().add(0, 1, 0), d.charge, d.chargeAbility, 0, p.getId(), -1);
             d.dirty = true;
         } else if (d.output < cap) {
@@ -186,6 +189,7 @@ public final class Actions {
         if (d.has("water_breathing") && p.getAirSupply() < p.getMaxAirSupply()) p.setAirSupply(p.getMaxAirSupply());
         if (d.has("fire_immune") && p.isOnFire()) p.clearFire();
         if (gt % 40 == 0) Bodies.rememberOutside(p);
+        if (gt % 10 == 0) Sovereignty.lockMaxHealth(p);
         if (gt % 100 == 0) Bodies.saveTo(p);
         if (AbyssDim.is(p.level()) && p.getY() < -60) {
             Vec3 t = AbyssDim.throne(p.serverLevel(), p.getUUID());
@@ -198,6 +202,8 @@ public final class Actions {
         AbyssData d = AbyssData.get(p);
         CompoundTag t = d.save();
         t.putFloat("cap", d.outputCap());
+        t.putBoolean("inf", d.isInfinite());
+        t.putBoolean("cooldowns", Config.cooldownsEnabled.get());
         t.putFloat("charge", d.charge);
         t.putInt("chargeAbility", d.chargeAbility);
         t.put("bodies", Bodies.rosterTag(p));

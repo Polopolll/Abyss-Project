@@ -5,6 +5,7 @@ import com.andy.abyss.cp.CombatPower;
 import com.andy.abyss.net.Net;
 import com.andy.abyss.net.S2CFx;
 import com.andy.abyss.net.S2CWorld;
+import com.andy.abyss.registry.ModBlocks;
 import com.andy.abyss.registry.ModEffects;
 import com.andy.abyss.registry.ModSounds;
 import net.minecraft.core.BlockPos;
@@ -42,6 +43,8 @@ public final class Domains {
         ServerLevel origin; Vec3 originCenter; BlockPos arena; int phase; Iterator<BlockPos> copyIt;
         final List<UUID> moved = new ArrayList<>(); final Map<UUID, Vec3> returnTo = new HashMap<>(); final Map<UUID, ServerLevel> returnLevel = new HashMap<>();
         final List<BlockPos> placed = new ArrayList<>();
+        /** What the domain's rot replaced, so the world can heal afterwards. */
+        final LinkedHashMap<BlockPos, BlockState> scars = new LinkedHashMap<>();
         Domain(int id, UUID owner, ServerLevel l, Vec3 c, double max, boolean closed, boolean small, int duration) {
             this.id = id; this.owner = owner; this.level = l; this.center = c; this.max = max; this.closed = closed; this.small = small; this.duration = duration;
         }
@@ -49,6 +52,8 @@ public final class Domains {
     }
 
     public static final List<Domain> ALL = new ArrayList<>();
+    /** Rot left behind by ended domains, healing a little every tick. */
+    private static final List<Map.Entry<ServerLevel, LinkedHashMap<BlockPos, BlockState>>> HEALING = new ArrayList<>();
     private static int nextId = 1, arenaSlot;
 
     public static boolean sureHit(UUID owner, Entity target) {
@@ -114,6 +119,7 @@ public final class Domains {
         for (Domain d : new ArrayList<>(ALL)) {
             try { tickOne(server, d); } catch (Exception ex) { com.andy.abyss.Abyss.LOG.error("domain tick", ex); ALL.remove(d); }
         }
+        heal();
         if (server.getTickCount() % 4 == 0) syncAll(server);
     }
 
@@ -129,6 +135,8 @@ public final class Domains {
         boolean ownerGone = owner == null || !owner.isAlive();
         if (d.age >= d.duration || (ownerGone && !d.small)) { end(d); return; }
         if (d.age % 10 == 0) weigh(d, owner);
+        if (!d.small) decay(d);
+        if (d.age % 50 == 25 && !d.small) pulse(d, owner);
         if (d.closed) {
             // nothing leaves a closed domain
             for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius + 8))) {
@@ -216,6 +224,85 @@ public final class Domains {
         if (d.closed && d.phase < 2) { d.phase = 3; return; }
         ALL.remove(d);
         Util.fx(d.level, S2CFx.IMPLODE, d.center, (float) d.radius, 0, 0);
+        if (!d.scars.isEmpty() && !Config.domainScarsPermanent.get()) HEALING.add(Map.entry(d.level, d.scars));
+    }
+
+    /**
+     * The abyss eats the world inside the domain: plants, leaves, snow and liquids vanish; ground, stone and wood turn
+     * to abyssal rot (galaxy). Surface columns first, so the ground visibly blackens outward with the expansion, plus
+     * random points through the volume. Dropped items dissolve.
+     */
+    private static void decay(Domain d) {
+        if (!Config.domainDecay.get() || !Util.griefing(d.level)) return;
+        int budget = Config.domainDecayPerTick.get();
+        var rand = d.level.getRandom();
+        BlockState rot = ModBlocks.ABYSSAL_ROT.get().defaultBlockState();
+        int particles = 0;
+        for (int i = 0; i < budget; i++) {
+            BlockPos p;
+            double a = rand.nextDouble() * Math.PI * 2, rr = Math.sqrt(rand.nextDouble()) * d.radius;
+            int x = (int) Math.floor(d.center.x + Math.cos(a) * rr), z = (int) Math.floor(d.center.z + Math.sin(a) * rr);
+            if (i % 3 != 0) {
+                int top = d.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z) - 1 - rand.nextInt(3);
+                if (Math.abs(top - d.center.y) > d.radius) continue;
+                p = new BlockPos(x, top, z);
+            } else {
+                double y = d.center.y + (rand.nextDouble() * 2 - 1) * d.radius;
+                p = new BlockPos(x, (int) Math.floor(y), z);
+                if (p.distSqr(BlockPos.containing(d.center)) > d.radius * d.radius) continue;
+            }
+            if (!d.level.isLoaded(p)) continue;
+            BlockState s = d.level.getBlockState(p);
+            if (s.isAir() || s.is(rot.getBlock()) || s.hasBlockEntity()) continue;
+            boolean soft = !s.getFluidState().isEmpty() || s.canBeReplaced() || s.is(net.minecraft.tags.BlockTags.LEAVES)
+                    || s.is(net.minecraft.tags.BlockTags.FLOWERS) || s.is(net.minecraft.tags.BlockTags.CROPS) || s.is(net.minecraft.tags.BlockTags.SAPLINGS)
+                    || !s.isCollisionShapeFullBlock(d.level, p);
+            if (!soft && !Util.consumable(d.level, p, s)) continue;
+            if (!Config.domainScarsPermanent.get()) d.scars.putIfAbsent(p.immutable(), s);
+            d.level.setBlock(p, soft ? Blocks.AIR.defaultBlockState() : rot, 2 | 16);
+            if (particles++ < 12) d.level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK, s),
+                    p.getX() + 0.5, p.getY() + 1, p.getZ() + 0.5, 6, 0.3, 0.2, 0.3, 0.05);
+        }
+        if (Config.domainDissolveItems.get() && d.age % 10 == 5) {
+            for (net.minecraft.world.entity.item.ItemEntity it : d.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new AABB(d.center, d.center).inflate(d.radius))) {
+                if (!d.contains(it) || d.owner.equals(it.getOwner() == null ? null : it.getOwner().getUUID())) continue;
+                Util.fx(d.level, S2CFx.DISINTEGRATE, it.position(), 0.6f, 0, 0);
+                it.discard();
+            }
+        }
+    }
+
+    /** Every few seconds the domain breathes: a pressure wave rolls out, slamming everything down and inward. */
+    private static void pulse(Domain d, ServerPlayer owner) {
+        Util.fx(d.level, S2CFx.DOMAIN_PULSE, d.center, (float) d.radius, 0, 0);
+        Util.sound(d.level, d.center, ModSounds.HEARTBEAT.get(), 3f, 0.45f);
+        Util.sound(d.level, d.center, ModSounds.DOMAIN.get(), 2f, 0.35f);
+        for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius), x -> x.isAlive() && d.contains(x))) {
+            if (Util.friend(d.owner, e)) continue;
+            Vec3 in = d.center.subtract(e.position()).normalize();
+            e.setDeltaMovement(e.getDeltaMovement().add(in.x * 0.4, -0.8, in.z * 0.4));
+            e.hurtMarked = true;
+            Util.hurt(d.owner, owner, e, (float) Config.domainCrush.get().doubleValue(), "abyss");
+        }
+    }
+
+    private static void heal() {
+        if (HEALING.isEmpty()) return;
+        int budget = Math.max(200, Config.domainDecayPerTick.get() * 2);
+        var it = HEALING.iterator();
+        while (it.hasNext() && budget > 0) {
+            var job = it.next();
+            ServerLevel l = job.getKey();
+            var map = job.getValue();
+            var mi = map.entrySet().iterator();
+            while (mi.hasNext() && budget-- > 0) {
+                var en = mi.next();
+                mi.remove();
+                BlockState now = l.getBlockState(en.getKey());
+                if (now.is(ModBlocks.ABYSSAL_ROT.get()) || now.isAir()) l.setBlock(en.getKey(), en.getValue(), 2 | 16);
+            }
+            if (map.isEmpty()) it.remove();
+        }
     }
 
     private static void clearArena(Domain d) {
@@ -253,6 +340,8 @@ public final class Domains {
 
     public static void clearAll() {
         for (Domain d : new ArrayList<>(ALL)) end(d);
+        // heal everything now: the server is stopping
+        for (int i = 0; i < 100000 && !HEALING.isEmpty(); i++) heal();
     }
 
     private Domains() {}

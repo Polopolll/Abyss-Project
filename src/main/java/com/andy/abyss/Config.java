@@ -12,7 +12,13 @@ public final class Config {
 
     // output
     public static ForgeConfigSpec.DoubleValue outputBase, outputPerMastery, outputRefillPerSecond, masteryRate, damageMultiplier, pvpMultiplier;
-    public static ForgeConfigSpec.BooleanValue singleUser, griefing;
+    public static ForgeConfigSpec.BooleanValue singleUser, griefing, cooldownsEnabled, allowInfiniteOutput;
+    public static ForgeConfigSpec.DoubleValue cooldownMultiplier;
+    public static ForgeConfigSpec.BooleanValue sovereignty, vesselImmunities, beamCarves;
+    public static ForgeConfigSpec.DoubleValue vesselStrength, comboDamage;
+    public static ForgeConfigSpec.IntValue reformSeconds;
+    public static ForgeConfigSpec.BooleanValue domainDecay, domainScarsPermanent, domainDissolveItems;
+    public static ForgeConfigSpec.IntValue domainDecayPerTick;
     public static ForgeConfigSpec.IntValue blockBudgetPerTick;
     public static ForgeConfigSpec.DoubleValue maxBreakHardness;
     // spores
@@ -49,10 +55,20 @@ public final class Config {
         masteryRate = put(b.defineInRange("masteryRate", 1.0, 0, 100), "masteryRate");
         damageMultiplier = put(b.defineInRange("damageMultiplier", 1.0, 0, 1000), "damageMultiplier");
         pvpMultiplier = put(b.defineInRange("pvpMultiplier", 1.0, 0, 1000), "pvpMultiplier");
+        cooldownsEnabled = put(b.comment("Ability cooldowns (and the clone re-forming time). Off = cast as fast as your output allows").define("cooldownsEnabled", false), "cooldownsEnabled");
+        cooldownMultiplier = put(b.comment("Scales every cooldown when cooldowns are on").defineInRange("cooldownMultiplier", 1.0, 0, 100), "cooldownMultiplier");
+        allowInfiniteOutput = put(b.comment("The creative-only Abyssal Upgrade can grant infinite output").define("allowInfiniteOutput", true), "allowInfiniteOutput");
         singleUser = put(b.comment("Only one Abyss user per world").define("singleUser", true), "singleUser");
         griefing = put(b.comment("Abyss payloads consume blocks (also needs mobGriefing)").define("griefing", true), "griefing");
         blockBudgetPerTick = put(b.defineInRange("blockBudgetPerTick", 4000, 0, 100000), "blockBudgetPerTick");
         maxBreakHardness = put(b.comment("Blocks harder than this are never consumed (-1 hardness blocks like bedrock never are)").defineInRange("maxBreakHardness", 100.0, 0, 1e9), "maxBreakHardness");
+        b.pop().push("vessel");
+        vesselStrength = put(b.comment("Scales the vessel's raw body: +20 HP, +6 attack, +10 armor, +6 toughness, knockback resistance, +15% speed at 1.0").defineInRange("vesselStrength", 1.0, 0, 100), "vesselStrength");
+        vesselImmunities = put(b.comment("The vessel ignores falling, drowning, suffocation, freezing, fire and lava, starvation, poison and wither").define("vesselImmunities", true), "vesselImmunities");
+        sovereignty = put(b.comment("The vessel cannot die: a lethal blow dissolves the body into the abyss and it re-forms. Raw setHealth(0), die() and removal by other mods are refused; max health cannot be lowered").define("sovereignty", true), "sovereignty");
+        reformSeconds = put(b.comment("A second lethal blow within this time is simply held at 1 HP instead of re-forming again").defineInRange("reformSeconds", 4, 0, 600), "reformSeconds");
+        comboDamage = put(b.comment("Scales the abyssal combo (combat mode)").defineInRange("comboDamage", 1.0, 0, 1000), "comboDamage");
+        beamCarves = put(b.comment("The heavy Abyssal Beam erases soft blocks along its path").define("beamCarves", true), "beamCarves");
         b.pop().push("spores");
         sporeLifeSeconds = put(b.defineInRange("sporeLifeSeconds", 300, 5, 36000), "sporeLifeSeconds");
         sporesPerBurst = put(b.defineInRange("sporesPerBurst", 64, 1, 2048), "sporesPerBurst");
@@ -74,6 +90,10 @@ public final class Config {
         domainMaxRadius = put(b.defineInRange("domainMaxRadius", 96.0, 4, 1024), "domainMaxRadius");
         closedMaxRadius = put(b.defineInRange("closedMaxRadius", 20.0, 4, 64), "closedMaxRadius");
         domainCrush = put(b.comment("Damage per second of the infinite weight, scaled by Combat Power").defineInRange("domainCrush", 3.0, 0, 1e5), "domainCrush");
+        domainDecay = put(b.comment("Open domains rot the world inside them into abyss (also needs griefing + mobGriefing)").define("domainDecay", true), "domainDecay");
+        domainDecayPerTick = put(b.comment("Blocks the domain corrupts per tick").defineInRange("domainDecayPerTick", 220, 0, 20000), "domainDecayPerTick");
+        domainScarsPermanent = put(b.comment("false: the world heals once the domain ends. true: the abyss rot stays").define("domainScarsPermanent", false), "domainScarsPermanent");
+        domainDissolveItems = put(b.comment("Dropped items inside a domain dissolve (except the user's own)").define("domainDissolveItems", true), "domainDissolveItems");
         domainSeconds = put(b.defineInRange("domainSeconds", 25, 1, 3600), "domainSeconds");
         closedSeconds = put(b.defineInRange("closedSeconds", 35, 1, 3600), "closedSeconds");
         b.pop().push("defence");

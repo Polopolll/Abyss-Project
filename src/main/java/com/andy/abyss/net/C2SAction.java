@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 public record C2SAction(int action, int arg) {
     public static final int CAST_START = 0, CAST_RELEASE = 1, SELECT = 2, SPREAD_START = 3, SPREAD_STOP = 4, SPORE_MODE = 5, SHOOT_SPORE = 6,
             SWAP_NEXT = 7, SWAP_PREV = 8, SWAP_MAIN = 9, SWAP_TO = 10, ORDER = 11, ORDER_ALL = 12, RECALL_ONE = 13, CLASH_PUSH = 14,
-            CP_QUERY = 15, LENS = 16;
+            CP_QUERY = 15, LENS = 16, TOGGLE_COMBAT = 17, M1 = 18, HEAVY = 19;
 
     public void write(FriendlyByteBuf b) { b.writeVarInt(action); b.writeVarInt(arg); }
     public static C2SAction read(FriendlyByteBuf b) { return new C2SAction(b.readVarInt(), b.readVarInt()); }

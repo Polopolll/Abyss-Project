@@ -23,7 +23,7 @@ public final class FxManager {
     }
     private static final List<Fx> ACTIVE = new ArrayList<>();
     private static final Random R = new Random();
-    public static float shake, flash;
+    public static float shake, flash, pulse;
     public static int flashColor = 0xFFFFFF;
 
     public static void receive(S2CFx p) {
@@ -33,7 +33,8 @@ public final class FxManager {
             case S2CFx.NUKE -> 50; case S2CFx.IMPLODE -> 14; case S2CFx.DEVOUR -> 26; case S2CFx.TRANSPORT -> 22; case S2CFx.DISINTEGRATE -> 30;
             case S2CFx.RIFT_OPEN -> 16; case S2CFx.SWAP -> 18; case S2CFx.NEGATE -> 10; case S2CFx.CLONE_SPAWN -> 22; case S2CFx.CLONE_DEATH -> 26;
             case S2CFx.TRIANGLE_END -> 24; case S2CFx.STEP -> 14; case S2CFx.CHARGE -> 10; case S2CFx.VOLLEY -> 6; case S2CFx.AWAKEN -> 70;
-            case S2CFx.DOMAIN_CAST -> 30; case S2CFx.SPREAD -> 14; default -> 20;
+            case S2CFx.DOMAIN_CAST -> 30; case S2CFx.SPREAD -> 14; case S2CFx.DOMAIN_PULSE -> 30; case S2CFx.COMBO -> p.a() == 5 ? 22 : p.a() == 4 ? 16 : 12;
+            case S2CFx.BEAM -> 16; case S2CFx.PLUNGE -> 24; case S2CFx.LUNGE -> 12; case S2CFx.REFORM -> 30; default -> 20;
         };
         ACTIVE.add(f);
         var mc = Minecraft.getInstance();
@@ -46,6 +47,16 @@ public final class FxManager {
             case S2CFx.DOMAIN_CAST -> { shake = Math.max(shake, k * 0.5f); }
             case S2CFx.TRIANGLE_END -> { shake = Math.max(shake, k * (float) Math.max(0, 1 - dist / 40)); flash = Math.max(flash, 0.4f); flashColor = 0xFFFFFF; }
             case S2CFx.SWAP -> { if (p.e1() == mc.player.getId() && p.a() == 1) ClientState.swapFadeAt = ClientState.ticks; }
+            case S2CFx.DOMAIN_PULSE -> { if (dist < p.a()) { pulse = 1; shake = Math.max(shake, k * 0.7f); } }
+            case S2CFx.COMBO -> {
+                int step = (int) p.a();
+                if (!(step == 3 && p.b() == 0)) ClientState.pose(p.e1(), step);
+                if (p.e1() == mc.player.getId()) { ClientState.comboStep = step; ClientState.comboAt = ClientState.ticks; shake = Math.max(shake, k * (step == 5 ? 0.6f : 0.18f)); }
+            }
+            case S2CFx.BEAM -> { ClientState.pose(p.e1(), 6); if (dist < 30) shake = Math.max(shake, k * 0.5f); }
+            case S2CFx.PLUNGE -> { ClientState.pose(p.e1(), 7); shake = Math.max(shake, k * (float) Math.max(0, 1.2 - dist / 25)); }
+            case S2CFx.LUNGE -> ClientState.pose(p.e1(), 1);
+            case S2CFx.REFORM -> { if (p.e1() == mc.player.getId()) { flash = 0.8f; flashColor = 0x05020A; } }
             default -> {}
         }
     }
@@ -53,6 +64,7 @@ public final class FxManager {
     public static void tick() {
         ACTIVE.removeIf(f -> ++f.age > f.life);
         shake *= 0.86f;
+        pulse *= 0.9f;
         flash *= 0.82f;
         // ambient: awakened bodies shed a few motes of abyss
         var mc = Minecraft.getInstance();
@@ -90,29 +102,78 @@ public final class FxManager {
         buf.endAll();
     }
 
+    /**
+     * An infinite space in a finite space. Outside: a sphere of galaxy punched into the world with a white-violet lensing
+     * rim and an accretion ring. Inside: the sphere is a wall of space in every direction, the sky is gone, stars hang in
+     * the air, crystal debris rises off the rotting ground, dark motes rain down, and each pulse rolls a ring outward.
+     */
     private static void domain(Draw d, S2CWorld.Dom dom) {
         Vec3 c = new Vec3(dom.x(), dom.y(), dom.z());
         float r = dom.radius();
         boolean inside = d.cam.distanceTo(c) < r;
         float fade = Math.min(1f, dom.ticksLeft() / 20f);
-        // the event-horizon shell: a galaxy at the silhouette, see-through face-on
-        d.voidSphere(c, r, (inside ? 0.85f : 0.95f) * fade, inside ? 0.85f : 0.7f, 0xFFFFFF);
-        d.glowShell(c, r * 1.002, 0x8A50FF, 0.7f * fade);
-        // gray contour rings crawling over the ground and the shell
-        for (int i = 0; i < 4; i++) {
-            float k = (float) ((d.time * 0.25 + i / 4.0) % 1.0);
-            d.flat(Rt.RING, true, c.add(0, -Math.min(r, 3) + 0.05, 0), new Vec3(0, 1, 0), r * k, 0x9C94B8, 0.35f * (1 - k) * fade, 0);
+        boolean growing = r < dom.max() - 0.5f;
+        if (inside) {
+            d.voidSphere(c, r, fade, 0f, 0xFFFFFF);
+            d.glowShell(c, r * 0.995, 0xB48CFF, 0.9f * fade);
+        } else {
+            d.voidSphere(c, r, 0.97f * fade, 0.12f, 0xFFFFFF);
+            d.glowShell(c, r * 1.01, 0xE8DCFF, 1f * fade);
+            d.glowShell(c, r * 1.06, 0x7A40E0, 0.6f * fade);
+            // accretion ring around the equator
+            d.flat(Rt.RING, true, c, new Vec3(0.08, 1, 0.05), r * 1.35f, 0xC8B0FF, 0.7f * fade, (float) d.time * 0.3f);
+            d.flat(Rt.RING, true, c, new Vec3(0.08, 1, 0.05), r * 1.6f, 0x6A40C0, 0.4f * fade, -(float) d.time * 0.2f);
         }
-        // weight: dark motes falling inside
-        if (inside || r < 40) {
-            Random rr = new Random(dom.id());
-            int n = (int) Math.min(120, r * 3 * Config.fxDensity.get());
-            for (int i = 0; i < n; i++) {
-                double a = rr.nextDouble() * Math.PI * 2, rad = Math.sqrt(rr.nextDouble()) * r * 0.95;
-                double fall = (d.time * (0.8 + rr.nextDouble()) + rr.nextDouble() * 10) % 1.0;
-                Vec3 p = c.add(Math.cos(a) * rad, (1 - fall * 2) * Math.min(r, 12), Math.sin(a) * rad);
-                d.beam(Rt.STREAK, false, p, p.add(0, -0.6, 0), 0.05f, 0x0A0612, 0.6f * fade);
+        // the expansion front: a bright shock rolling over the ground
+        if (growing) {
+            float y = (float) (c.y - Math.min(r, 3) + 0.1);
+            d.flat(Rt.RING, true, new Vec3(c.x, y, c.z), new Vec3(0, 1, 0), r * 1.05f, 0xFFFFFF, 0.95f * fade, 0);
+            d.flat(Rt.RING, true, new Vec3(c.x, y + 0.6, c.z), new Vec3(0, 1, 0), r * 1.1f, 0x9B6BFF, 0.7f * fade, 0);
+            d.glowShell(c, r * 1.03, 0xFFFFFF, 0.6f * fade);
+        }
+        // pulse rings racing outward
+        float pk = 1 - pulse;
+        if (pulse > 0.05f) d.flat(Rt.RING, true, c.add(0, -Math.min(r, 3) + 0.2, 0), new Vec3(0, 1, 0), r * pk, 0xFFFFFF, pulse * fade, 0);
+        if (!inside && r > 40) return;
+        // inside: stars hanging in the air, nebula, rising debris, falling weight
+        Random rr = new Random(dom.id() * 7919L);
+        float dens = Config.fxDensity.get().floatValue();
+        int stars = (int) (260 * dens);
+        double cell = 34;
+        Vec3 base = new Vec3(Math.floor(d.cam.x / cell) * cell, Math.floor(d.cam.y / cell) * cell, Math.floor(d.cam.z / cell) * cell);
+        for (int gx = -1; gx <= 1; gx++) for (int gy = -1; gy <= 1; gy++) for (int gz = -1; gz <= 1; gz++) {
+            Vec3 o = base.add(gx * cell, gy * cell, gz * cell);
+            Random cr = new Random((long) (o.x * 73856093) ^ (long) (o.y * 19349663) ^ (long) (o.z * 83492791) ^ dom.id());
+            for (int i = 0; i < stars / 27; i++) {
+                Vec3 p = o.add(cr.nextDouble() * cell, cr.nextDouble() * cell, cr.nextDouble() * cell);
+                if (p.distanceTo(c) > r) continue;
+                float tw = 0.5f + 0.5f * (float) Math.sin(d.time * (1.5 + cr.nextDouble() * 3) + i);
+                float sz = 0.05f + cr.nextFloat() * 0.09f;
+                d.billboard(Rt.SPARK, true, p, sz * (1 + tw), cr.nextFloat() < 0.2f ? 0xD8B8FF : 0xF0F0FF, (0.5f + 0.5f * tw) * fade * d.near(p, 2), 0);
             }
+        }
+        for (int i = 0; i < 6 * dens; i++) {
+            double a = rr.nextDouble() * Math.PI * 2, rad = Math.sqrt(rr.nextDouble()) * r * 0.8;
+            Vec3 p = c.add(Math.cos(a + d.time * 0.02) * rad, (rr.nextDouble() - 0.3) * Math.min(r, 14), Math.sin(a + d.time * 0.02) * rad);
+            d.voidBillboard(Rt.FILL, p, 3 + rr.nextFloat() * 4, 2 + rr.nextFloat() * 2, 0.35f * fade * d.near(p, 4), (float) (d.time * 0.05 + i));
+        }
+        int debris = (int) (70 * dens);
+        for (int i = 0; i < debris; i++) {
+            double a = rr.nextDouble() * Math.PI * 2, rad = Math.sqrt(rr.nextDouble()) * r * 0.95;
+            double life = (d.time * (0.08 + rr.nextDouble() * 0.12) + rr.nextDouble()) % 1.0;
+            double gx = c.x + Math.cos(a) * rad, gz = c.z + Math.sin(a) * rad;
+            double gy = c.y - Math.min(r, 3);
+            Vec3 p = new Vec3(gx + Math.sin(life * 6 + i) * 0.4, gy + life * 9, gz);
+            if (p.distanceTo(d.cam) > 48) continue;
+            float al = (float) (life < 0.15 ? life / 0.15 : 1 - (life - 0.15) / 0.85) * fade;
+            d.voidShard(p, new Vec3(Math.sin(i + d.time), 1, Math.cos(i * 1.3)), 0.25f + (i % 4) * 0.1f, 0.08f, al);
+        }
+        int n = (int) Math.min(160, r * 3 * dens);
+        for (int i = 0; i < n; i++) {
+            double a = rr.nextDouble() * Math.PI * 2, rad = Math.sqrt(rr.nextDouble()) * r * 0.95;
+            double fall = (d.time * (0.8 + rr.nextDouble()) + rr.nextDouble() * 10) % 1.0;
+            Vec3 p = c.add(Math.cos(a) * rad, (1 - fall * 2) * Math.min(r, 12), Math.sin(a) * rad);
+            d.beam(Rt.STREAK, false, p, p.add(0, -0.7, 0), 0.05f, 0x0A0612, 0.65f * fade);
         }
     }
 
@@ -279,7 +340,147 @@ public final class FxManager {
                 d.flat(Rt.RING, true, c.subtract(0, 0.9, 0), new Vec3(0, 1, 0), rad * 1.1f, 0xFFFFFF, 0.8f * (1 - t), 0);
                 if (t < 0.2f) d.billboard(Rt.GLOW, true, c, 8, 0x2A1048, (1 - t / 0.2f) * d.near(c, 4), 0);
             }
+            case S2CFx.DOMAIN_PULSE -> {
+                float rad = p.a() * t;
+                d.flat(Rt.RING, true, c.add(0, -Math.min(p.a(), 3) + 0.15, 0), new Vec3(0, 1, 0), rad, 0xFFFFFF, (1 - t), 0);
+                d.glowShell(c, Math.max(0.5, rad), 0xC8A8FF, 0.7f * (1 - t));
+            }
+            case S2CFx.COMBO -> combo(d, f, pt, t, r);
+            case S2CFx.BEAM -> {
+                float len = p.a();
+                Vec3 dir = Vec3.directionFromRotation(p.c(), p.b());
+                Vec3 a = c, b = c.add(dir.scale(len * Math.min(1, t * 5)));
+                float w = (t < 0.2f ? t / 0.2f : 1 - (t - 0.2f) / 0.8f);
+                // a tube of galaxy with a white core and violet sheath, rings travelling down it
+                d.voidRibbon(a, b, 1.3f * w, w);
+                d.beam(Rt.STREAK, true, a, b, 2.2f * w, 0x8C55FF, 0.8f * w);
+                d.beam(Rt.STREAK, true, a, b, 0.5f * w, 0xFFFFFF, w);
+                for (int i = 0; i < 6; i++) {
+                    float k = (float) ((t * 3 + i / 6.0) % 1.0);
+                    d.flat(Rt.RING, true, a.add(b.subtract(a).scale(k)), dir, 1.1f * w, 0xD8C8FF, 0.8f * w, 0);
+                }
+                d.billboard(Rt.GLOW, true, a, 1.5f * w, 0xFFFFFF, w * d.near(a, 1.5f), 0);
+                d.voidSphere(b, 0.9 * w, w, 0.2f, 0xFFFFFF);
+            }
+            case S2CFx.PLUNGE -> {
+                float R0 = p.a();
+                Vec3 top = new Vec3(c.x, p.b(), c.z);
+                if (t < 0.25f) {
+                    // the fold: a column of space collapsing downward
+                    float k = t / 0.25f;
+                    d.beam(Rt.STREAK, true, top, c.add(0, 1, 0), 1.2f * (1 - k), 0xB48CFF, 0.9f);
+                    for (int i = 0; i < 8; i++) d.flat(Rt.RING, true, top.add(c.subtract(top).scale(i / 8.0 * k)), new Vec3(0, 1, 0), 1.6f - i * 0.1f, 0xE0D0FF, 0.7f, 0);
+                }
+                d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), R0 * (0.3f + t * 1.2f), 0xFFFFFF, (1 - t), 0);
+                d.flat(Rt.RING, true, c.add(0, 0.05, 0), new Vec3(0, 1, 0), R0 * (0.2f + t), 0x7A40E0, 0.8f * (1 - t), 0);
+                d.voidSphere(c, R0 * 0.35 * (1 - t), 1 - t, 0.3f, 0xFFFFFF);
+                for (int i = 0; i < 18; i++) {
+                    double a = i * Math.PI * 2 / 18;
+                    Vec3 dir = new Vec3(Math.cos(a), 0.6, Math.sin(a));
+                    d.voidShard(c.add(dir.scale(R0 * 0.6 * Math.min(1, t * 3))), new Vec3(-Math.cos(a) * 0.3, 1, -Math.sin(a) * 0.3), 1.2f * (1 - t), 0.14f, 1 - t);
+                }
+            }
+            case S2CFx.LUNGE -> {
+                Vec3 to = new Vec3(p.a(), p.b(), p.c());
+                float w = 1 - t;
+                d.voidBillboard(Rt.RIFT, c, 0.6f * w + 0.2f, 1.2f * w + 0.2f, w, 0);
+                d.voidBillboard(Rt.RIFT, to, 0.6f * w + 0.2f, 1.2f * w + 0.2f, w, 0);
+                d.beam(Rt.STREAK, true, c, to, 0.9f * w, 0x9B6BFF, w);
+                d.beam(Rt.STREAK, true, c, to, 0.25f * w, 0xFFFFFF, w);
+                for (int i = 0; i < 10; i++) {
+                    Vec3 q = c.add(to.subtract(c).scale(i / 10.0));
+                    d.voidShard(q, to.subtract(c), 0.5f * w, 0.06f, w * 0.8f);
+                }
+            }
+            case S2CFx.REFORM -> {
+                Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1, 0) : c;
+                for (int i = 0; i < 24; i++) {
+                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                    d.voidShard(at.add(dir.scale(2.5 * (1 - t))), dir.scale(-1), 0.4f, 0.08f, Math.min(1, (1 - t) * 2));
+                }
+                d.voidSphere(at, 1.1 * (1 - t), 1 - t, 0.5f, 0xFFFFFF);
+                d.glowShell(at, 0.5 + t * 3, 0xE8DCFF, 0.8f * (1 - t));
+            }
             default -> {}
+        }
+    }
+
+    /** The five strikes of the abyssal combo. */
+    private static void combo(Draw d, Fx f, float pt, float t, Random r) {
+        S2CFx p = f.p;
+        Vec3 c = f.pos;
+        var mc = Minecraft.getInstance();
+        Entity me = mc.level.getEntity(p.e1()), tgt = p.e2() >= 0 ? mc.level.getEntity(p.e2()) : null;
+        float w = 1 - t;
+        switch ((int) p.a()) {
+            case 1 -> { // Rift Jab: a tear beside the target, a void arm through it
+                Vec3 side = new Vec3(p.b(), 0, p.c());
+                Vec3 tear = c.add(side);
+                float open = Math.min(1, t * 4);
+                d.voidBillboard(Rt.RIFT, tear, 0.35f * open * w + 0.05f, 0.8f * open * w + 0.05f, w, 0);
+                Vec3 fist = tear.add(c.subtract(tear).scale(Math.min(1, t * 3)));
+                d.beam(Rt.STREAK, true, tear, fist, 0.55f * w, 0x8C55FF, w);
+                d.voidShard(fist.subtract(c.subtract(tear).normalize().scale(0.3)), c.subtract(tear), 0.7f * w, 0.22f, w);
+                if (t > 0.3f) d.glowShell(c, 0.4 + (t - 0.3) * 2, 0xFFFFFF, 0.8f * w);
+            }
+            case 2 -> { // Fold Slash: a crescent of crystal
+                float yaw = (float) Math.toRadians(p.b());
+                Vec3 fwd = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+                Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
+                Vec3 origin = c.subtract(fwd.scale(1.5));
+                int n = 16;
+                float sweep = Math.min(1, t * 3.5f);
+                for (int i = 0; i < n * sweep; i++) {
+                    double a = -1.1 + 2.2 * i / n;
+                    Vec3 dir = fwd.scale(Math.cos(a)).add(right.scale(Math.sin(a)));
+                    Vec3 q = origin.add(dir.scale(3.2)).add(0, Math.sin(a) * 1.4, 0);
+                    d.voidShard(q, dir, 0.9f * w, 0.1f, w);
+                    if (i > 0) {
+                        double a0 = -1.1 + 2.2 * (i - 1) / n;
+                        Vec3 q0 = origin.add(fwd.scale(Math.cos(a0)).add(right.scale(Math.sin(a0))).scale(3.6)).add(0, Math.sin(a0) * 1.4, 0);
+                        d.beam(Rt.STREAK, true, q0, origin.add(dir.scale(3.6)).add(0, Math.sin(a) * 1.4, 0), 0.35f * w, 0xE0D0FF, w);
+                    }
+                }
+            }
+            case 3 -> { // Rift Blink: a collapsing tear where you were / where you appear
+                float sz = p.b() == 0 ? w : Math.min(1, t * 3) * w;
+                d.voidBillboard(Rt.RIFT, c, 0.6f * sz + 0.05f, 1.3f * sz + 0.05f, w, 0);
+                d.glowShell(c, 0.8 + t * 1.5, 0x9B6BFF, 0.7f * w);
+                if (p.b() == 1 && tgt != null) d.beam(Rt.STREAK, true, c, tgt.getPosition(pt).add(0, tgt.getBbHeight() * 0.6, 0), 0.4f * w, 0xFFFFFF, w);
+            }
+            case 4 -> { // Void Lances from the ground
+                for (int i = 0; i < 7; i++) {
+                    double a = i * Math.PI * 2 / 7 + r.nextDouble() * 0.3;
+                    double rad = i == 0 ? 0 : 0.9 + r.nextDouble() * 0.8;
+                    Vec3 base = c.add(Math.cos(a) * rad, 0, Math.sin(a) * rad);
+                    float rise = Math.min(1, t * 5) * (t > 0.6f ? 1 - (t - 0.6f) / 0.4f : 1);
+                    d.voidShard(base, new Vec3(Math.cos(a) * -0.15, 1, Math.sin(a) * -0.15), (i == 0 ? 3.2f : 1.8f + r.nextFloat()) * rise, i == 0 ? 0.32f : 0.18f, Math.max(0.1f, rise));
+                }
+                d.flat(Rt.RING, true, c.add(0, 0.05, 0), new Vec3(0, 1, 0), 1 + t * 3, 0xB48CFF, w, 0);
+            }
+            case 5 -> { // Event Horizon: crush, then burst
+                Vec3 at = tgt != null && t < 0.4f ? tgt.getPosition(pt).add(0, tgt.getBbHeight() * 0.5, 0) : c;
+                if (t < 0.38f) {
+                    float k = t / 0.38f;
+                    d.voidSphere(at, 0.4 + k * 1.2, 1, 0.2f, 0xFFFFFF);
+                    d.glowShell(at, 2.6 - k * 1.2, 0xE0D0FF, 0.9f);
+                    d.flat(Rt.RING, true, at, new Vec3(0.2, 1, 0.1), 3.5f - k * 2, 0xC8B0FF, 0.9f, (float) d.time * 3);
+                    for (int i = 0; i < 16; i++) {
+                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                        Vec3 from = at.add(dir.scale(4 * (1 - k)));
+                        d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.9)), 0.07f, 0xB48CFF, 0.9f);
+                    }
+                } else {
+                    float k = (t - 0.38f) / 0.62f;
+                    d.glowShell(at, 0.5 + k * 5, 0xFFFFFF, 1 - k);
+                    d.flat(Rt.RING, true, at, d.fwdVec(), 1 + k * 6, 0xE8DCFF, 1 - k, 0);
+                    if (k < 0.15f) d.billboard(Rt.GLOW, true, at, 4, 0xFFFFFF, (1 - k / 0.15f) * d.near(at, 2), 0);
+                    for (int i = 0; i < 14; i++) {
+                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6 + 0.2, r.nextGaussian()).normalize();
+                        d.voidShard(at.add(dir.scale(0.5 + k * 4)), dir, 0.8f * (1 - k), 0.12f, 1 - k);
+                    }
+                }
+            }
         }
     }
 

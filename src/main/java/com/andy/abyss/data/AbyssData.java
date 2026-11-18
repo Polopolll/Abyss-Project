@@ -26,6 +26,12 @@ public class AbyssData {
     public float mastery;
     public float output = 100;
     public boolean negation = true;
+    /** Abyssal Upgrade: output never runs out. */
+    public boolean infinite;
+    /** Combat mode: left click is the abyssal combo. */
+    public boolean combat;
+    /** 0 = Open, 1 = Closed (chosen while charging). */
+    public int domainVariant;
     public int sporeMode = SPREAD;
     public int selected = 0;
     /** True while the player is standing in the main body. When false, the main body is an AbyssBody entity (usually in the Abyss). */
@@ -40,6 +46,8 @@ public class AbyssData {
 
     // transient
     public float charge;
+    public int comboStep;
+    public long lastHit, reformedAt, nextHit;
     public int chargeAbility = -1;
     public boolean dirty = true;
     public long lastSync;
@@ -68,7 +76,10 @@ public class AbyssData {
         return false;
     }
 
+    public boolean isInfinite() { return infinite && Config.allowInfiniteOutput.get(); }
+
     public boolean spend(float amount) {
+        if (infinite && Config.allowInfiniteOutput.get()) { dirty = true; return true; }
         if (output < amount) return false;
         output -= amount;
         dirty = true;
@@ -81,6 +92,9 @@ public class AbyssData {
         t.putFloat("mastery", mastery);
         t.putFloat("output", output);
         t.putBoolean("negation", negation);
+        t.putBoolean("infinite", infinite);
+        t.putBoolean("combat", combat);
+        t.putInt("domainVariant", domainVariant);
         t.putInt("sporeMode", sporeMode);
         t.putInt("selected", selected);
         t.putBoolean("inMain", inMain);
@@ -101,6 +115,9 @@ public class AbyssData {
         output = t.getFloat("output");
         negation = !t.contains("negation") || t.getBoolean("negation");
         sporeMode = t.getInt("sporeMode");
+        infinite = t.getBoolean("infinite");
+        combat = t.getBoolean("combat");
+        domainVariant = t.getInt("domainVariant");
         selected = t.getInt("selected");
         inMain = !t.contains("inMain") || t.getBoolean("inMain");
         slot = t.getInt("slot");

@@ -172,6 +172,9 @@ public final class ServerEvents {
         AbyssData d = AbyssData.get(p);
         if (src.getEntity() != null && Util.friend(owner, src.getEntity()) && src.getEntity() != t) { e.setCanceled(true); return; }
         if (d.has("fire_immune") && src.is(DamageTypeTags.IS_FIRE)) { e.setCanceled(true); return; }
+        if (Config.vesselImmunities.get() && (src.is(DamageTypeTags.IS_FIRE) || src.is(DamageTypeTags.IS_FALL) || src.is(DamageTypeTags.IS_DROWNING)
+                || src.is(DamageTypeTags.IS_FREEZING) || src.is(DamageTypes.IN_WALL) || src.is(DamageTypes.STARVE) || src.is(DamageTypes.WITHER)
+                || src.is(DamageTypes.CRAMMING) || src.is(DamageTypes.FLY_INTO_WALL))) { e.setCanceled(true); if (t.isOnFire()) t.clearFire(); return; }
         if (!d.negation || t.level().getGameTime() < d.negationDownUntil || t.hasEffect(ModEffects.SHATTERED.get())) return;
         if (!Config.negateVoidAndKill.get() && (src.is(DamageTypes.FELL_OUT_OF_WORLD) || src.is(DamageTypes.GENERIC_KILL))) return;
         if (t instanceof Player pl && pl.isCreative()) return;
@@ -241,7 +244,7 @@ public final class ServerEvents {
         ServerPlayer p = Util.player(owner);
         if (p == null) return;
         AbyssData d = AbyssData.get(p);
-        if (d.has("undead") && (eff == MobEffects.POISON || eff == MobEffects.WITHER)) { e.setResult(Event.Result.DENY); return; }
+        if ((d.has("undead") || Config.vesselImmunities.get()) && (eff == MobEffects.POISON || eff == MobEffects.WITHER)) { e.setResult(Event.Result.DENY); return; }
         // mental negation: harmful effects (debuffs, mind control) are refused while output lasts
         if (d.negation && t.level().getGameTime() >= d.negationDownUntil && !t.hasEffect(ModEffects.SHATTERED.get()) && d.spend(10)) e.setResult(Event.Result.DENY);
     }

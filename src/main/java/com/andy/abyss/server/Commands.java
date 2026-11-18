@@ -60,11 +60,13 @@ public final class Commands {
             return 1;
         }));
         root.then(literal("cast").requires(s -> s.hasPermission(2)).then(argument("ability", StringArgumentType.word())
-                .suggests((c, b) -> SharedSuggestionProvider.suggest(Arrays.stream(Ability.values()).map(a -> a.name().toLowerCase(Locale.ROOT)), b))
+                .suggests((c, b) -> SharedSuggestionProvider.suggest(java.util.stream.Stream.concat(Arrays.stream(Ability.values()).map(a -> a.name().toLowerCase(Locale.ROOT)), java.util.stream.Stream.of("domain_open", "domain_closed")), b))
                 .executes(c -> {
                     ServerPlayer p = c.getSource().getPlayerOrException();
-                    Ability a = Ability.valueOf(StringArgumentType.getString(c, "ability").toUpperCase(Locale.ROOT));
+                    String name = StringArgumentType.getString(c, "ability").toUpperCase(Locale.ROOT);
                     AbyssData d = AbyssData.get(p);
+                    if (name.startsWith("DOMAIN")) { d.domainVariant = name.endsWith("CLOSED") ? 1 : 0; name = "DOMAIN"; }
+                    Ability a = Ability.valueOf(name);
                     if (a.charged) d.charge = 120;
                     Actions.cast(p, a);
                     d.charge = 0;

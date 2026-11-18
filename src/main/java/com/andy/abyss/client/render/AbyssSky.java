@@ -21,6 +21,13 @@ public class AbyssSky extends DimensionSpecialEffects {
     @Override
     public boolean renderSky(ClientLevel level, int ticks, float pt, PoseStack ps, Camera camera, Matrix4f proj, boolean foggy, Runnable setupFog) {
         if (AbyssShaders.VOID == null) return false;
+        drawGalaxy(ps, 1f);
+        return true;
+    }
+
+    /** A galaxy cube around the camera (also used as the sky inside an open domain, faded in by alpha). */
+    public static void drawGalaxy(PoseStack ps, float alpha) {
+        if (AbyssShaders.VOID == null) return;
         RenderSystem.depthMask(false);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -35,11 +42,10 @@ public class AbyssSky extends DimensionSpecialEffects {
                 {-s, -s, -s, -s, s, -s, s, s, -s, s, -s, -s}, {-s, -s, s, s, -s, s, s, s, s, -s, s, s},
                 {-s, -s, -s, -s, -s, s, -s, s, s, -s, s, -s}, {s, -s, -s, s, s, -s, s, s, s, s, -s, s}};
         for (float[] f : faces) for (int i = 0; i < 4; i++)
-            b.vertex(m, f[i * 3], f[i * 3 + 1], f[i * 3 + 2]).color(1f, 1f, 1f, 1f).uv(0.5f, 0.5f).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(0xF000F0).normal(0, 1, 0).endVertex();
+            b.vertex(m, f[i * 3], f[i * 3 + 1], f[i * 3 + 2]).color(1f, 1f, 1f, alpha).uv(0.5f, 0.5f).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(0xF000F0).normal(0, 1, 0).endVertex();
         BufferUploader.drawWithShader(b.end());
         RenderSystem.depthMask(true);
         RenderSystem.setShader(GameRenderer::getPositionShader);
-        return true;
     }
 
     @Override public boolean renderClouds(ClientLevel l, int t, float pt, PoseStack ps, double x, double y, double z, Matrix4f proj) { return true; }

@@ -97,7 +97,7 @@ public final class Bodies {
         AbyssData d = AbyssData.get(p);
         prune(p);
         if (cloneCount(d) >= Config.maxClones.get()) { p.displayClientMessage(Component.literal("§5All " + Config.maxClones.get() + " clones are out."), true); return false; }
-        if (l.getGameTime() < d.cloneReadyAt) { p.displayClientMessage(Component.literal("§5The abyss is still re-forming a body (" + (d.cloneReadyAt - l.getGameTime()) / 20 + "s)."), true); return false; }
+        if (Config.cooldownsEnabled.get() && l.getGameTime() < d.cloneReadyAt) { p.displayClientMessage(Component.literal("§5The abyss is still re-forming a body (" + (d.cloneReadyAt - l.getGameTime()) / 20 + "s)."), true); return false; }
         AbyssBody b = create(l, at, p.getYRot(), p, false, freeSlot(d, p.server), 1f, AbyssBody.FOLLOW);
         if (b == null) return false;
         d.clones.add(b.getUUID());
@@ -264,8 +264,11 @@ public final class Bodies {
             d.inMain = true;
             d.slot = 0;
             p.displayClientMessage(Component.literal("§4Your main body was destroyed."), false);
-            p.hurt(Util.src(p.serverLevel(), "collapse", null), Float.MAX_VALUE);
-            if (p.isAlive()) p.kill();
+            Sovereignty.allowDeath = true;
+            try {
+                p.hurt(Util.src(p.serverLevel(), "collapse", null), Float.MAX_VALUE);
+                if (p.isAlive()) p.kill();
+            } finally { Sovereignty.allowDeath = false; }
         } else {
             d.clones.remove(b.getUUID());
             d.cloneReadyAt = b.level().getGameTime() + Config.cloneRespawnSeconds.get() * 20L;

@@ -27,9 +27,10 @@ import net.minecraftforge.fml.common.Mod;
 /** Input, ticking, world rendering, camera shake and domain fog. */
 @Mod.EventBusSubscriber(modid = Abyss.MODID, value = Dist.CLIENT)
 public final class ClientEvents {
-    private static boolean castHeld, sporeHeld, lensWas, jumpWas;
+    private static boolean castHeld, sporeHeld, lensWas, jumpWas, attackWas;
     public static Entity looked;
     public static float insideDomain;
+    public static boolean openDomainInside;
 
     @SubscribeEvent
     public static void tick(TickEvent.ClientTickEvent e) {
@@ -53,16 +54,19 @@ public final class ClientEvents {
         if (awake && free) {
             while (Keys.WHEEL.consumeClick()) mc.setScreen(new WheelScreen());
             while (Keys.ROSTER.consumeClick()) mc.setScreen(new RosterScreen());
+            while (Keys.COMBAT.consumeClick()) {
+                Net.toServer(new C2SAction(C2SAction.TOGGLE_COMBAT, 0));
+                mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(ClientState.combat() ? "\u00a78Combat mode off" : "\u00a7dCombat mode \u00a78\u00b7 click to chain, hold for the beam"), true);
+            }
+            while (Keys.NEXT.consumeClick()) Net.toServer(new C2SAction(mc.player.isShiftKeyDown() ? C2SAction.SWAP_PREV : C2SAction.SWAP_NEXT, 0));
             while (Keys.PREV.consumeClick()) Net.toServer(new C2SAction(C2SAction.SWAP_PREV, 0));
-            while (Keys.NEXT.consumeClick()) Net.toServer(new C2SAction(C2SAction.SWAP_NEXT, 0));
             while (Keys.MAIN.consumeClick()) Net.toServer(new C2SAction(C2SAction.SWAP_MAIN, 0));
-            // cast: press = start (or push in a clash), release = release a charge
             boolean cast = Keys.CAST.isDown();
             if (cast && !castHeld) {
                 if (clash == null && ClientState.selected() == Ability.RIFT.ordinal()) mc.setScreen(new RiftScreen(mc.player.isShiftKeyDown()));
                 else Net.toServer(new C2SAction(C2SAction.CAST_START, 0));
             }
-            if (!cast && castHeld) Net.toServer(new C2SAction(C2SAction.CAST_RELEASE, 0));
+            if (!cast && castHeld) Net.toServer(new C2SAction(C2SAction.CAST_RELEASE, ClientState.domainVariant));
             castHeld = cast;
             boolean spore = Keys.SPORES.isDown();
             if (spore && !sporeHeld) Net.toServer(new C2SAction(mc.player.isShiftKeyDown() ? C2SAction.SPORE_MODE : C2SAction.SPREAD_START, 0));
@@ -71,10 +75,20 @@ public final class ClientEvents {
             boolean lens = Keys.down(Keys.LENS);
             if (lens != lensWas) { SporeClient.lens = lens; if (!lens) SporeClient.clearSelection(); }
             lensWas = lens;
+            // combat mode: tap = next strike in the chain, hold = Abyssal Beam
+            boolean attack = mc.options.keyAttack.isDown() && ClientState.combat() && !SporeClient.lens;
+            if (attack) ClientState.heavyHeld++;
+            else if (attackWas) {
+                int held = ClientState.heavyHeld;
+                if (held > 8) Net.toServer(new C2SAction(C2SAction.HEAVY, held - 8));
+                ClientState.heavyHeld = 0;
+            }
+            attackWas = attack;
         } else {
-            if (castHeld && !Keys.CAST.isDown()) { Net.toServer(new C2SAction(C2SAction.CAST_RELEASE, 0)); castHeld = false; }
+            if (castHeld && !Keys.CAST.isDown()) { Net.toServer(new C2SAction(C2SAction.CAST_RELEASE, ClientState.domainVariant)); castHeld = false; }
             if (sporeHeld) { Net.toServer(new C2SAction(C2SAction.SPREAD_STOP, 0)); sporeHeld = false; }
             if (!awake) { SporeClient.lens = false; lensWas = false; }
+            ClientState.heavyHeld = 0; attackWas = false;
         }
         SporeClient.pick(1f);
         // Angel Eyes: ask the server about what we look at
@@ -86,13 +100,15 @@ public final class ClientEvents {
         // domain fog / vignette
         float target = 0;
         Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
-        for (S2CWorld.Dom d : ClientState.domains) if (cam.distanceTo(new Vec3(d.x(), d.y(), d.z())) < d.radius()) target = d.mine() ? 0.5f : 1f;
+        openDomainInside = false;
+        for (S2CWorld.Dom d : ClientState.domains) if (cam.distanceTo(new Vec3(d.x(), d.y(), d.z())) < d.radius()) { target = d.mine() ? 0.75f : 1f; if (!d.closed()) openDomainInside = true; }
         insideDomain += (target - insideDomain) * 0.15f;
         if (ClientState.ticks - ClientState.worldAt > 40) { ClientState.domains = java.util.List.of(); ClientState.clashes = java.util.List.of(); ClientState.CORRODED.clear(); }
     }
 
     private static void payload(int key) {
         if (key >= com.andy.abyss.data.Payload.values().length) return;
+        ClientState.payload = key;
         int[] spores = SporeClient.SELECTED.stream().mapToInt(Integer::intValue).toArray();
         int[] hosts = SporeClient.SELECTED_HOSTS.stream().mapToInt(Integer::intValue).toArray();
         if (spores.length == 0 && hosts.length == 0) {
@@ -116,17 +132,41 @@ public final class ClientEvents {
         return hit.getEntity();
     }
 
+    private static boolean charging() { return castHeld && ClientState.me.getInt("chargeAbility") == Ability.DOMAIN.ordinal(); }
+
     @SubscribeEvent
     public static void mouse(InputEvent.MouseButton.Pre e) {
-        if (!SporeClient.lens || Minecraft.getInstance().screen != null || e.getAction() != 1) return;
-        if (e.getButton() == 0) { SporeClient.clickSelect(); e.setCanceled(true); }
-        else if (e.getButton() == 1) { SporeClient.sweep(1); e.setCanceled(true); }
+        var mc = Minecraft.getInstance();
+        if (mc.screen != null || e.getAction() != 1 || !ClientState.awakened()) return;
+        if (charging() && e.getButton() == 1) { ClientState.domainVariant ^= 1; e.setCanceled(true); return; }
+        if (!SporeClient.lens) return;
+        if (e.getButton() == 0) { if (mc.player.isShiftKeyDown()) SporeClient.sweep(1); else SporeClient.clickSelect(); e.setCanceled(true); }
+        else if (e.getButton() == 1) { payload(ClientState.payload); e.setCanceled(true); }
+    }
+
+    /** In combat mode the attack button belongs to the combo: no block breaking, no vanilla swing. */
+    @SubscribeEvent
+    public static void interact(InputEvent.InteractionKeyMappingTriggered e) {
+        if (ClientState.awakened() && (ClientState.combat() || SporeClient.lens) && e.isAttack()) {
+            e.setCanceled(true);
+            e.setSwingHand(false);
+            // every click in combat mode is the next strike (the press itself, so even very fast taps count)
+            var mc = Minecraft.getInstance();
+            if (ClientState.combat() && !SporeClient.lens && mc.player != null && ClientState.heavyHeld <= 8) {
+                int flags = (!mc.player.onGround() && mc.player.getDeltaMovement().y < 0.1 ? com.andy.abyss.server.Combat.AIR : 0) | (mc.player.isSprinting() ? com.andy.abyss.server.Combat.SPRINT : 0);
+                Net.toServer(new C2SAction(C2SAction.M1, flags));
+            }
+        }
+        if (ClientState.awakened() && SporeClient.lens && e.isUseItem()) { e.setCanceled(true); e.setSwingHand(false); }
     }
 
     @SubscribeEvent
     public static void scroll(InputEvent.MouseScrollingEvent e) {
-        if (!SporeClient.lens || Minecraft.getInstance().screen != null) return;
-        SporeClient.cycle += e.getScrollDelta() > 0 ? -1 : 1;
+        if (Minecraft.getInstance().screen != null || !ClientState.awakened()) return;
+        if (charging()) { ClientState.domainVariant ^= 1; e.setCanceled(true); return; }
+        if (!SporeClient.lens) return;
+        int n = com.andy.abyss.data.Payload.values().length;
+        ClientState.payload = Math.floorMod(ClientState.payload + (e.getScrollDelta() > 0 ? -1 : 1), n);
         e.setCanceled(true);
     }
 
@@ -160,6 +200,17 @@ public final class ClientEvents {
         if (insideDomain < 0.02f || !Config.domainFog.get()) return;
         e.setFarPlaneDistance(e.getFarPlaneDistance() * (1 - insideDomain * 0.45f));
         e.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void fov(ViewportEvent.ComputeFov e) {
+        if (insideDomain > 0.02f) e.setFOV(e.getFOV() * (1 - 0.06 * insideDomain - 0.03 * FxManager.pulse));
+    }
+
+    @SubscribeEvent
+    public static void sky(RenderLevelStageEvent e) {
+        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && insideDomain > 0.02f && ClientEvents.openDomainInside)
+            com.andy.abyss.client.render.AbyssSky.drawGalaxy(e.getPoseStack(), insideDomain);
     }
 
     @SubscribeEvent

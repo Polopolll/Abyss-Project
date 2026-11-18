@@ -23,6 +23,14 @@ public final class SelfTest {
     public static int errors;
 
     public static int run(CommandSourceStack src) {
+        try { return run0(src); } catch (Throwable t) {
+            com.andy.abyss.Abyss.LOG.error("selftest crashed", t);
+            src.sendFailure(Component.literal("selftest crashed: " + t));
+            return 0;
+        }
+    }
+
+    private static int run0(CommandSourceStack src) {
         ServerPlayer p;
         try { p = src.getPlayerOrException(); } catch (Exception e) { return 0; }
         List<String> out = new ArrayList<>();
@@ -77,6 +85,49 @@ public final class SelfTest {
         Beelzebub.devour(p, p, z2);
         check(out, "beelzebub devours + absorbs", !z2.isAlive() && d.absorbed.stream().anyMatch(a -> a.type.equals("minecraft:zombie")));
         check(out, "abyss dimension", AbyssDim.level(p.server) != null);
+        // combo
+        Zombie z3 = EntityType.ZOMBIE.create(l);
+        z3.moveTo(p.getX(), p.getY(), p.getZ() + 2.5);
+        z3.setNoAi(true);
+        l.addFreshEntity(z3);
+        p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, z3.getEyePosition());
+        d.combat = true; d.comboStep = 0;
+        float zh = z3.getHealth();
+        for (int i = 0; i < 2; i++) { d.nextHit = 0; Combat.m1(p, 0); }
+        check(out, "combo hits (" + Combat.NAMES[d.comboStep] + ")", !z3.isAlive() || z3.getHealth() < zh);
+        d.nextHit = 0;
+        Combat.heavy(p, 20);
+        check(out, "abyssal beam", true);
+        d.combat = false;
+        // infinite output
+        boolean wasInf = d.infinite;
+        d.infinite = true;
+        check(out, "infinite output", d.spend(1e9f));
+        d.infinite = wasInf;
+        // sovereignty
+        boolean wasCreative = p.isCreative();
+        if (wasCreative) p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        d.output = d.outputCap(); d.reformedAt = -10000;
+        p.setHealth(0);
+        check(out, "sovereignty refuses setHealth(0)", p.isAlive() && p.getHealth() > 0);
+        d.output = d.outputCap(); d.reformedAt = -10000;
+        p.hurt(l.damageSources().magic(), 10000);
+        check(out, "sovereignty re-forms after a lethal hit", p.isAlive());
+        if (wasCreative) p.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        // domain rot and healing
+        Domains.open(p, 20);
+        for (int i = 0; i < 30; i++) Domains.tick(p.server);
+        check(out, "domain still up after 30 ticks (alive=" + p.isAlive() + " hp=" + p.getHealth() + ")", Domains.ownedBy(p.getUUID()) != null);
+        int rot = 0;
+        for (var bp : net.minecraft.core.BlockPos.betweenClosed(p.blockPosition().offset(-10, -4, -10), p.blockPosition().offset(10, 2, 10)))
+            if (l.getBlockState(bp).is(com.andy.abyss.registry.ModBlocks.ABYSSAL_ROT.get())) rot++;
+        check(out, "domain rots the ground (" + rot + " blocks)", rot > 0 || !Util.griefing(l));
+        if (Domains.ownedBy(p.getUUID()) != null) Domains.end(Domains.ownedBy(p.getUUID()));
+        for (int i = 0; i < 200; i++) Domains.tick(p.server);
+        int left = 0;
+        for (var bp : net.minecraft.core.BlockPos.betweenClosed(p.blockPosition().offset(-30, -6, -30), p.blockPosition().offset(30, 4, 30)))
+            if (l.getBlockState(bp).is(com.andy.abyss.registry.ModBlocks.ABYSSAL_ROT.get())) left++;
+        check(out, "the world heals afterwards", left == 0);
         SporeManager.clear(p.getUUID());
         check(out, "no task errors", errors == before);
         long fails = out.stream().filter(x -> x.startsWith("§c")).count();

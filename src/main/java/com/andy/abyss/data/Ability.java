@@ -2,8 +2,7 @@ package com.andy.abyss.data;
 
 /** Wheel abilities (cast with the cast key). Spores and their payloads have their own keys. */
 public enum Ability {
-    DOMAIN_OPEN("Domain: Open", "Pour the abyss into this world. Hold to invest output: the more you invest, the further it spreads. Every ability inside is a sure hit.", 0x9B6BFF, 30, true),
-    DOMAIN_CLOSED("Domain: Closed", "Tear the area around you out of the world and into the abyss. Nobody leaves until it ends.", 0xC0A0FF, 45, true),
+    DOMAIN("Domain Expansion", "Hold to invest output, scroll (or right-click) to choose Open or Closed, release to expand. Open pours an infinite dimension into the world; Closed tears the area into the abyss. Every ability inside is a sure hit.", 0x9B6BFF, 30, true),
     RIFT("Rift", "Open a two-way rift to any place in any dimension. Sneak-cast to step straight through.", 0x7FA8FF, 3, false),
     BEELZEBUB("Beelzebub", "The abyss opens its mouth on what you look at and devours it, taking its properties.", 0xFF4A9A, 4, false),
     TRIANGLE("Triangle", "Lock a target in a tug of war of Combat Power. Mash the cast key to push.", 0xFFFFFF, 20, false),

@@ -20,6 +20,18 @@ public final class ClientState {
     public static final Map<Integer, Integer> CORRODED = new HashMap<>();
     public static long ticks, worldAt;
     public static long swapFadeAt = -100;
+    public static int selectAnim = 99;
+    /** Spore Lens: which payload right-click fires. */
+    public static int payload;
+    /** Domain chosen while charging: 0 Open, 1 Closed. */
+    public static int domainVariant;
+    /** Combo display (WuWa-style chain): last step and when. */
+    public static int comboStep;
+    public static long comboAt = -100;
+    /** Heavy attack: ticks the attack button has been held in combat mode. */
+    public static int heavyHeld;
+    /** Pose per entity id: pose and the tick it started. */
+    public static final Map<Integer, long[]> POSES = new HashMap<>();
 
     public static void sync(CompoundTag t) { me = t; }
     public static void visual(int id, boolean on) { if (on) AWAKENED.add(id); else AWAKENED.remove(id); }
@@ -35,6 +47,9 @@ public final class ClientState {
     }
 
     public static boolean awakened() { return me.getBoolean("awakened"); }
+    public static boolean combat() { return me.getBoolean("combat"); }
+    public static boolean infinite() { return me.getBoolean("inf"); }
+    public static void pose(int entity, int pose) { POSES.put(entity, new long[]{pose, ticks}); }
     public static boolean awakened(int entityId) { return AWAKENED.contains(entityId); }
     public static float output() { return me.getFloat("output"); }
     public static float cap() { return Math.max(1, me.getFloat("cap")); }
@@ -50,7 +65,7 @@ public final class ClientState {
     }
 
     public static void reset() {
-        me = new CompoundTag(); AWAKENED.clear(); CP.clear(); CP_AT.clear(); domains = List.of(); clashes = List.of(); CORRODED.clear();
+        me = new CompoundTag(); AWAKENED.clear(); CP.clear(); CP_AT.clear(); domains = List.of(); clashes = List.of(); CORRODED.clear(); POSES.clear();
     }
 
     public static boolean inGame() { return Minecraft.getInstance().player != null && Minecraft.getInstance().level != null; }

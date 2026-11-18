@@ -168,6 +168,19 @@ public final class Draw {
         }
     }
 
+    /** A camera-facing ribbon of galaxy from a to b. */
+    public void voidRibbon(Vec3 a, Vec3 b, float width, float alpha) {
+        VertexConsumer vc = buf.getBuffer(Rt.voidFx(Rt.FILL));
+        Vec3 mid = a.add(b).scale(0.5);
+        Vec3 side = b.subtract(a).cross(cam.subtract(mid));
+        if (side.lengthSqr() < 1e-8) return;
+        side = side.normalize().scale(width * 0.5);
+        vv(vc, a.x - side.x, a.y - side.y, a.z - side.z, 0xFFFFFF, alpha, 0, 1);
+        vv(vc, a.x + side.x, a.y + side.y, a.z + side.z, 0xFFFFFF, alpha, 0, 0);
+        vv(vc, b.x + side.x, b.y + side.y, b.z + side.z, 0xFFFFFF, alpha, 1, 0);
+        vv(vc, b.x - side.x, b.y - side.y, b.z - side.z, 0xFFFFFF, alpha, 1, 1);
+    }
+
     public Vec3 fwdVec() { return new Vec3(fwd.x, fwd.y, fwd.z); }
 
     public float near(Vec3 p, float r) {

@@ -32,6 +32,11 @@ import java.util.*;
 public final class Beelzebub {
     private static final UUID HP = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3a01"), DMG = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3a02"),
             ARM = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3a03"), SPD = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3a04");
+    // the vessel's own body
+    private static final UUID V_HP = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3b01"), V_DMG = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3b02"),
+            V_ARM = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3b03"), V_TGH = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3b04"),
+            V_KB = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3b05"), V_SPD = UUID.fromString("a1b5e7c0-3e2a-4f61-8d0a-6c0f1e2b3b06");
+    public static final java.util.Set<UUID> OURS = java.util.Set.of(HP, DMG, ARM, SPD, V_HP, V_DMG, V_ARM, V_TGH, V_KB, V_SPD);
 
     /** Devour one target. by = the body doing it (player or clone). */
     public static void devour(ServerPlayer p, Entity by, LivingEntity t) {
@@ -126,6 +131,13 @@ public final class Beelzebub {
         set(p, Attributes.ATTACK_DAMAGE, DMG, d.awakened ? d.absorbedBonus("damage") : 0, AttributeModifier.Operation.ADDITION);
         set(p, Attributes.ARMOR, ARM, d.awakened ? d.absorbedBonus("armor") : 0, AttributeModifier.Operation.ADDITION);
         set(p, Attributes.MOVEMENT_SPEED, SPD, d.awakened ? d.absorbedBonus("speed") : 0, AttributeModifier.Operation.MULTIPLY_BASE);
+        double k = d.awakened ? Config.vesselStrength.get() : 0;
+        set(p, Attributes.MAX_HEALTH, V_HP, 20 * k, AttributeModifier.Operation.ADDITION);
+        set(p, Attributes.ATTACK_DAMAGE, V_DMG, 6 * k, AttributeModifier.Operation.ADDITION);
+        set(p, Attributes.ARMOR, V_ARM, 10 * k, AttributeModifier.Operation.ADDITION);
+        set(p, Attributes.ARMOR_TOUGHNESS, V_TGH, 6 * k, AttributeModifier.Operation.ADDITION);
+        set(p, Attributes.KNOCKBACK_RESISTANCE, V_KB, Math.min(0.8, 0.6 * k), AttributeModifier.Operation.ADDITION);
+        set(p, Attributes.MOVEMENT_SPEED, V_SPD, 0.15 * k, AttributeModifier.Operation.MULTIPLY_BASE);
         if (p.getHealth() > p.getMaxHealth()) p.setHealth(p.getMaxHealth());
         boolean fly = d.awakened && d.has("flight");
         if (fly && !p.getAbilities().mayfly) { p.getAbilities().mayfly = true; p.onUpdateAbilities(); }
