@@ -1,0 +1,3 @@
+{"type": "minecraft:crafting_shaped", "pattern": ["OEO", "SNS", "OEO"],
+ "key": {"O": {"item": "minecraft:crying_obsidian"}, "E": {"item": "minecraft:echo_shard"}, "S": {"item": "minecraft:sculk_catalyst"}, "N": {"item": "minecraft:nether_star"}},
+ "result": {"item": "abyss:abyssal_core"}}

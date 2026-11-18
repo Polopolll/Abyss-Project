@@ -1,0 +1,48 @@
+plugins {
+    id 'eclipse'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.+'
+}
+version = mod_version
+group = 'com.andy.abyss'
+base { archivesName = 'abyss' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    copyIdeResources = true
+    runs {
+        client {
+            workingDirectory project.file('run/client')
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            args '--username', 'Andy', '--quickPlayMultiplayer', 'localhost:25565', '--width', '1280', '--height', '720'
+            mods { abyss { source sourceSets.main } }
+        }
+        server {
+            workingDirectory project.file('run/server')
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            args '--nogui'
+            mods { abyss { source sourceSets.main } }
+        }
+    }
+}
+mixin {
+    add sourceSets.main, 'abyss.refmap.json'
+    config 'abyss.mixins.json'
+}
+repositories { mavenCentral() }
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.0'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+jar {
+    manifest { attributes([
+        'Specification-Title': 'abyss', 'Implementation-Version': project.version,
+        'MixinConfigs': 'abyss.mixins.json'
+    ]) }
+    finalizedBy 'reobfJar'
+}

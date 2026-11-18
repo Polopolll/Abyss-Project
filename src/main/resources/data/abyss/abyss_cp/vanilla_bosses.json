@@ -1,0 +1,7 @@
+{"overrides": [
+  {"entity": "minecraft:ender_dragon", "multiply": 4.0},
+  {"entity": "minecraft:wither", "multiply": 3.0},
+  {"entity": "minecraft:warden", "multiply": 2.0},
+  {"entity": "minecraft:elder_guardian", "multiply": 1.5},
+  {"tag": "forge:bosses", "multiply": 2.0}
+]}

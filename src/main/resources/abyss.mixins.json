@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.andy.abyss.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "abyss.refmap.json",
+  "mixins": [],
+  "client": ["LivingEntityRendererMixin", "PlayerRendererMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

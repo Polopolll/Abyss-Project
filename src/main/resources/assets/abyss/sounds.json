@@ -1,0 +1,14 @@
+{
+  "spread": {"sounds": [{"name": "abyss:whoosh", "pitch": 0.6}]},
+  "rift": {"sounds": ["abyss:space_warp"]},
+  "devour": {"sounds": ["abyss:vacuum"]},
+  "nuke": {"sounds": ["abyss:night_guy_impact"]},
+  "domain": {"sounds": [{"name": "abyss:air_column", "pitch": 0.5}]},
+  "swap": {"sounds": ["abyss:blink"]},
+  "heartbeat": {"sounds": ["abyss:heartbeat"]},
+  "collapse": {"sounds": ["abyss:collapse"]},
+  "negate": {"sounds": [{"name": "abyss:steam", "pitch": 1.6, "volume": 0.5}]},
+  "triangle": {"sounds": [{"name": "abyss:tiger_charge", "pitch": 0.7}]},
+  "impact": {"sounds": ["abyss:ground_slam"]},
+  "charge": {"sounds": [{"name": "abyss:air_burst", "pitch": 0.5}]}
+}
