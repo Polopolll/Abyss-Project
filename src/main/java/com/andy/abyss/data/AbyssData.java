@@ -28,8 +28,13 @@ public class AbyssData {
     public boolean negation = true;
     /** Abyssal Upgrade: output never runs out. */
     public boolean infinite;
-    /** Combat mode: left click is the abyssal combo. */
-    public boolean combat;
+    /** The open form (Ability ordinal) or -1. */
+    public int form = -1;
+    /** Arsenal: the forged weapon and the resonance gauge (0-100) that powers liberations. */
+    public int weapon;
+    public float gauge;
+    /** Abyss Realm: where the player came from, and which world to exit into. */
+    public String realmFrom = "", realmTarget = "";
     /** 0 = Open, 1 = Closed (chosen while charging). */
     public int domainVariant;
     public int sporeMode = SPREAD;
@@ -48,6 +53,14 @@ public class AbyssData {
     public float charge;
     public int comboStep;
     public long lastHit, reformedAt, nextHit;
+    // arsenal state (transient)
+    public long busyUntil, chainUntil, dodgeUntil, nextDodge, counterUntil, guardSince = -1, inhaleUntil, nextDomainSpears;
+    public int pending = -1;
+    public float guardStored;
+    // realm peek
+    public boolean peeking;
+    public double peekX, peekY, peekZ;
+    public int peekMode = -1;
     public int chargeAbility = -1;
     public boolean dirty = true;
     public long lastSync;
@@ -93,7 +106,11 @@ public class AbyssData {
         t.putFloat("output", output);
         t.putBoolean("negation", negation);
         t.putBoolean("infinite", infinite);
-        t.putBoolean("combat", combat);
+        t.putInt("form", form);
+        t.putInt("weapon", weapon);
+        t.putFloat("gauge", gauge);
+        t.putString("realmFrom", realmFrom);
+        t.putString("realmTarget", realmTarget);
         t.putInt("domainVariant", domainVariant);
         t.putInt("sporeMode", sporeMode);
         t.putInt("selected", selected);
@@ -116,7 +133,11 @@ public class AbyssData {
         negation = !t.contains("negation") || t.getBoolean("negation");
         sporeMode = t.getInt("sporeMode");
         infinite = t.getBoolean("infinite");
-        combat = t.getBoolean("combat");
+        form = t.contains("form") ? t.getInt("form") : -1;
+        weapon = t.getInt("weapon");
+        gauge = t.getFloat("gauge");
+        realmFrom = t.getString("realmFrom");
+        realmTarget = t.getString("realmTarget");
         domainVariant = t.getInt("domainVariant");
         selected = t.getInt("selected");
         inMain = !t.contains("inMain") || t.getBoolean("inMain");

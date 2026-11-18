@@ -2,122 +2,231 @@ package com.andy.abyss.client;
 
 import com.andy.abyss.Abyss;
 import com.andy.abyss.Config;
-import com.andy.abyss.client.gui.RiftScreen;
-import com.andy.abyss.client.gui.RosterScreen;
-import com.andy.abyss.client.gui.WheelScreen;
+import com.andy.abyss.client.gui.*;
 import com.andy.abyss.client.render.FxManager;
+import com.andy.abyss.client.render.MoveFx;
 import com.andy.abyss.data.Ability;
-import com.andy.abyss.net.C2SAction;
-import com.andy.abyss.net.C2SPayload;
-import com.andy.abyss.net.Net;
-import com.andy.abyss.net.S2CWorld;
+import com.andy.abyss.data.Payload;
+import com.andy.abyss.net.*;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.*;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.lwjgl.glfw.GLFW;
 
-/** Input, ticking, world rendering, camera shake and domain fog. */
+import java.util.List;
+
+/**
+ * Input (Ronova-style), ticking, world rendering, camera, domain sky and fog.
+ * X: tap = next skill, hold = wheel, + 1-8 = that place, + scroll = flip. R: use / charge. In a form: LMB, RMB, mouse 4,
+ * mouse 5 are its sub-abilities (vanilla attack/use are blocked while a form is open).
+ */
 @Mod.EventBusSubscriber(modid = Abyss.MODID, value = Dist.CLIENT)
 public final class ClientEvents {
-    private static boolean castHeld, sporeHeld, lensWas, jumpWas, attackWas;
+    private static boolean castHeld, jumpWas, xHeld, xUsed;
+    private static long xDownAt;
+    /** Ticks each mouse button (0 LMB, 1 RMB, 3 mouse 4, 4 mouse 5) has been held in a form, -1 = up. */
+    private static final int[] HELD = {-1, -1, -1, -1, -1};
+    private static final boolean[] HOLD_SENT = new boolean[5];
     public static Entity looked;
     public static float insideDomain;
     public static boolean openDomainInside;
 
+    private static boolean formInput() {
+        var mc = Minecraft.getInstance();
+        return mc.screen == null && mc.player != null && ClientState.awakened() && ClientState.form() >= 0 && !mc.player.isSpectator();
+    }
+
+    private static int flags() {
+        var p = Minecraft.getInstance().player;
+        int f = 0;
+        if (p.isShiftKeyDown()) f |= C2SInput.SHIFT;
+        if (p.isSprinting()) f |= C2SInput.SPRINT;
+        if (!p.onGround()) f |= C2SInput.AIR;
+        if (!p.onGround() && p.getDeltaMovement().y < 0) f |= C2SInput.FALLING;
+        return f;
+    }
+
+    private static int moveInput() {
+        var o = Minecraft.getInstance().options;
+        return (o.keyUp.isDown() ? 1 : 0) | (o.keyDown.isDown() ? 2 : 0) | (o.keyLeft.isDown() ? 4 : 0) | (o.keyRight.isDown() ? 8 : 0);
+    }
+
     @SubscribeEvent
     public static void tick(TickEvent.ClientTickEvent e) {
         var mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) { if (e.phase == TickEvent.Phase.END) { ClientState.reset(); SporeClient.ALL.clear(); FxManager.clear(); } return; }
+        if (mc.player == null || mc.level == null) { if (e.phase == TickEvent.Phase.END) { ClientState.reset(); SporeClient.ALL.clear(); FxManager.clear(); MoveFx.clear(); } return; }
         if (e.phase == TickEvent.Phase.START) {
-            // while the lens is open, number keys are payloads, not hotbar slots
-            if (SporeClient.lens) for (int i = 0; i < 9; i++) while (mc.options.keyHotbarSlots[i].consumeClick()) payload(i);
+            // X + 1-8: the number keys belong to the wheel while X is held
+            if (xHeld && ClientState.awakened()) {
+                List<Ability> order = WheelOrder.get();
+                for (int i = 0; i < 9; i++) while (mc.options.keyHotbarSlots[i].consumeClick()) {
+                    if (i < order.size()) slot(order.get(i));
+                    xUsed = true;
+                }
+            }
             return;
         }
         ClientState.ticks++;
         FxManager.tick();
+        MoveFx.tick();
         SporeClient.tick();
         boolean awake = ClientState.awakened();
         boolean free = mc.screen == null;
-        // Triangle: the target mashes jump; the user mashes cast
-        S2CWorld.Clash clash = ClientState.myClash();
+        var clash = ClientState.myClash();
         boolean jump = mc.options.keyJump.isDown();
         if (clash != null && clash.you() == 1 && jump && !jumpWas) Net.toServer(new C2SAction(C2SAction.CLASH_PUSH, 0));
         jumpWas = jump;
         if (awake && free) {
-            while (Keys.WHEEL.consumeClick()) mc.setScreen(new WheelScreen());
-            while (Keys.ROSTER.consumeClick()) mc.setScreen(new RosterScreen());
-            while (Keys.COMBAT.consumeClick()) {
-                Net.toServer(new C2SAction(C2SAction.TOGGLE_COMBAT, 0));
-                mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(ClientState.combat() ? "\u00a78Combat mode off" : "\u00a7dCombat mode \u00a78\u00b7 click to chain, hold for the beam"), true);
+            // X: tap = next, hold = wheel
+            boolean x = Keys.down(Keys.WHEEL);
+            if (x && !xHeld) { xHeld = true; xUsed = false; xDownAt = ClientState.ticks; }
+            if (xHeld && x && !xUsed && ClientState.ticks - xDownAt >= 5) { xUsed = true; mc.setScreen(new WheelScreen()); }
+            if (xHeld && !x) {
+                if (!xUsed) select(WheelOrder.next(Ability.byIndex(ClientState.selected()), 1), true);
+                xHeld = false;
             }
-            while (Keys.NEXT.consumeClick()) Net.toServer(new C2SAction(mc.player.isShiftKeyDown() ? C2SAction.SWAP_PREV : C2SAction.SWAP_NEXT, 0));
-            while (Keys.PREV.consumeClick()) Net.toServer(new C2SAction(C2SAction.SWAP_PREV, 0));
-            while (Keys.MAIN.consumeClick()) Net.toServer(new C2SAction(C2SAction.SWAP_MAIN, 0));
+            while (Keys.WHEEL.consumeClick()) { }
+            while (Keys.ROSTER.consumeClick()) mc.setScreen(new RosterScreen());
+            while (Keys.GUIDE.consumeClick()) mc.setScreen(new GuideScreen(null));
+            // R: use / charge
             boolean cast = Keys.CAST.isDown();
             if (cast && !castHeld) {
-                if (clash == null && ClientState.selected() == Ability.RIFT.ordinal()) mc.setScreen(new RiftScreen(mc.player.isShiftKeyDown()));
+                Ability a = Ability.byIndex(ClientState.selected());
+                if (a == Ability.GUIDE) mc.setScreen(new GuideScreen(null));
                 else Net.toServer(new C2SAction(C2SAction.CAST_START, 0));
             }
             if (!cast && castHeld) Net.toServer(new C2SAction(C2SAction.CAST_RELEASE, ClientState.domainVariant));
             castHeld = cast;
-            boolean spore = Keys.SPORES.isDown();
-            if (spore && !sporeHeld) Net.toServer(new C2SAction(mc.player.isShiftKeyDown() ? C2SAction.SPORE_MODE : C2SAction.SPREAD_START, 0));
-            if (!spore && sporeHeld) Net.toServer(new C2SAction(C2SAction.SPREAD_STOP, 0));
-            sporeHeld = spore;
-            boolean lens = Keys.down(Keys.LENS);
-            if (lens != lensWas) { SporeClient.lens = lens; if (!lens) SporeClient.clearSelection(); }
-            lensWas = lens;
-            // combat mode: tap = next strike in the chain, hold = Abyssal Beam
-            boolean attack = mc.options.keyAttack.isDown() && ClientState.combat() && !SporeClient.lens;
-            if (attack) ClientState.heavyHeld++;
-            else if (attackWas) {
-                int held = ClientState.heavyHeld;
-                if (held > 8) Net.toServer(new C2SAction(C2SAction.HEAVY, held - 8));
-                ClientState.heavyHeld = 0;
+            while (Keys.CAST.consumeClick()) { }
+            // form buttons held: hold thresholds and painting
+            if (formInput()) {
+                for (int b = 0; b < 5; b++) if (HELD[b] >= 0) {
+                    HELD[b]++;
+                    if (HELD[b] == 8 && !HOLD_SENT[b]) { HOLD_SENT[b] = true; send(b, C2SInput.HOLD, HELD[b]); }
+                }
+                ClientState.heavyHeld = ClientState.openForm() == Ability.ARSENAL && HELD[0] >= 0 ? HELD[0] : 0;
+                ClientState.painting = ClientState.openForm() == Ability.SPORES && HELD[1] >= 0 && !mc.player.isShiftKeyDown();
+                if (ClientState.painting) SporeClient.paint(1f);
+            } else {
+                for (int b = 0; b < 5; b++) HELD[b] = -1;
+                ClientState.painting = false; ClientState.heavyHeld = 0;
             }
-            attackWas = attack;
         } else {
             if (castHeld && !Keys.CAST.isDown()) { Net.toServer(new C2SAction(C2SAction.CAST_RELEASE, ClientState.domainVariant)); castHeld = false; }
-            if (sporeHeld) { Net.toServer(new C2SAction(C2SAction.SPREAD_STOP, 0)); sporeHeld = false; }
-            if (!awake) { SporeClient.lens = false; lensWas = false; }
-            ClientState.heavyHeld = 0; attackWas = false;
+            if (!free) xHeld = false;
+            if (!awake) { for (int b = 0; b < 5; b++) HELD[b] = -1; ClientState.painting = false; }
         }
+        SporeClient.lens = awake && ClientState.openForm() == Ability.SPORES;
         SporeClient.pick(1f);
-        // Angel Eyes: ask the server about what we look at
         looked = lookTarget(64);
-        if (looked != null && (awake || Config.angelEyesHud.get())) {
+        if (looked != null && awake) {
             Long at = ClientState.CP_AT.get(looked.getId());
-            if (awake && (at == null || ClientState.ticks - at > 20) && ClientState.ticks % 5 == 0) Net.toServer(new C2SAction(C2SAction.CP_QUERY, looked.getId()));
+            if ((at == null || ClientState.ticks - at > 20) && ClientState.ticks % 5 == 0) Net.toServer(new C2SAction(C2SAction.CP_QUERY, looked.getId()));
         }
-        // domain fog / vignette
         float target = 0;
         Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
         openDomainInside = false;
         for (S2CWorld.Dom d : ClientState.domains) if (cam.distanceTo(new Vec3(d.x(), d.y(), d.z())) < d.radius()) { target = d.mine() ? 0.75f : 1f; if (!d.closed()) openDomainInside = true; }
-        insideDomain += (target - insideDomain) * 0.15f;
-        if (ClientState.ticks - ClientState.worldAt > 40) { ClientState.domains = java.util.List.of(); ClientState.clashes = java.util.List.of(); ClientState.CORRODED.clear(); }
+        insideDomain += (target - insideDomain) * 0.06f;
+        if (ClientState.ticks - ClientState.worldAt > 40) { ClientState.domains = List.of(); ClientState.clashes = List.of(); ClientState.CORRODED.clear(); }
     }
 
-    private static void payload(int key) {
-        if (key >= com.andy.abyss.data.Payload.values().length) return;
-        ClientState.payload = key;
+    private static void select(Ability a, boolean sound) {
+        if (a == null) return;
+        Net.toServer(new C2SAction(C2SAction.SELECT, a.ordinal()));
+        ClientState.me.putInt("selected", a.ordinal());
+        ClientState.selectAnim = 0;
+        if (sound) Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.AMETHYST_BLOCK_CHIME, 1.4f, 0.6f));
+    }
+
+    private static void slot(Ability a) {
+        if (a == Ability.GUIDE) { Minecraft.getInstance().setScreen(new GuideScreen(null)); return; }
+        if (Config.slotCastsImmediately.get() && a.type != Ability.Type.CHARGE) Net.toServer(new C2SAction(C2SAction.CAST_SLOT, a.ordinal()));
+        else select(a, true);
+        ClientState.me.putInt("selected", a.ordinal());
+    }
+
+    private static void send(int glfwButton, int phase, int arg) {
+        int b = glfwButton == 0 ? C2SInput.LMB : glfwButton == 1 ? C2SInput.RMB : glfwButton == 3 ? C2SInput.M4 : C2SInput.M5;
+        Net.toServer(new C2SInput(b, phase, flags(), arg));
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void mouse(InputEvent.MouseButton.Pre e) {
+        var mc = Minecraft.getInstance();
+        int b = e.getButton();
+        if (b == 2 || b > 4) return;
+        // Domain charge: right click switches Open/Closed
+        if (castHeld && ClientState.me.getInt("chargeAbility") == Ability.DOMAIN.ordinal() && b == 1 && e.getAction() == GLFW.GLFW_PRESS) { ClientState.domainVariant ^= 1; e.setCanceled(true); return; }
+        if (!formInput()) return;
+        Ability f = ClientState.openForm();
+        if (e.getAction() == GLFW.GLFW_PRESS) {
+            HELD[b] = 0; HOLD_SENT[b] = false;
+            boolean shift = mc.player.isShiftKeyDown();
+            // client-side parts of forms
+            if (f == Ability.SPORES && b == 3) unleash();
+            else if (f == Ability.SPORES && b == 4) ClientState.payload = Math.floorMod(ClientState.payload + (shift ? -1 : 1), Payload.values().length);
+            else if (f == Ability.SPORES && b == 1 && !shift) SporeClient.paintStart();
+            else if (f == Ability.AUTHORITY && b == 3) mc.setScreen(new RiftScreen(false));
+            else if (f == Ability.AUTHORITY && b == 4 && ClientState.inRealm()) mc.setScreen(new WorldsScreen());
+            else if (f == Ability.ARSENAL && b == 1) Net.toServer(new C2SInput(C2SInput.RMB, C2SInput.PRESS, flags(), moveInput()));
+            else send(b, C2SInput.PRESS, 0);
+            e.setCanceled(true);
+        } else if (e.getAction() == GLFW.GLFW_RELEASE) {
+            int held = Math.max(0, HELD[b]);
+            if (HELD[b] >= 0) {
+                if (!(f == Ability.SPORES && b != 0) && !(f == Ability.AUTHORITY && b >= 3)) send(b, C2SInput.RELEASE, held);
+                if (f == Ability.SPORES && b == 1) ClientState.painting = false;
+            }
+            HELD[b] = -1;
+            e.setCanceled(true);
+        }
+    }
+
+    /** Spore form, mouse 4: the selection — or, with nothing selected, everything of yours in front of you. */
+    private static void unleash() {
         int[] spores = SporeClient.SELECTED.stream().mapToInt(Integer::intValue).toArray();
         int[] hosts = SporeClient.SELECTED_HOSTS.stream().mapToInt(Integer::intValue).toArray();
         if (spores.length == 0 && hosts.length == 0) {
-            if (SporeClient.hoverSpore >= 0) spores = new int[]{SporeClient.hoverSpore};
-            else if (SporeClient.hoverHost >= 0) hosts = new int[]{SporeClient.hoverHost};
-            else return;
+            SporeClient.selectCone(1f, 40, 96);
+            spores = SporeClient.SELECTED.stream().mapToInt(Integer::intValue).toArray();
+            hosts = SporeClient.SELECTED_HOSTS.stream().mapToInt(Integer::intValue).toArray();
         }
-        Net.toServer(new C2SPayload(key, spores, hosts));
+        if (spores.length == 0 && hosts.length == 0) { Minecraft.getInstance().player.displayClientMessage(net.minecraft.network.chat.Component.literal("§7No spores of yours in front of you."), true); return; }
+        Net.toServer(new C2SPayload(ClientState.payload, spores, hosts));
+        SporeClient.flashSelection();
         SporeClient.clearSelection();
+    }
+
+    @SubscribeEvent
+    public static void interact(InputEvent.InteractionKeyMappingTriggered e) {
+        if (!formInput()) return;
+        if (e.isAttack() || e.isUseItem() || e.isPickBlock() && false) { e.setCanceled(true); e.setSwingHand(false); }
+    }
+
+    @SubscribeEvent
+    public static void scroll(InputEvent.MouseScrollingEvent e) {
+        var mc = Minecraft.getInstance();
+        if (mc.screen != null || !ClientState.awakened()) return;
+        int dir = e.getScrollDelta() > 0 ? -1 : 1;
+        if (xHeld) { select(WheelOrder.next(Ability.byIndex(ClientState.selected()), dir), true); xUsed = true; e.setCanceled(true); return; }
+        if (castHeld && ClientState.me.getInt("chargeAbility") == Ability.DOMAIN.ordinal()) { ClientState.domainVariant ^= 1; e.setCanceled(true); return; }
+        if (!formInput()) return;
+        Ability f = ClientState.openForm();
+        if (f == Ability.SPORES) { ClientState.payload = Math.floorMod(ClientState.payload + dir, Payload.values().length); e.setCanceled(true); }
+        else if (f == Ability.ARSENAL) { Net.toServer(new C2SInput(C2SInput.SCROLL, C2SInput.PRESS, 0, dir)); e.setCanceled(true); }
     }
 
     private static Entity lookTarget(double range) {
@@ -132,48 +241,15 @@ public final class ClientEvents {
         return hit.getEntity();
     }
 
-    private static boolean charging() { return castHeld && ClientState.me.getInt("chargeAbility") == Ability.DOMAIN.ordinal(); }
-
-    @SubscribeEvent
-    public static void mouse(InputEvent.MouseButton.Pre e) {
-        var mc = Minecraft.getInstance();
-        if (mc.screen != null || e.getAction() != 1 || !ClientState.awakened()) return;
-        if (charging() && e.getButton() == 1) { ClientState.domainVariant ^= 1; e.setCanceled(true); return; }
-        if (!SporeClient.lens) return;
-        if (e.getButton() == 0) { if (mc.player.isShiftKeyDown()) SporeClient.sweep(1); else SporeClient.clickSelect(); e.setCanceled(true); }
-        else if (e.getButton() == 1) { payload(ClientState.payload); e.setCanceled(true); }
-    }
-
-    /** In combat mode the attack button belongs to the combo: no block breaking, no vanilla swing. */
-    @SubscribeEvent
-    public static void interact(InputEvent.InteractionKeyMappingTriggered e) {
-        if (ClientState.awakened() && (ClientState.combat() || SporeClient.lens) && e.isAttack()) {
-            e.setCanceled(true);
-            e.setSwingHand(false);
-            // every click in combat mode is the next strike (the press itself, so even very fast taps count)
-            var mc = Minecraft.getInstance();
-            if (ClientState.combat() && !SporeClient.lens && mc.player != null && ClientState.heavyHeld <= 8) {
-                int flags = (!mc.player.onGround() && mc.player.getDeltaMovement().y < 0.1 ? com.andy.abyss.server.Combat.AIR : 0) | (mc.player.isSprinting() ? com.andy.abyss.server.Combat.SPRINT : 0);
-                Net.toServer(new C2SAction(C2SAction.M1, flags));
-            }
-        }
-        if (ClientState.awakened() && SporeClient.lens && e.isUseItem()) { e.setCanceled(true); e.setSwingHand(false); }
-    }
-
-    @SubscribeEvent
-    public static void scroll(InputEvent.MouseScrollingEvent e) {
-        if (Minecraft.getInstance().screen != null || !ClientState.awakened()) return;
-        if (charging()) { ClientState.domainVariant ^= 1; e.setCanceled(true); return; }
-        if (!SporeClient.lens) return;
-        int n = com.andy.abyss.data.Payload.values().length;
-        ClientState.payload = Math.floorMod(ClientState.payload + (e.getScrollDelta() > 0 ? -1 : 1), n);
-        e.setCanceled(true);
-    }
-
     @SubscribeEvent
     public static void render(RenderLevelStageEvent e) {
-        if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
-        FxManager.render(e.getPoseStack(), e.getCamera(), e.getPartialTick());
+        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && insideDomain > 0.02f && openDomainInside)
+            com.andy.abyss.client.render.AbyssSky.drawGalaxy(e.getPoseStack(), 0.9f * insideDomain);
+        // after weather: clouds are drawn by then, so they never show through a cut
+        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
+            FxManager.render(e.getPoseStack(), e.getCamera(), e.getPartialTick());
+            MoveFx.renderNumbers(e.getPoseStack(), e.getCamera(), e.getPartialTick());
+        }
     }
 
     @SubscribeEvent
@@ -184,6 +260,13 @@ public final class ClientEvents {
         e.setYaw(e.getYaw() + (float) (Math.sin(t * 2.1) * s * 1.6));
         e.setPitch(e.getPitch() + (float) (Math.cos(t * 2.7) * s * 1.2));
         e.setRoll(e.getRoll() + (float) (Math.sin(t * 1.7) * s * 0.8));
+    }
+
+    @SubscribeEvent
+    public static void fov(ViewportEvent.ComputeFov e) {
+        double k = 1 - 0.06 * insideDomain - 0.03 * FxManager.pulse - MoveFx.fovKick();
+        if (ClientState.ticks < ClientState.slowUntil) k -= 0.05;
+        if (k != 1) e.setFOV(e.getFOV() * k);
     }
 
     @SubscribeEvent
@@ -198,23 +281,12 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void fog(ViewportEvent.RenderFog e) {
         if (insideDomain < 0.02f || !Config.domainFog.get()) return;
-        e.setFarPlaneDistance(e.getFarPlaneDistance() * (1 - insideDomain * 0.45f));
+        e.setFarPlaneDistance(e.getFarPlaneDistance() * (1 - insideDomain * 0.35f));
         e.setCanceled(true);
     }
 
     @SubscribeEvent
-    public static void fov(ViewportEvent.ComputeFov e) {
-        if (insideDomain > 0.02f) e.setFOV(e.getFOV() * (1 - 0.06 * insideDomain - 0.03 * FxManager.pulse));
-    }
-
-    @SubscribeEvent
-    public static void sky(RenderLevelStageEvent e) {
-        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && insideDomain > 0.02f && ClientEvents.openDomainInside)
-            com.andy.abyss.client.render.AbyssSky.drawGalaxy(e.getPoseStack(), insideDomain);
-    }
-
-    @SubscribeEvent
-    public static void logout(ClientPlayerNetworkEvent.LoggingOut e) { ClientState.reset(); SporeClient.ALL.clear(); FxManager.clear(); }
+    public static void logout(ClientPlayerNetworkEvent.LoggingOut e) { ClientState.reset(); SporeClient.ALL.clear(); FxManager.clear(); MoveFx.clear(); }
 
     private ClientEvents() {}
 }

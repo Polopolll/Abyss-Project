@@ -35,6 +35,26 @@ public final class ClientState {
 
     public static void sync(CompoundTag t) { me = t; }
     public static void visual(int id, boolean on) { if (on) AWAKENED.add(id); else AWAKENED.remove(id); }
+    /** Open form and weapon of every vessel we can see. */
+    public static final Map<Integer, int[]> FORMS = new HashMap<>();
+    public static void visual(com.andy.abyss.net.S2CVisual v) {
+        visual(v.entity(), v.awakened());
+        if (v.awakened()) FORMS.put(v.entity(), new int[]{v.form(), v.weapon()}); else FORMS.remove(v.entity());
+    }
+    public static int formOf(int entity) { int[] f = FORMS.get(entity); return f == null ? -1 : f[0]; }
+    public static int weaponOf(int entity) { int[] f = FORMS.get(entity); return f == null ? 0 : f[1]; }
+
+    /** Realm: souls of the reflected world. */
+    public static String soulWorld = "";
+    public static String[] soulNames = new String[0];
+    public static float[] soulXyz = new float[0];
+    public static long soulsAt;
+    public static void souls(com.andy.abyss.net.S2CSouls s) { soulWorld = s.world(); soulNames = s.names(); soulXyz = s.xyz(); soulsAt = ticks; }
+
+    /** Spore form: selection painting. */
+    public static boolean painting;
+    /** Perfect dodge slow-motion until this tick. */
+    public static long slowUntil;
     public static void cp(S2CCp c) { CP.put(c.entity(), c); CP_AT.put(c.entity(), ticks); }
 
     public static void world(S2CWorld w) {
@@ -47,9 +67,15 @@ public final class ClientState {
     }
 
     public static boolean awakened() { return me.getBoolean("awakened"); }
-    public static boolean combat() { return me.getBoolean("combat"); }
+    public static int form() { return me.contains("form") ? me.getInt("form") : -1; }
+    public static com.andy.abyss.data.Ability openForm() { return com.andy.abyss.data.Ability.byIndex(form()); }
+    public static int weapon() { return me.getInt("weapon"); }
+    public static float gauge() { return me.getFloat("gauge"); }
+    public static boolean inRealm() { return me.getBoolean("inRealm"); }
+    public static boolean counterReady() { return me.getLong("counterLeft") > 0; }
     public static boolean infinite() { return me.getBoolean("inf"); }
-    public static void pose(int entity, int pose) { POSES.put(entity, new long[]{pose, ticks}); }
+    public static void pose(int entity, int pose) { pose(entity, pose, 11); }
+    public static void pose(int entity, int pose, int duration) { POSES.put(entity, new long[]{pose, ticks, duration}); }
     public static boolean awakened(int entityId) { return AWAKENED.contains(entityId); }
     public static float output() { return me.getFloat("output"); }
     public static float cap() { return Math.max(1, me.getFloat("cap")); }
@@ -65,7 +91,7 @@ public final class ClientState {
     }
 
     public static void reset() {
-        me = new CompoundTag(); AWAKENED.clear(); CP.clear(); CP_AT.clear(); domains = List.of(); clashes = List.of(); CORRODED.clear(); POSES.clear();
+        me = new CompoundTag(); AWAKENED.clear(); CP.clear(); CP_AT.clear(); domains = List.of(); clashes = List.of(); CORRODED.clear(); POSES.clear(); FORMS.clear(); soulNames = new String[0]; soulXyz = new float[0];
     }
 
     public static boolean inGame() { return Minecraft.getInstance().player != null && Minecraft.getInstance().level != null; }

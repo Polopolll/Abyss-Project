@@ -5,15 +5,19 @@ import com.andy.abyss.client.ClientEvents;
 import com.andy.abyss.client.ClientState;
 import com.andy.abyss.client.Keys;
 import com.andy.abyss.client.SporeClient;
+import com.andy.abyss.client.WheelOrder;
 import com.andy.abyss.client.render.FxManager;
+import com.andy.abyss.combat.Move;
+import com.andy.abyss.combat.Moves;
+import com.andy.abyss.combat.Weapon;
 import com.andy.abyss.data.Ability;
 import com.andy.abyss.data.Payload;
 import com.andy.abyss.net.S2CCp;
 import com.andy.abyss.net.S2CWorld;
-import com.andy.abyss.server.Combat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.util.Mth;
@@ -21,12 +25,14 @@ import net.minecraft.world.entity.Entity;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import org.joml.Matrix4f;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
- * Right of the hotbar: a medallion for the selected ability, a row of every ability with cooldown sweeps, the output
- * bar. Above it: bodies. Right edge: the combo chain in combat mode. Around the crosshair: Domain Open/Closed while
- * charging, the payload ring in the Spore Lens, Angel Eyes.
+ * Ronova-style HUD. Bottom right: the selected skill as a big medallion (its neighbours on the wheel beside it), the
+ * output bar under it. When a form is open: four hints by the crosshair (mouse button, the sub-action's medallion,
+ * its name; they change with context: shift, airborne, counter ready, in the Realm). Arsenal adds a weapon medallion
+ * wrapped in the resonance gauge, the chain pips and the next move; Spores the payload ring; the Realm a banner.
  */
 public final class Hud {
     public static void render(ForgeGui gui, GuiGraphics g, float pt, int w, int h) {
@@ -37,48 +43,62 @@ public final class Hud {
         overlays(g, w, h, pt);
         clash(g, f, w, h);
         angelEyes(g, f, w, h);
-        if (!ClientState.awakened() || mc.player.isSpectator()) return;
+        if (!ClientState.awakened() || mc.player.isSpectator() && !ClientState.inRealm()) { if (ClientState.inRealm()) realm(g, f, w, h, time); return; }
         Matrix4f m = g.pose().last().pose();
-        int x0 = w / 2 + 91 + 8;
+        dock(g, f, m, w, h, time, pt);
+        Ability form = ClientState.openForm();
+        if (form != null) hints(g, f, m, w, h, form, time);
+        if (form == Ability.ARSENAL) arsenal(g, f, m, w, h, time);
+        if (form == Ability.SPORES || SporeClient.lens) payloadRing(g, f, m, w, h);
+        if (ClientState.inRealm()) realm(g, f, w, h, time);
+        bodies(g, f, m, w, h, w - 150);
+        domainChooser(g, f, m, w, h);
+    }
 
-        // medallion
+    // ------------------------------------------------------------------------------------------------- the dock
+    private static void dock(GuiGraphics g, Font f, Matrix4f m, int w, int h, float time, float pt) {
         Ability sel = Ability.byIndex(ClientState.selected());
         if (sel == null) sel = Ability.DOMAIN;
         ClientState.selectAnim++;
         float pop = ClientState.selectAnim < 8 ? 1 + 0.25f * (1 - (ClientState.selectAnim + pt) / 8f) : 1;
-        float mcx = x0 + 12, mcy = h - 12, rad = 11.5f * pop;
-        Gfx.ring(m, mcx, mcy, 0, rad, Gfx.argb(0.85f, 0x05030A));
+        float cx = w - 34, cy = h - 40;
+        boolean open = ClientState.openForm() == sel;
+        // neighbours on the wheel, fading out to the left
+        List<Ability> order = WheelOrder.get();
+        int idx = Math.max(0, order.indexOf(sel));
+        for (int k = 1; k <= 3; k++) {
+            Ability a = order.get(Math.floorMod(idx + k, order.size()));
+            float x = cx - 26 - k * 20;
+            Gfx.icon(g, Icons.of(a), x, cy + 6, 18, 0.9f, a.color, 0, 0.75f - k * 0.17f);
+        }
+        if (open) {
+            float spin = time * 0.05f;
+            for (int i = 0; i < 3; i++) Gfx.arc(m, cx, cy, 25, 26.5f, spin + i * Mth.TWO_PI / 3, spin + i * Mth.TWO_PI / 3 + 1.2f, Gfx.argb(0.9f, sel.color));
+        }
         int cd = ClientState.cd(sel.ordinal());
-        if (cd > 0) Gfx.arc(m, mcx, mcy, 0, rad, 0, Mth.TWO_PI * Math.min(1, cd / (sel.cooldownSec * 20f)), Gfx.argb(0.6f, 0x000000));
-        Gfx.ring(m, mcx, mcy, rad - 1.5f, rad, Gfx.argb(0.95f, sel.color));
-        float orb = time * 0.06f;
-        Gfx.arc(m, mcx, mcy, rad + 0.6f, rad + 2f, orb, orb + 0.5f, Gfx.argb(0.8f, 0xFFFFFF));
+        Gfx.icon(g, Icons.of(sel), cx, cy, (int) (46 * pop), cd > 0 ? 0.45f : 1f, sel.color, 0, 1);
+        if (cd > 0 && sel.cooldownSec > 0) {
+            Gfx.arc(m, cx, cy, 0, 18, 0, Mth.TWO_PI * Math.min(1, cd / (sel.cooldownSec * 20f)), Gfx.argb(0.55f, 0x000000));
+            g.drawCenteredString(f, String.valueOf((cd + 19) / 20), (int) cx, (int) cy - 4, 0xFFFFFFFF);
+        }
         if (ClientState.me.getInt("chargeAbility") >= 0) {
             float c = Math.min(1, ClientState.me.getFloat("charge") / (ClientState.infinite() ? 2000f : 600f));
-            Gfx.arc(m, mcx, mcy, rad + 2.5f, rad + 4.5f, 0, Mth.TWO_PI * c, Gfx.argb(0.95f, 0xFFFFFF));
+            Gfx.arc(m, cx, cy, 24, 26.5f, 0, Mth.TWO_PI * c, Gfx.argb(0.95f, 0xFFFFFF));
         }
-        Gfx.icon(g, Icons.of(sel), mcx, mcy, (int) (15 * pop), cd > 0 ? 0.5f : 1f, sel.color, 0.25f, 1);
-
-        // every ability, small
-        int qx = x0 + 28, qy = h - 22;
-        for (Ability a : Ability.values()) {
-            int i = a.ordinal();
-            float sx = qx + i * 13 + 6, sy = qy + 5;
-            Gfx.ring(m, sx, sy, 0, 6f, Gfx.argb(0.7f, 0x05030A));
-            int c = ClientState.cd(i);
-            if (c > 0) Gfx.arc(m, sx, sy, 0, 6f, 0, Mth.TWO_PI * Math.min(1, c / (a.cooldownSec * 20f)), Gfx.argb(0.6f, 0x000000));
-            boolean on = a == Ability.NEGATION ? ClientState.negation() : i == ClientState.selected();
-            Gfx.ring(m, sx, sy, 5f, 6f, Gfx.argb(on ? 0.95f : 0.35f, a.color));
-        }
-        for (Ability a : Ability.values()) {
-            int i = a.ordinal();
-            Gfx.icon(g, Icons.of(a), qx + i * 13 + 6, qy + 5, 9, ClientState.cd(i) > 0 ? 0.4f : 0.95f, a.color, 0.4f, 1);
-        }
-
-        // output
+        // name and state
+        String name = sel.title.toUpperCase(Locale.ROOT);
+        String state = open ? "§fOPEN §8· " + Keys.name(Keys.CAST) + " to close" : sel.isForm() ? "§7FORM §8· " + Keys.name(Keys.CAST) + " to open"
+                : sel == Ability.NEGATION ? (ClientState.negation() ? "§fON" : "§7OFF") : "§8" + Keys.name(Keys.CAST) + " to use";
+        g.pose().pushPose();
+        g.pose().translate(cx + 22, cy - 34, 0);
+        g.pose().scale(0.75f, 0.75f, 1);
+        g.drawString(f, name, -f.width(name), 0, Gfx.argb(1, Gfx.mix(0xFFFFFF, sel.color, 0.35f)), true);
+        g.drawString(f, state, -f.width(state), 10, 0xFFFFFFFF, true);
+        g.pose().popPose();
+        // output bar
         boolean inf = ClientState.infinite();
         float frac = inf ? 1 : Mth.clamp(ClientState.output() / ClientState.cap(), 0, 1);
-        int bx = qx, by = h - 8, bw = 128, bh = 4;
+        int bw = 110, bh = 3, bx = w - 8 - bw, by = h - 9;
         g.fill(bx - 1, by - 1, bx + bw + 1, by + bh + 1, 0xC0050309);
         int fw = Math.round(bw * frac);
         if (fw > 0) {
@@ -86,28 +106,167 @@ public final class Hud {
             int sh = (int) ((time * 1.6f) % (bw + 30)) - 15;
             if (sh > 0 && sh < fw) g.fill(bx + Math.max(0, sh - 3), by, bx + Math.min(fw, sh + 3), by + bh, 0x70FFFFFF);
         }
-        for (int i = 1; i < 4; i++) g.fill(bx + bw * i / 4, by, bx + bw * i / 4 + 1, by + bh, 0x50000000);
-        String out = inf ? "∞" : String.valueOf((int) ClientState.output());
+        String out = (inf ? "∞" : String.valueOf((int) ClientState.output())) + "  §8" + ClientState.me.getInt("spores") + " spores" + (ClientState.me.getInt("negDown") > 0 ? " §c· negation broken" : "");
         g.pose().pushPose();
-        g.pose().translate(bx + bw + 4, by - 1, 0);
-        g.pose().scale(0.75f, 0.75f, 1);
-        g.drawString(f, out, 0, 0, 0xD8C8FF, true);
+        g.pose().translate(bx, by - 8, 0);
+        g.pose().scale(0.7f, 0.7f, 1);
+        g.drawString(f, out, 0, 0, 0xFFD8C8FF, true);
         g.pose().popPose();
+    }
 
-        // a little status line above: spores, mode, combat
-        String[] modes = {"SPREAD", "PLANT", "TAG"};
-        String status = "§d" + ClientState.me.getInt("spores") + " §8spores · §5" + modes[Mth.clamp(ClientState.sporeMode(), 0, 2)]
-                + (ClientState.combat() ? " §8· §fCOMBAT" : "") + (ClientState.me.getInt("negDown") > 0 ? " §8· §cNEGATION BROKEN" : "");
+    // ------------------------------------------------------------------------------------------------- crosshair hints
+    private static void hints(GuiGraphics g, Font f, Matrix4f m, int w, int h, Ability form, float time) {
+        if (form.sub == null) return;
+        // left of the crosshair, right-aligned (the right side belongs to the target panel)
+        float x = w / 2f - 22, y = h / 2f - 26;
+        for (int i = 0; i < 4; i++) {
+            String[] lab = label(form, i);
+            if (lab == null) continue;
+            boolean hot = lab.length > 1 && "hot".equals(lab[1]);
+            float yy = y + i * 14;
+            float a = hot ? 0.75f + 0.25f * Mth.sin(time * 0.5f) : 0.92f;
+            Gfx.icon(g, Icons.mouse(i), x - 5, yy + 6, 12, 1, 0xFFFFFF, 0, a);
+            Gfx.icon(g, Icons.sub(form, i), x - 19, yy + 6, 13, 1, form.color, 0, a);
+            g.pose().pushPose();
+            g.pose().translate(x - 28, yy + 3, 0);
+            g.pose().scale(0.75f, 0.75f, 1);
+            g.drawString(f, lab[0], -f.width(lab[0]), 0, Gfx.argb(a, hot ? 0xFFFFFF : 0xE0D4FF), true);
+            g.pose().popPose();
+        }
+    }
+
+    /** The label for a sub-action right now; {text, "hot"} when it deserves attention. */
+    private static String[] label(Ability form, int i) {
+        boolean shift = Screen.hasShiftDown();
+        var mc = Minecraft.getInstance();
+        boolean air = mc.player != null && !mc.player.onGround() && !mc.player.getAbilities().flying;
+        switch (form) {
+            case SPORES -> {
+                int sel = SporeClient.SELECTED.size() + SporeClient.SELECTED_HOSTS.size();
+                return switch (i) {
+                    case 0 -> new String[]{shift ? "Seeker spore" : "Spread"};
+                    case 1 -> new String[]{shift ? "Plant" : ClientState.painting ? "§fPainting… " + sel : "Paint (hold)"};
+                    case 2 -> sel > 0 ? new String[]{"Unleash ×" + sel, "hot"} : new String[]{"Unleash §8(everything ahead)"};
+                    default -> new String[]{Payload.byIndex(ClientState.payload).title + " §8(" + Payload.byIndex(ClientState.payload).cost + ")"};
+                };
+            }
+            case ARSENAL -> {
+                Weapon wpn = Weapon.byIndex(ClientState.weapon());
+                Moves.Set set = Moves.ALL.get(wpn);
+                return switch (i) {
+                    case 0 -> ClientState.counterReady() ? new String[]{"§f" + set.counter().name(), "hot"} : air ? new String[]{set.plunge().name()}
+                            : new String[]{nextBasic(set).name() + " §8· hold: " + set.heavy().name()};
+                    case 1 -> new String[]{"Dodge"};
+                    case 2 -> new String[]{set.skill().name()};
+                    default -> ClientState.gauge() >= 100 || ClientState.infinite() ? new String[]{"§f" + set.liberation().name(), "hot"}
+                            : new String[]{"§8" + set.liberation().name() + " " + (int) ClientState.gauge() + "%"};
+                };
+            }
+            case AUTHORITY -> {
+                if (ClientState.inRealm()) return switch (i) {
+                    case 0 -> new String[]{"Peek through (hold)"};
+                    case 1 -> new String[]{"Leave the Realm", "hot"};
+                    case 2 -> new String[]{"Rift"};
+                    default -> new String[]{"Exit into: §f" + shortWorld(ClientState.me.getString("realmTarget"))};
+                };
+            }
+            case BEELZEBUB -> { if (i == 3 && ClientState.me.getBoolean("inhaling")) return new String[]{"Inhaling…", "hot"}; }
+            case BODIES -> { if (i == 1 && shift) return new String[]{"Previous body"}; }
+            default -> {}
+        }
+        return new String[]{form.sub[i]};
+    }
+
+    private static Move nextBasic(Moves.Set set) {
+        int step = ClientState.me.getLong("chainLeft") > 0 ? ClientState.me.getInt("chain") : 0;
+        return set.basic().get(Math.floorMod(step, set.basic().size()));
+    }
+
+    static String shortWorld(String id) {
+        if (id == null || id.isEmpty()) return "where you came from";
+        String s = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
+        s = s.replace('_', ' ');
+        return s.isEmpty() ? id : Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
+    // ------------------------------------------------------------------------------------------------- arsenal
+    private static void arsenal(GuiGraphics g, Font f, Matrix4f m, int w, int h, float time) {
+        Weapon wpn = Weapon.byIndex(ClientState.weapon());
+        Moves.Set set = Moves.ALL.get(wpn);
+        float cx = w - 34, cy = h / 2f + 34;
+        float gauge = ClientState.infinite() ? 100 : Mth.clamp(ClientState.gauge(), 0, 100);
+        boolean full = gauge >= 100;
+        Gfx.ring(m, cx, cy, 15, 19, Gfx.argb(0.7f, 0x0A0614));
+        Gfx.arc(m, cx, cy, 15.5f, 18.5f, 0, Mth.TWO_PI * gauge / 100f, Gfx.argb(0.95f, full ? 0xFFFFFF : 0xB48CFF));
+        if (full) for (int i = 0; i < 4; i++) { float a = time * 0.08f + i * Mth.HALF_PI; Gfx.arc(m, cx, cy, 20, 21.5f, a, a + 0.6f, Gfx.argb(0.8f, 0xE8DCFF)); }
+        Gfx.icon(g, Icons.of(wpn), cx, cy, 30, 1, 0xB48CFF, 0, 1);
         g.pose().pushPose();
-        g.pose().translate(qx, qy - 9, 0);
+        g.pose().translate(cx - 24, cy - 8, 0);
         g.pose().scale(0.75f, 0.75f, 1);
-        g.drawString(f, status, 0, 0, 0xFFFFFFFF, true);
+        String t = wpn.title.toUpperCase(Locale.ROOT);
+        g.drawString(f, t, -f.width(t), 0, 0xFFE8DCFF, true);
+        String sub = full ? "§fLIBERATION READY" : "§8scroll to change weapon";
+        g.drawString(f, sub, -f.width(sub), 10, 0xFFFFFFFF, true);
         g.pose().popPose();
+        // chain pips
+        int n = set.basic().size();
+        boolean live = ClientState.me.getLong("chainLeft") > 0;
+        int step = live ? ClientState.me.getInt("chain") : 0;
+        float px = cx - 24 - n * 8, py = cy + 12;
+        for (int i = 0; i < n; i++) {
+            boolean lit = live && (i < step || step == 0 && i == n - 1);
+            float x = px + i * 8 + 4;
+            Gfx.arc(m, x, py, 0, lit ? 3 : 2.2f, 0, Mth.TWO_PI, Gfx.argb(lit ? 0.95f : 0.35f, lit ? (i == n - 1 ? 0xFFFFFF : 0xB48CFF) : 0x3A2A5A));
+        }
+        if (ClientState.counterReady()) {
+            float a = 0.6f + 0.4f * Mth.sin(time * 0.7f);
+            g.drawCenteredString(f, "§fCOUNTER", w / 2, h / 2 + 22, Gfx.argb(a, 0xFFFFFF));
+            Gfx.arc(m, w / 2f, h / 2f, 9, 10.5f, 0, Mth.TWO_PI, Gfx.argb(a, 0xFFFFFF));
+        }
+        if (ClientState.me.getBoolean("guarding")) g.drawCenteredString(f, "§7GUARD", w / 2, h / 2 + 22, 0xFFFFFFFF);
+        if (ClientState.heavyHeld > 8 && wpn != Weapon.BULWARK) {
+            float c = Math.min(1, (ClientState.heavyHeld - 8) / 12f);
+            Gfx.arc(m, w / 2f, h / 2f, 12, 14, 0, Mth.TWO_PI * c, Gfx.argb(0.9f, c >= 1 ? 0xFFFFFF : 0xB48CFF));
+        }
+    }
 
-        bodies(g, f, m, w, h, x0);
-        combo(g, f, m, w, h, time);
-        domainChooser(g, f, m, w, h);
-        if (SporeClient.lens) lens(g, f, m, w, h);
+    // ------------------------------------------------------------------------------------------------- spores
+    private static void payloadRing(GuiGraphics g, Font f, Matrix4f m, int w, int h) {
+        float cx = w / 2f, cy = h / 2f;
+        int n = Payload.values().length;
+        float seg = Mth.TWO_PI / n;
+        for (Payload p : Payload.values()) {
+            int i = p.ordinal();
+            boolean on = i == ClientState.payload;
+            float mid = i * seg;
+            Gfx.arc(m, cx, cy, on ? 40 : 42, on ? 52 : 49, mid - seg / 2 + 0.05f, mid + seg / 2 - 0.05f, Gfx.argb(on ? 0.75f : 0.3f, on ? 0x2A1A44 : 0x05030A));
+            if (on) Gfx.arc(m, cx, cy, 51, 52.5f, mid - seg / 2 + 0.05f, mid + seg / 2 - 0.05f, Gfx.argb(1, 0xFFFFFF));
+        }
+        for (Payload p : Payload.values()) {
+            int i = p.ordinal();
+            float mid = i * seg;
+            boolean on = i == ClientState.payload;
+            Gfx.icon(g, Icons.of(p), cx + Mth.sin(mid) * 46, cy - Mth.cos(mid) * 46, on ? 12 : 8, on ? 1 : 0.55f, 0xB48CFF, 0.2f, on ? 1 : 0.7f);
+        }
+        int selected = SporeClient.SELECTED.size() + SporeClient.SELECTED_HOSTS.size();
+        if (selected > 0) g.drawCenteredString(f, "§f" + selected + " §7selected", (int) cx, (int) cy + 58, 0xFFFFFFFF);
+    }
+
+    // ------------------------------------------------------------------------------------------------- the realm
+    private static void realm(GuiGraphics g, Font f, int w, int h, float time) {
+        float a = 0.75f + 0.25f * Mth.sin(time * 0.05f);
+        g.pose().pushPose();
+        g.pose().translate(w / 2f, 12, 0);
+        g.pose().scale(1.4f, 1.4f, 1);
+        g.drawCenteredString(f, "T H E   A B Y S S", 0, 0, Gfx.argb(a, 0xD8C8FF));
+        g.pose().popPose();
+        String sub = "§7reflecting §f" + shortWorld(ClientState.soulWorld) + " §8· " + ClientState.soulNames.length + " souls · exit into §f" + shortWorld(ClientState.me.getString("realmTarget"));
+        g.pose().pushPose();
+        g.pose().translate(w / 2f, 27, 0);
+        g.pose().scale(0.75f, 0.75f, 1);
+        g.drawCenteredString(f, sub, 0, 0, 0xFFFFFFFF);
+        g.pose().popPose();
+        if (Minecraft.getInstance().player.isSpectator()) g.drawCenteredString(f, "§fPEEKING §8· release to return", w / 2, h - 50, 0xFFFFFFFF);
     }
 
     private static void bodies(GuiGraphics g, Font f, Matrix4f m, int w, int h, int x0) {
@@ -126,40 +285,7 @@ public final class Hud {
         }
     }
 
-    /** Wuthering-Waves-style chain: five pips that light up, the move name and a fading hit counter. */
-    private static void combo(GuiGraphics g, Font f, Matrix4f m, int w, int h, float time) {
-        if (!ClientState.combat()) return;
-        long since = ClientState.ticks - ClientState.comboAt;
-        int step = since < 26 ? ClientState.comboStep : 0;
-        int x = w - 92, y = h / 2 + 20;
-        for (int i = 1; i <= 5; i++) {
-            float cx = x + i * 14, cy = y;
-            boolean lit = i <= step;
-            Gfx.arc(m, cx, cy, 0, lit ? 5.5f : 4f, Mth.PI * 0.25f, Mth.PI * 2.25f, Gfx.argb(lit ? 0.95f : 0.35f, lit ? (i == 5 ? 0xFFFFFF : 0xB48CFF) : 0x3A2A5A));
-        }
-        if (step > 0 && since < 26) {
-            float a = 1 - since / 26f;
-            String name = step < Combat.NAMES.length ? Combat.NAMES[step] : "";
-            g.pose().pushPose();
-            g.pose().translate(x + 84, y - 22, 0);
-            float s = 1.2f + (since < 4 ? (4 - since) * 0.08f : 0);
-            g.pose().scale(s, s, 1);
-            g.drawString(f, name, -f.width(name), 0, Gfx.argb(a, step == 5 ? 0xFFFFFF : 0xD8C0FF), true);
-            g.pose().popPose();
-        }
-        if (ClientState.heavyHeld > 8) {
-            float c = Math.min(1, (ClientState.heavyHeld - 8) / 30f);
-            Gfx.arc(m, w / 2f, h / 2f, 12, 14, 0, Mth.TWO_PI * c, Gfx.argb(0.9f, 0xFFFFFF));
-            g.drawCenteredString(f, "§fABYSSAL BEAM", w / 2, h / 2 + 18, 0xFFFFFFFF);
-        }
-        g.pose().pushPose();
-        g.pose().translate(x + 14, y + 9, 0);
-        g.pose().scale(0.7f, 0.7f, 1);
-        g.drawString(f, "§8click chain · hold: beam · sprint: lunge · air: fold", 0, 0, 0xFFFFFFFF, true);
-        g.pose().popPose();
-    }
-
-    private static void domainChooser(GuiGraphics g, Font f, Matrix4f m, int w, int h) {
+        private static void domainChooser(GuiGraphics g, Font f, Matrix4f m, int w, int h) {
         if (ClientState.me.getInt("chargeAbility") != Ability.DOMAIN.ordinal()) return;
         float cx = w / 2f, cy = h / 2f;
         boolean closed = ClientState.domainVariant == 1;
@@ -170,28 +296,6 @@ public final class Hud {
         float charge = ClientState.me.getFloat("charge");
         float radius = closed ? Math.min(Config.closedMaxRadius.get().floatValue(), 8 + charge / 8f) : Math.min(Config.domainMaxRadius.get().floatValue(), 12 + charge / 2f);
         g.drawCenteredString(f, String.format(Locale.ROOT, "§dradius %.0f  §8scroll / right-click to switch", radius), (int) cx, (int) cy + 30, 0xFFFFFFFF);
-    }
-
-    private static void lens(GuiGraphics g, Font f, Matrix4f m, int w, int h) {
-        float cx = w / 2f, cy = h / 2f;
-        int n = Payload.values().length;
-        float seg = Mth.TWO_PI / n;
-        for (Payload p : Payload.values()) {
-            int i = p.ordinal();
-            boolean on = i == ClientState.payload;
-            float mid = i * seg;
-            Gfx.arc(m, cx, cy, on ? 26 : 28, on ? 40 : 37, mid - seg / 2 + 0.05f, mid + seg / 2 - 0.05f, Gfx.argb(on ? 0.85f : 0.45f, on ? 0x2A1A44 : 0x05030A));
-            if (on) Gfx.arc(m, cx, cy, 39, 40.5f, mid - seg / 2 + 0.05f, mid + seg / 2 - 0.05f, Gfx.argb(1, 0xFFFFFF));
-        }
-        for (Payload p : Payload.values()) {
-            int i = p.ordinal();
-            float mid = i * seg;
-            Gfx.icon(g, Icons.of(p), cx + Mth.sin(mid) * 33, cy - Mth.cos(mid) * 33, i == ClientState.payload ? 12 : 9, i == ClientState.payload ? 1 : 0.6f, 0xB48CFF, 0.2f, 1);
-        }
-        Payload cur = Payload.byIndex(ClientState.payload);
-        int selected = SporeClient.SELECTED.size() + SporeClient.SELECTED_HOSTS.size();
-        g.drawCenteredString(f, "§f" + cur.title + " §8(" + cur.cost + ")", (int) cx, (int) cy + 46, 0xFFFFFFFF);
-        g.drawCenteredString(f, "§7" + (selected > 0 ? selected + " selected" : "aim at a spore or host") + " §8· scroll payload · click select · shift-click sweep · §fright-click fire", (int) cx, (int) cy + 57, 0xFFFFFFFF);
     }
 
     private static void angelEyes(GuiGraphics g, Font f, int w, int h) {

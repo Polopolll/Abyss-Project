@@ -110,9 +110,15 @@ public final class SporeClient {
                 if (s.planted) d.flat(Rt.RING, true, p, new Vec3(0, 1, 0), 0.45f, 0x9A70FF, 0.35f * pulse, (float) d.time);
             }
             if (lens && s.mine) {
-                float r = hov ? 0.55f : sel ? 0.42f : 0.3f;
+                Long fl = SELECT_FLASH.get(s.host >= 0 ? -s.host - 1 : s.id);
+                float pop = fl == null ? 0 : Math.max(0, 1 - (ClientState.ticks - fl + d.pt) / 8f);
+                float r = (hov ? 0.55f : sel ? 0.42f : 0.26f) + pop * 0.5f;
                 int col = hov ? 0xFFFFFF : sel ? 0xE8D0FF : 0x9A6BFF;
-                d.billboard(Rt.RING, true, p, r, col, hov || sel ? 0.95f : 0.45f, 0);
+                d.billboard(Rt.RING, true, p, r, col, hov || sel ? 0.95f : 0.35f, 0);
+            }
+            if (UNLEASHED.contains(s.host >= 0 ? -s.host - 1 : s.id)) {
+                float u = (ClientState.ticks - unleashedAt + d.pt) / 10f;
+                if (u < 1) d.billboard(Rt.GLOW, true, p, 0.4f + u * 1.4f, 0xFFFFFF, (1 - u) * near, 0);
             }
         }
         if (lens) {
@@ -171,22 +177,41 @@ public final class SporeClient {
         hoverSpore = pick.spore; hoverHost = pick.host;
     }
 
-    public static void clickSelect() {
-        if (hoverSpore >= 0) { if (!SELECTED.remove(hoverSpore)) SELECTED.add(hoverSpore); }
-        else if (hoverHost >= 0) { if (!SELECTED_HOSTS.remove(hoverHost)) SELECTED_HOSTS.add(hoverHost); }
-    }
+    /** Spore form, RMB held: everything of yours under the crosshair (a small brush) joins the selection. */
+    public static void paintStart() { ClientState.painting = true; }
 
-    /** Right click in the lens: select every spore and host of mine within a cone around the crosshair. */
-    public static void sweep(float pt) {
+    public static void paint(float pt) { selectCone(pt, 6, 128); }
+
+    /** Select every spore and infected host of yours within a cone (degrees) around the crosshair. */
+    public static void selectCone(float pt, double deg, double range) {
         var mc = Minecraft.getInstance();
         Vec3 eye = mc.player.getEyePosition(pt), look = mc.player.getViewVector(pt);
+        double cos = Math.cos(Math.toRadians(deg));
         for (S s : ALL.values()) {
             if (!s.mine) continue;
             Vec3 p = pos(s, pt);
             if (p == null) continue;
-            double ang = Math.acos(Math.max(-1, Math.min(1, p.subtract(eye).normalize().dot(look))));
-            if (ang < Math.toRadians(14)) { if (s.host >= 0) SELECTED_HOSTS.add(s.host); else SELECTED.add(s.id); }
+            Vec3 to = p.subtract(eye);
+            double d = to.length();
+            if (d > range || d < 0.01) continue;
+            double brush = deg + Math.toDegrees(Math.atan(0.4 / d));
+            if (to.normalize().dot(look) < Math.cos(Math.toRadians(brush))) continue;
+            boolean added = s.host >= 0 ? SELECTED_HOSTS.add(s.host) : SELECTED.add(s.id);
+            if (added) SELECT_FLASH.put(s.host >= 0 ? -s.host - 1 : s.id, ClientState.ticks);
         }
+    }
+
+    /** Recently selected (for the little pop when the brush picks something up). Key: spore id, or -(host+1). */
+    public static final java.util.Map<Integer, Long> SELECT_FLASH = new java.util.HashMap<>();
+    /** The moment a selection is unleashed: every selected spore flares. */
+    public static long unleashedAt = -100;
+    public static final java.util.Set<Integer> UNLEASHED = new java.util.HashSet<>();
+
+    public static void flashSelection() {
+        unleashedAt = ClientState.ticks;
+        UNLEASHED.clear();
+        UNLEASHED.addAll(SELECTED);
+        for (int h : SELECTED_HOSTS) UNLEASHED.add(-h - 1);
     }
 
     public static int mineCount() { int n = 0; for (S s : ALL.values()) if (s.mine) n++; return n; }

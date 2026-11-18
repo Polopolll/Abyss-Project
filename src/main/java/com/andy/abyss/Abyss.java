@@ -29,6 +29,7 @@ public class Abyss {
         bus.addListener(this::setup);
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, Config.SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> com.andy.abyss.client.ConfigScreen::register);
     }
 
     private void setup(FMLCommonSetupEvent e) {

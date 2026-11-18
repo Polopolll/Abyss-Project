@@ -19,12 +19,12 @@ import java.util.*;
 
 /**
  * The abyss infecting the world block by block. A block keeps what it is; an overlay of galaxy veins grows over it in
- * five stages (thin veins → cracks → patches → spreading → nearly swallowed). Plants wither at stage 2, water and
- * lava boil off at stage 2, leaves crumble at stage 4. When the domain ends the infection recedes stage by stage and
+ * eight stages (hairline veins → veins → cracks → patches → spreading → bleeding → engulfing → nearly swallowed).
+ * Plants wither at stage 3, water and lava boil off at stage 3, leaves crumble at stage 6. When the domain ends the infection recedes stage by stage and
  * anything that withered grows back (unless domainScarsPermanent, which turns fully infected blocks into Abyssal Rot).
  */
 public final class Infection {
-    public static final int MAX = 5;
+    public static final int MAX = 8;
     private static final Map<ServerLevel, Long2ByteOpenHashMap> STAGE = new HashMap<>();
     private static final Map<ServerLevel, Long2ByteOpenHashMap> CHANGED = new HashMap<>();
     /** What withered away (plants, liquids, leaves), to grow back. */
@@ -55,7 +55,7 @@ public final class Infection {
         boolean plant = !liquid && (s.canBeReplaced() || s.is(BlockTags.FLOWERS) || s.is(BlockTags.CROPS) || s.is(BlockTags.SAPLINGS)
                 || (!s.isCollisionShapeFullBlock(l, p) && !s.is(BlockTags.LEAVES) && s.getDestroySpeed(l, p) < 0.6f));
         boolean leaves = s.is(BlockTags.LEAVES);
-        if ((plant || liquid) && next >= 2 || leaves && next >= 4) {
+        if ((plant || liquid) && next >= 3 || leaves && next >= 6) {
             WITHERED.computeIfAbsent(l, k -> new Long2ObjectOpenHashMap<>()).putIfAbsent(key, s);
             l.setBlock(p, Blocks.AIR.defaultBlockState(), 2 | 16);
             l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, s), p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5, 8, 0.3, 0.3, 0.3, 0.05);

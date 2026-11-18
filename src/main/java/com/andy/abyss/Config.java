@@ -44,7 +44,8 @@ public final class Config {
 
     // client
     public static ForgeConfigSpec.DoubleValue fxDensity, screenShake;
-    public static ForgeConfigSpec.BooleanValue crystalSkin, angelEyesHud, domainFog;
+    public static ForgeConfigSpec.BooleanValue crystalSkin, angelEyesHud, domainFog, damageNumbers, slotCastsImmediately;
+    public static ForgeConfigSpec.ConfigValue<String> wheelOrder;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -118,6 +119,9 @@ public final class Config {
         crystalSkin = putC(c.comment("Show Abyss users as the crystalline void body").define("crystalSkin", true), "crystalSkin");
         angelEyesHud = putC(c.comment("Show Combat Power and stats of what you look at").define("angelEyesHud", true), "angelEyesHud");
         domainFog = putC(c.define("domainFog", true), "domainFog");
+        damageNumbers = putC(c.comment("Floating damage numbers on Arsenal hits").define("damageNumbers", true), "damageNumbers");
+        slotCastsImmediately = putC(c.comment("X + 1-8: use the skill in that place right away (false: only select it)").define("slotCastsImmediately", true), "slotCastsImmediately");
+        wheelOrder = putC(c.comment("Order of the skills on the wheel (drag them in the wheel to change it)").define("wheelOrder", ""), "wheelOrder");
         CLIENT_SPEC = c.build();
     }
 

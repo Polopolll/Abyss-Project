@@ -24,6 +24,11 @@ public final class Net {
         CH.registerMessage(i++, S2CFx.class, S2CFx::write, S2CFx::read, S2CFx::handle);
         CH.registerMessage(i++, S2CCp.class, S2CCp::write, S2CCp::read, S2CCp::handle);
         CH.registerMessage(i++, S2CInfection.class, S2CInfection::write, S2CInfection::read, S2CInfection::handle);
+        CH.registerMessage(i++, C2SInput.class, C2SInput::write, C2SInput::read, C2SInput::handle);
+        CH.registerMessage(i++, C2SRealmTarget.class, C2SRealmTarget::write, C2SRealmTarget::read, C2SRealmTarget::handle);
+        CH.registerMessage(i++, S2CMove.class, S2CMove::write, S2CMove::read, S2CMove::handle);
+        CH.registerMessage(i++, S2CHit.class, S2CHit::write, S2CHit::read, S2CHit::handle);
+        CH.registerMessage(i++, S2CSouls.class, S2CSouls::write, S2CSouls::read, S2CSouls::handle);
         CH.registerMessage(i++, S2CWorld.class, S2CWorld::write, S2CWorld::read, S2CWorld::handle);
     }
 

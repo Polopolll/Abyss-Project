@@ -35,8 +35,9 @@ public final class Actions {
             case C2SAction.CAST_START -> {
                 if (Triangle.of(p) != null) { Triangle.push(p); return; }
                 Ability a = Ability.byIndex(d.selected);
-                if (a == null || !ready(p, a)) return;
-                if (a.charged) {
+                if (a == null || a.type == Ability.Type.CLIENT || !ready(p, a)) return;
+                if (a == Ability.DOMAIN && Domains.ownedBy(p.getUUID()) != null) { Forms.toggle(p, Ability.DOMAIN); return; }
+                if (a.charged()) {
                     d.chargeAbility = a.ordinal(); d.charge = 0; d.dirty = true;
                     Util.sound(p.serverLevel(), p.position(), ModSounds.CHARGE.get(), 1.2f, 0.5f);
                 } else cast(p, a);
@@ -66,9 +67,9 @@ public final class Actions {
             case C2SAction.ORDER -> Bodies.order(p, arg / 8, arg % 8);
             case C2SAction.ORDER_ALL -> Bodies.order(p, -1, arg);
             case C2SAction.RECALL_ONE -> Bodies.recall(p, arg);
-            case C2SAction.TOGGLE_COMBAT -> { d.combat = !d.combat; d.comboStep = 0; d.dirty = true; }
-            case C2SAction.M1 -> { if (d.combat) Combat.m1(p, arg); }
-            case C2SAction.HEAVY -> { if (d.combat) Combat.heavy(p, arg); }
+            case C2SAction.SEND_CLONE -> sendClone(p);
+            case C2SAction.DESCEND -> Bodies.descend(p);
+            case C2SAction.CAST_SLOT -> { if (Ability.byIndex(arg) != null) { d.selected = arg; d.dirty = true; handle(p, C2SAction.CAST_START, 0); } }
             default -> {}
         }
     }
@@ -105,17 +106,10 @@ public final class Actions {
 
     public static void cast(ServerPlayer p, Ability a) {
         AbyssData d = AbyssData.get(p);
-        ServerLevel l = p.serverLevel();
         switch (a) {
-            case DOMAIN -> { if (d.domainVariant == 1) Domains.closed(p, Math.max(d.charge, 20)); else Domains.open(p, Math.max(d.charge, 20)); }
-            case RIFT -> { return; } // the client opens the rift screen
-            case BEELZEBUB -> {
-                if (!d.spend(30)) { noOutput(p); return; }
-                Util.Aim aim = Util.aim(p, 24);
-                LivingEntity t = aim.entity();
-                if (t == null) t = domainTarget(p);
-                if (t != null) Beelzebub.devour(p, p, t); else Beelzebub.mouth(p, l, aim.point());
-                Bodies.mirror(p, "beelzebub");
+            case DOMAIN -> {
+                if (d.domainVariant == 1) Domains.closed(p, Math.max(d.charge, 20)); else Domains.open(p, Math.max(d.charge, 20));
+                if (Domains.ownedBy(p.getUUID()) != null && d.form != Ability.DOMAIN.ordinal()) Forms.toggle(p, Ability.DOMAIN);
             }
             case TRIANGLE -> {
                 LivingEntity t = Util.aim(p, 32).entity();
@@ -124,24 +118,34 @@ public final class Actions {
                 if (!d.spend(20)) { noOutput(p); return; }
                 if (!Triangle.start(p, t)) return;
             }
-            case SEND_CLONE -> {
-                if (!d.spend(40)) { noOutput(p); return; }
-                Vec3 at = Util.aim(p, 64).point();
-                Vec3 pos = Rifts.safe(l, at.x, at.y, at.z);
-                if (!Bodies.sendClone(p, l, pos)) d.output += 40;
-            }
-            case BROOD -> { if (!d.spend(50)) { noOutput(p); return; } Beelzebub.brood(p); }
-            case VOLLEY -> { if (!d.spend(15)) { noOutput(p); return; } Beelzebub.volley(p); }
             case NEGATION -> {
                 d.negation = !d.negation;
                 p.displayClientMessage(Component.literal("§5Negation " + (d.negation ? "§fON" : "§7off")), true);
             }
-            case RECALL -> Bodies.recall(p, -1);
-            case DESCEND -> Bodies.descend(p);
+            case SPORES, ARSENAL, AUTHORITY, BEELZEBUB, BODIES -> { Forms.toggle(p, a); return; }
+            default -> { return; }
         }
         cooldown(p, a);
         mastery(p, 0.05f);
         d.dirty = true;
+    }
+
+    public static void castDevour(ServerPlayer p) {
+        AbyssData d = AbyssData.get(p);
+        if (!d.spend(30)) { noOutput(p); return; }
+        Util.Aim aim = Util.aim(p, 24);
+        LivingEntity t = aim.entity();
+        if (t == null) t = domainTarget(p);
+        if (t != null) Beelzebub.devour(p, p, t); else Beelzebub.mouth(p, p.serverLevel(), aim.point());
+        Bodies.mirror(p, "beelzebub");
+    }
+
+    public static void sendClone(ServerPlayer p) {
+        AbyssData d = AbyssData.get(p);
+        if (!d.spend(40)) { noOutput(p); return; }
+        Vec3 at = Util.aim(p, 64).point();
+        ServerLevel l = p.serverLevel();
+        if (!Bodies.sendClone(p, l, Rifts.safe(l, at.x, at.y, at.z))) d.output += 40;
     }
 
     private static LivingEntity domainTarget(ServerPlayer p) {
@@ -189,6 +193,10 @@ public final class Actions {
         if (d.has("water_breathing") && p.getAirSupply() < p.getMaxAirSupply()) p.setAirSupply(p.getMaxAirSupply());
         if (d.has("fire_immune") && p.isOnFire()) p.clearFire();
         if (gt % 40 == 0) Bodies.rememberOutside(p);
+        Arsenal.tick(p);
+        Realm.tick(p);
+        if (d.inhaleUntil > gt) Beelzebub.inhaleTick(p);
+        if (d.form == Ability.DOMAIN.ordinal() && Domains.ownedBy(p.getUUID()) == null) Forms.close(p);
         if (gt % 10 == 0) Sovereignty.lockMaxHealth(p);
         if (gt % 100 == 0) Bodies.saveTo(p);
         if (AbyssDim.is(p.level()) && p.getY() < -60) {
@@ -204,6 +212,12 @@ public final class Actions {
         t.putFloat("cap", d.outputCap());
         t.putBoolean("inf", d.isInfinite());
         t.putBoolean("cooldowns", Config.cooldownsEnabled.get());
+        t.putLong("counterLeft", Math.max(0, d.counterUntil - p.level().getGameTime()));
+        t.putBoolean("inRealm", AbyssDim.is(p.level()));
+        t.putBoolean("guarding", d.guardSince >= 0);
+        t.putInt("chain", d.comboStep);
+        t.putLong("chainLeft", Math.max(0, d.chainUntil - p.level().getGameTime()));
+        t.putBoolean("inhaling", d.inhaleUntil > p.level().getGameTime());
         t.putFloat("charge", d.charge);
         t.putInt("chargeAbility", d.chargeAbility);
         t.put("bodies", Bodies.rosterTag(p));

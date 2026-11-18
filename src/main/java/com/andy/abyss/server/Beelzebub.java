@@ -177,6 +177,48 @@ public final class Beelzebub {
         Actions.mastery(p, 0.2f);
     }
 
+    // ---------------- Inhale ----------------
+
+    /** The mouth inhales for three seconds. */
+    public static void inhale(ServerPlayer p) {
+        AbyssData d = AbyssData.get(p);
+        d.inhaleUntil = p.level().getGameTime() + 60;
+        Util.fx(p.serverLevel(), S2CFx.INHALE, maw(p), 60, 0, 0, p.getId(), -1);
+        Util.sound(p.serverLevel(), p.position(), ModSounds.DEVOUR.get(), 2f, 0.4f);
+    }
+
+    static Vec3 maw(ServerPlayer p) { return p.getEyePosition().add(p.getLookAngle().scale(2.2)).subtract(0, 0.2, 0); }
+
+    public static void inhaleTick(ServerPlayer p) {
+        ServerLevel l = p.serverLevel();
+        Vec3 m = maw(p);
+        int mine = CombatPower.of(p);
+        for (Entity e : l.getEntities(p, new AABB(m, m).inflate(12), x -> x.isAlive() && !(x instanceof com.andy.abyss.entity.Rift))) {
+            if (Util.friend(p.getUUID(), e)) continue;
+            Vec3 in = m.subtract(e.position().add(0, e.getBbHeight() / 2, 0));
+            double dist = in.length();
+            if (dist > 12) continue;
+            if (dist < 1.6) {
+                if (e instanceof Projectile pr) {
+                    ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(pr.getType());
+                    Absorbed a = new Absorbed();
+                    a.type = id.toString(); a.name = pr.getType().getDescription().getString(); a.flags.add("ranged:" + id);
+                    merge(AbyssData.get(p), a);
+                    pr.discard();
+                } else if (e instanceof net.minecraft.world.entity.item.ItemEntity it) {
+                    it.discard();
+                } else if (e instanceof LivingEntity le && !(le instanceof Player) && (CombatPower.of(le) <= mine * Config.beelzebubCpRatio.get() || le.getHealth() < le.getMaxHealth() * 0.3f)) {
+                    devour(p, p, le);
+                }
+                continue;
+            }
+            double pull = e instanceof LivingEntity ? 0.12 : 0.3;
+            if (e instanceof LivingEntity le) pull *= 1 - le.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE) * 0.6;
+            e.setDeltaMovement(e.getDeltaMovement().scale(0.85).add(in.normalize().scale(pull * (1.4 - dist / 12))));
+            e.hurtMarked = true;
+        }
+    }
+
     // ---------------- Brood: puppets ----------------
 
     public static void brood(ServerPlayer p) {

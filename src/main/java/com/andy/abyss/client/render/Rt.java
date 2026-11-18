@@ -15,7 +15,7 @@ public final class Rt extends RenderType {
             FILL = Abyss.id("textures/fx/void_fill.png"), RIFT = Abyss.id("textures/fx/rift.png"), GLOW = Abyss.id("textures/fx/glow.png"),
             CORE = Abyss.id("textures/fx/core.png"), RING = Abyss.id("textures/fx/ring.png"), SPARK = Abyss.id("textures/fx/spark.png"),
             WHITE = Abyss.id("textures/fx/white.png"), STREAK = Abyss.id("textures/fx/streak.png"), SHARD = Abyss.id("textures/fx/shard.png"),
-            TOOTH = Abyss.id("textures/fx/tooth.png"), INFECTION = Abyss.id("textures/fx/infection.png");
+            TOOTH = Abyss.id("textures/fx/tooth.png"), INFECTION = Abyss.id("textures/fx/infection.png"), BODY_CORE = Abyss.id("textures/fx/core_mask.png");
 
     private static final Map<ResourceLocation, RenderType> VOID = new HashMap<>(), VOID_FX = new HashMap<>(), ADD = new HashMap<>(), ALPHA = new HashMap<>(), ADD_TRI = new HashMap<>(), VOID_TRI = new HashMap<>();
     private static final ShaderStateShard VOID_SHADER = new ShaderStateShard(() -> AbyssShaders.VOID);
@@ -48,6 +48,15 @@ public final class Rt extends RenderType {
                         .setDepthTestState(LEQUAL_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).setLightmapState(NO_LIGHTMAP).createCompositeState(false));
     }
 
+    private static final Map<ResourceLocation, RenderType> XRAY = new HashMap<>();
+    /** Additive glow drawn through walls (souls seen from the Realm). */
+    public static RenderType xray(ResourceLocation t) {
+        return XRAY.computeIfAbsent(t, x -> create("abyss_xray_" + x.getPath(), DefaultVertexFormat.POSITION_COLOR_TEX, VertexFormat.Mode.QUADS, 1 << 14, false, false,
+                CompositeState.builder().setShaderState(POSITION_COLOR_TEX_SHADER).setTextureState(new TextureStateShard(x, false, false))
+                        .setTransparencyState(LIGHTNING_TRANSPARENCY).setCullState(NO_CULL).setDepthTestState(NO_DEPTH_TEST)
+                        .setWriteMaskState(COLOR_WRITE).setLightmapState(NO_LIGHTMAP).createCompositeState(false)));
+    }
+
     public static RenderType add(ResourceLocation t) { return ADD.computeIfAbsent(t, x -> sprite("add_" + x.getPath(), x, true, VertexFormat.Mode.QUADS)); }
     public static RenderType alpha(ResourceLocation t) { return ALPHA.computeIfAbsent(t, x -> sprite("alpha_" + x.getPath(), x, false, VertexFormat.Mode.QUADS)); }
     public static RenderType addTri(ResourceLocation t) { return ADD_TRI.computeIfAbsent(t, x -> sprite("addtri_" + x.getPath(), x, true, VertexFormat.Mode.TRIANGLES)); }
@@ -62,6 +71,6 @@ public final class Rt extends RenderType {
         return INFECT;
     }
 
-    public static boolean isAdditive(RenderType t) { return ADD.containsValue(t) || ADD_TRI.containsValue(t); }
+    public static boolean isAdditive(RenderType t) { return ADD.containsValue(t) || ADD_TRI.containsValue(t) || XRAY.containsValue(t); }
     public static boolean isVoid(RenderType t) { return t == INFECT || VOID_FX.containsValue(t) || VOID_TRI.containsValue(t); }
 }

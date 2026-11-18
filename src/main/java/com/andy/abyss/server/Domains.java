@@ -44,6 +44,7 @@ public final class Domains {
         final List<UUID> moved = new ArrayList<>(); final Map<UUID, Vec3> returnTo = new HashMap<>(); final Map<UUID, ServerLevel> returnLevel = new HashMap<>();
         final List<BlockPos> placed = new ArrayList<>();
         /** What the domain's rot replaced, so the world can heal afterwards. */
+        boolean collapsing;
         final it.unimi.dsi.fastutil.longs.LongOpenHashSet infected = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         Domain(int id, UUID owner, ServerLevel l, Vec3 c, double max, boolean closed, boolean small, int duration) {
             this.id = id; this.owner = owner; this.level = l; this.center = c; this.max = max; this.closed = closed; this.small = small; this.duration = duration;
@@ -139,6 +140,7 @@ public final class Domains {
         boolean ownerGone = owner == null || !owner.isAlive();
         if (d.age >= d.duration || (ownerGone && !d.small)) { end(d); return; }
         if (d.age % 10 == 0) weigh(d, owner);
+        if (d.age % 30 == 15 && !d.small && !d.collapsing) rain(d, owner, 1f, 0.6f);
         if (!d.small) decay(d);
         if (d.age % 50 == 25 && !d.small) pulse(d, owner);
         if (d.closed) {
@@ -266,6 +268,75 @@ public final class Domains {
                 it.discard();
             }
         }
+    }
+
+    /** Sure-hit spears: crystal erupts under every enemy inside at once. Also the domain's own rain every 1.5 s. */
+    public static void spears(Domain d, ServerPlayer owner) {
+        if (owner != null) {
+            var data = com.andy.abyss.data.AbyssData.get(owner);
+            long now = owner.level().getGameTime();
+            if (now < data.nextDomainSpears) return;
+            data.nextDomainSpears = now + 10;
+        }
+        rain(d, owner, 3f, 1.0f);
+    }
+
+    private static void rain(Domain d, ServerPlayer owner, float mult, float size) {
+        int ocp = owner != null ? CombatPower.of(owner) : 500;
+        List<LivingEntity> hit = new ArrayList<>();
+        for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius), x -> x.isAlive() && d.contains(x))) {
+            if (Util.friend(d.owner, e) || e instanceof Player pl && pl.isCreative()) continue;
+            hit.add(e);
+            Util.fx(d.level, S2CFx.DOMAIN_SPEARS, e.position(), size, mult > 1 ? 1 : 0, 0, e.getId(), -1);
+        }
+        if (hit.isEmpty()) return;
+        Util.sound(d.level, d.center, ModSounds.IMPACT.get(), 1.5f, mult > 1 ? 0.8f : 1.3f);
+        Scheduler.later(6, () -> {
+            for (LivingEntity e : hit) {
+                if (!e.isAlive()) continue;
+                double ratio = Math.max(0.5, Math.min(6, ocp / (double) Math.max(1, CombatPower.of(e))));
+                Util.hurt(d.owner, owner, e, (float) (Config.domainCrush.get() * mult * ratio), "abyss");
+                e.setDeltaMovement(e.getDeltaMovement().add(0, 0.35 * size, 0));
+                e.hurtMarked = true;
+            }
+        });
+    }
+
+    public static void pulseNow(Domain d, ServerPlayer owner) {
+        if (owner != null) {
+            var data = com.andy.abyss.data.AbyssData.get(owner);
+            long now = owner.level().getGameTime();
+            if (now < data.nextDomainSpears) return;
+            data.nextDomainSpears = now + 10;
+        }
+        pulse(d, owner);
+    }
+
+    /** The finale: everything inside is dragged to the centre for 1.5 s, the domain implodes on it, and ends. */
+    public static void collapse(Domain d, ServerPlayer owner) {
+        if (d.collapsing) return;
+        d.collapsing = true;
+        Util.fx(d.level, S2CFx.DOMAIN_COLLAPSE, d.center, (float) d.radius, 0, 0);
+        Util.sound(d.level, d.center, ModSounds.DOMAIN.get(), 4f, 0.3f);
+        int ocp = owner != null ? CombatPower.of(owner) : 500;
+        Scheduler.repeat(0, 2, 15, i -> {
+            for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius), x -> x.isAlive() && d.contains(x))) {
+                if (Util.friend(d.owner, e)) continue;
+                Vec3 in = d.center.subtract(e.position());
+                e.setDeltaMovement(in.normalize().scale(Math.min(1.4, 0.2 + in.length() * 0.08)));
+                e.hurtMarked = true;
+            }
+        });
+        Scheduler.later(32, () -> {
+            Util.sound(d.level, d.center, ModSounds.NUKE.get(), 5f, 0.5f);
+            for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius), x -> x.isAlive() && d.contains(x))) {
+                if (Util.friend(d.owner, e)) continue;
+                double ratio = Math.max(0.5, Math.min(6, ocp / (double) Math.max(1, CombatPower.of(e))));
+                Util.hurt(d.owner, owner, e, (float) (Config.domainCrush.get() * 12 * ratio), "inside_out");
+                Corrosion.add(e, 4, 400);
+            }
+            end(d);
+        });
     }
 
     /** Every few seconds the domain breathes: a pressure wave rolls out, slamming everything down and inward. */

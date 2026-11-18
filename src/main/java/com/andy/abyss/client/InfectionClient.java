@@ -15,7 +15,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Infected blocks keep their own texture; the abyss is drawn over each exposed face: violet-edged galaxy veins that
- * spread through five stages. Each face picks one of four patterns and one of four rotations from its position, so
+ * spread through eight stages. Each face picks one of four patterns and one of four rotations from its position, so
  * neighbouring blocks never repeat.
  */
 public final class InfectionClient {
@@ -75,7 +75,7 @@ public final class InfectionClient {
         long h = key * 31 + dir.ordinal() * 0x9E3779B97F4A7C15L;
         h ^= h >>> 29; h *= 0xBF58476D1CE4E5B9L; h ^= h >>> 32;
         int variant = (int) (h & 3), rot = (int) ((h >>> 2) & 3);
-        float u0 = variant * 0.25f, v0 = (stage - 1) * 0.2f, u1 = u0 + 0.25f, v1 = v0 + 0.2f;
+        float u0 = variant * 0.25f, v0 = (Math.min(stage, 8) - 1) * 0.125f, u1 = u0 + 0.25f, v1 = v0 + 0.125f;
         float[][] uv = {{u0, v1}, {u1, v1}, {u1, v0}, {u0, v0}};
         double x0 = p.getX() + b.minX, y0 = p.getY() + b.minY, z0 = p.getZ() + b.minZ, x1 = p.getX() + b.maxX, y1 = p.getY() + b.maxY, z1 = p.getZ() + b.maxZ;
         double[][] q = switch (dir) {

@@ -9,7 +9,9 @@ import com.andy.abyss.net.S2CWorld;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -30,11 +32,15 @@ public final class FxManager {
         Fx f = new Fx();
         f.p = p; f.seed = R.nextLong(); f.pos = new Vec3(p.x(), p.y(), p.z());
         f.life = switch (p.type()) {
-            case S2CFx.NUKE -> 50; case S2CFx.IMPLODE -> 14; case S2CFx.DEVOUR -> 26; case S2CFx.TRANSPORT -> 22; case S2CFx.DISINTEGRATE -> 30;
-            case S2CFx.RIFT_OPEN -> 16; case S2CFx.SWAP -> 18; case S2CFx.NEGATE -> 10; case S2CFx.CLONE_SPAWN -> 22; case S2CFx.CLONE_DEATH -> 26;
-            case S2CFx.TRIANGLE_END -> 24; case S2CFx.STEP -> 14; case S2CFx.CHARGE -> 10; case S2CFx.VOLLEY -> 6; case S2CFx.AWAKEN -> 70;
-            case S2CFx.DOMAIN_CAST -> 30; case S2CFx.SPREAD -> 14; case S2CFx.DOMAIN_PULSE -> 30; case S2CFx.COMBO -> p.a() == 5 ? 22 : p.a() == 4 ? 16 : 12;
-            case S2CFx.BEAM -> 16; case S2CFx.PLUNGE -> 24; case S2CFx.LUNGE -> 12; case S2CFx.REFORM -> 30; default -> 20;
+            // build-up, impact, linger: nothing pops in and out
+            case S2CFx.NUKE -> 96; case S2CFx.IMPLODE -> p.b() == 1 ? 20 : 24; case S2CFx.DEVOUR -> 42; case S2CFx.TRANSPORT -> 38; case S2CFx.DISINTEGRATE -> 46;
+            case S2CFx.RIFT_OPEN -> 30; case S2CFx.SWAP -> 28; case S2CFx.NEGATE -> 16; case S2CFx.CLONE_SPAWN -> 36; case S2CFx.CLONE_DEATH -> 38;
+            case S2CFx.TRIANGLE_END -> 42; case S2CFx.STEP -> 24; case S2CFx.CHARGE -> 12; case S2CFx.VOLLEY -> 10; case S2CFx.AWAKEN -> 110;
+            case S2CFx.DOMAIN_CAST -> 72; case S2CFx.SPREAD -> 26; case S2CFx.DOMAIN_PULSE -> 42; case S2CFx.COMBO -> p.a() == 5 ? 22 : p.a() == 4 ? 16 : 12;
+            case S2CFx.BEAM -> 24; case S2CFx.PLUNGE -> 30; case S2CFx.LUNGE -> 14; case S2CFx.REFORM -> 42;
+            case S2CFx.DOMAIN_SPEARS -> 30; case S2CFx.DOMAIN_COLLAPSE -> 46; case S2CFx.INHALE -> (int) Math.max(10, p.a()) + 8; case S2CFx.DODGE -> 14;
+            case S2CFx.PERFECT_DODGE -> 34; case S2CFx.FORGE -> 16; case S2CFx.REALM_ENTER, S2CFx.REALM_EXIT -> 40; case S2CFx.PEEK -> p.a() == 2 ? 20 : 30;
+            case S2CFx.FORM_OPEN -> 26; case S2CFx.GUARD -> 12; default -> 20;
         };
         ACTIVE.add(f);
         var mc = Minecraft.getInstance();
@@ -57,6 +63,15 @@ public final class FxManager {
             case S2CFx.PLUNGE -> { ClientState.pose(p.e1(), 7); shake = Math.max(shake, k * (float) Math.max(0, 1.2 - dist / 25)); }
             case S2CFx.LUNGE -> ClientState.pose(p.e1(), 1);
             case S2CFx.REFORM -> { if (p.e1() == mc.player.getId()) { flash = 0.8f; flashColor = 0x05020A; } }
+            case S2CFx.DOMAIN_COLLAPSE -> { if (dist < p.a() * 2) shake = Math.max(shake, k * 0.6f); }
+            case S2CFx.PERFECT_DODGE -> { if (p.e1() == mc.player.getId()) { ClientState.slowUntil = ClientState.ticks + 40; flash = 0.35f; flashColor = 0xE8F4FF; } }
+            case S2CFx.FORGE -> MoveFx.forge(p.e1(), com.andy.abyss.combat.Weapon.byIndex((int) p.a()));
+            case S2CFx.FORM_OPEN -> { if (p.b() == 1 && (int) p.a() == Ability.ARSENAL.ordinal()) MoveFx.forge(p.e1(), com.andy.abyss.combat.Weapon.byIndex((int) p.c())); }
+            case S2CFx.REALM_ENTER, S2CFx.REALM_EXIT -> { if (p.e1() == mc.player.getId() && p.a() == 1) { flash = 0.9f; flashColor = p.type() == S2CFx.REALM_ENTER ? 0x05020A : 0xF0E8FF; shake = Math.max(shake, k * 0.4f); } }
+            case S2CFx.GUARD -> {
+                if (p.a() == 2 && p.e1() == mc.player.getId()) shake = Math.max(shake, k * 0.25f);
+                if (p.a() == 1) ClientState.pose(p.e1(), com.andy.abyss.combat.Moves.P_BLOCK, 1_000_000); else if (p.a() == 0) ClientState.POSES.remove(p.e1());
+            }
             default -> {}
         }
     }
@@ -98,6 +113,9 @@ public final class FxManager {
                 d.billboard(Rt.GLOW, true, m.p, 0.12f, 0x7A45E0, 0.35f * a, 0);
             }
             for (Fx f : ACTIVE) draw(d, f, pt);
+            MoveFx.render(d);
+            auras(d);
+            souls(d);
         } catch (Exception ex) {
             com.andy.abyss.Abyss.LOG.debug("abyss fx", ex);
         }
@@ -219,19 +237,36 @@ public final class FxManager {
                 if (t < 0.3f) d.voidSphere(at, 0.6 + t * 2, 0.9f * (1 - t / 0.3f), 0.2f, 0xFFFFFF);
             }
             case S2CFx.IMPLODE -> {
-                float rad = p.a() * (1 - t);
-                d.glowShell(c, Math.max(0.2, rad), 0xC0A0FF, 0.9f);
-                for (int i = 0; i < 40; i++) {
+                // the gathering: space is drawn in, rings tighten, light bends round a growing seed
+                boolean inside = p.b() == 1;
+                Vec3 at = inside && e1 != null ? e1.getPosition(pt).add(0, e1.getBbHeight() * 0.5, 0) : c;
+                float R0 = Math.max(1.5f, p.a());
+                float k = t * t;
+                d.glowShell(at, Math.max(0.2, R0 * 1.3 * (1 - k)), 0xC0A0FF, 0.5f + 0.4f * t);
+                d.flat(Rt.RING, true, at, new Vec3(0.2, 1, 0.1), R0 * 1.6f * (1 - k) + 0.3f, 0xE8DCFF, 0.9f, (float) d.time * 3);
+                d.flat(Rt.RING, true, at, new Vec3(-0.3, 1, 0.4), R0 * 1.2f * (1 - k) + 0.3f, 0x8C55FF, 0.7f, (float) -d.time * 4);
+                for (int i = 0; i < 48; i++) {
                     Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                    Vec3 from = c.add(dir.scale(p.a() * 1.5 * (1 - t)));
-                    d.beam(Rt.STREAK, true, from, from.add(dir.scale(-1.2)), 0.08f, 0x9C6BFF, 0.8f);
+                    float ph = (float) ((t * 2 + r.nextDouble()) % 1.0);
+                    Vec3 from = at.add(dir.scale(R0 * 2 * (1 - ph)));
+                    d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.25)), 0.07f, ph > 0.7f ? 0xFFFFFF : 0x9C6BFF, 0.85f * ph);
                 }
-                d.voidSphere(c, 0.3 + t * 0.9, 1f, 0.1f, 0xFFFFFF);
+                if (inside && e1 != null) {
+                    // the host's body cracks with light from within
+                    for (int i = 0; i < 10; i++) {
+                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                        Vec3 q = at.add(dir.multiply(e1.getBbWidth() * 0.55, e1.getBbHeight() * 0.5, e1.getBbWidth() * 0.55));
+                        d.beam(Rt.STREAK, true, at, q.add(dir.scale(0.3 * t)), 0.06f + 0.1f * t, 0xE8DCFF, 0.4f + 0.6f * t);
+                    }
+                    d.glowShell(at, Math.max(e1.getBbWidth(), e1.getBbHeight()) * 0.6, 0xFFFFFF, t);
+                }
+                d.voidSphere(at, 0.15 + t * 0.7, 1f, 0.1f, 0xFFFFFF);
+                if (t > 0.85f) d.billboard(Rt.GLOW, true, at, R0 * 1.5f * (t - 0.85f) / 0.15f, 0xFFFFFF, d.near(at, 1), 0);
             }
             case S2CFx.NUKE -> {
                 boolean inside = p.b() == 1;
                 float R0 = p.a();
-                float grow = Math.min(1f, t / 0.15f), shrink = t < 0.45f ? 1 : 1 - (t - 0.45f) / 0.55f;
+                float grow = 1 - (float) Math.pow(1 - Math.min(1f, t / 0.1f), 3), shrink = t < 0.5f ? 1 : (float) Math.pow(1 - (t - 0.5f) / 0.5f, 1.6);
                 Vec3 at = inside && e1 != null ? e1.getPosition(pt).add(0, e1.getBbHeight() * 0.5, 0) : c;
                 d.voidSphere(at, R0 * grow * shrink * (inside ? 0.7 : 1), 1f, 0.15f, 0xFFFFFF);
                 d.glowShell(at, R0 * grow * 1.05, 0xD8C8FF, 0.9f * shrink);
@@ -239,6 +274,14 @@ public final class FxManager {
                 d.flat(Rt.RING, true, at.subtract(0, Math.min(R0 * 0.5, 2), 0), new Vec3(0, 1, 0), ring, 0xF0E8FF, 0.9f * (1 - t), 0);
                 d.flat(Rt.RING, true, at, d.fwdVec(), ring * 0.8f, 0xB080FF, 0.6f * (1 - t), 0);
                 if (t < 0.12f) d.billboard(Rt.GLOW, true, at, R0 * 3, 0xFFFFFF, (1 - t / 0.12f) * d.near(at, R0), 0);
+                if (t > 0.08f && t < 0.6f) { float k2 = (t - 0.08f) / 0.52f; d.flat(Rt.RING, true, at.subtract(0, Math.min(R0 * 0.5, 2) - 0.05, 0), new Vec3(0, 1, 0), R0 * (1 + k2 * 4), 0x8C55FF, 0.7f * (1 - k2), 0); }
+                // the surface churns: violet seams crawl over the sphere while it holds
+                if (t > 0.1f && t < 0.5f) for (int i = 0; i < 12; i++) {
+                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                    Vec3 tan = dir.cross(new Vec3(0, 1, 0)).normalize();
+                    Vec3 q = at.add(dir.scale(R0 * grow * shrink * (inside ? 0.7 : 1) * 1.01));
+                    d.beam(Rt.STREAK, true, q, q.add(tan.scale(R0 * 0.3 * Math.sin(d.time * 3 + i))), 0.08f, 0xC8B0FF, 0.6f);
+                }
                 int shards = inside ? 16 + (int) p.c() * 2 : 28;
                 for (int i = 0; i < shards; i++) {
                     Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.7 + 0.3, r.nextGaussian()).normalize();
@@ -337,10 +380,33 @@ public final class FxManager {
                 d.flat(Rt.RING, true, at.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 2 + t * 22, 0xC0B0E0, 0.8f * (1 - t), 0);
             }
             case S2CFx.DOMAIN_CAST -> {
-                float rad = 1 + t * Math.min(p.a(), 60);
-                d.glowShell(c, rad, 0xE0D0FF, 0.9f * (1 - t));
-                d.flat(Rt.RING, true, c.subtract(0, 0.9, 0), new Vec3(0, 1, 0), rad * 1.1f, 0xFFFFFF, 0.8f * (1 - t), 0);
-                if (t < 0.2f) d.billboard(Rt.GLOW, true, c, 8, 0x2A1048, (1 - t / 0.2f) * d.near(c, 4), 0);
+                // 0-.22: a singularity forms (space pours into a point); .22: white-out; then the shell at lightspeed
+                float R0 = Math.min(p.a(), 80);
+                if (t < 0.22f) {
+                    float k = t / 0.22f;
+                    d.voidSphere(c, 0.2 + k * 1.4, 1, 0.1f, 0xFFFFFF);
+                    d.glowShell(c, 0.4 + k * 1.6, 0xFFFFFF, 0.8f);
+                    d.flat(Rt.RING, true, c, new Vec3(0.15, 1, 0.1), 5 - k * 3.4f, 0xD8C8FF, 0.9f, (float) d.time * 5);
+                    for (int i = 0; i < 40; i++) {
+                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                        float ph = (float) ((k * 3 + r.nextDouble()) % 1.0);
+                        Vec3 from = c.add(dir.scale(14 * (1 - ph)));
+                        d.beam(Rt.STREAK, true, from, from.add(dir.scale(-2)), 0.1f, 0xB58CFF, ph);
+                    }
+                } else {
+                    float k = (t - 0.22f) / 0.78f;
+                    float rad = 1.5f + R0 * (1 - (float) Math.pow(1 - Math.min(1, k * 2.2f), 3));
+                    float out = 1 - Math.max(0, (k - 0.45f) / 0.55f);
+                    if (k < 0.08f) d.billboard(Rt.GLOW, true, c, R0 * 0.8f, 0xFFFFFF, (1 - k / 0.08f) * d.near(c, 4), 0);
+                    d.glowShell(c, rad, 0xF0E8FF, 0.95f * out);
+                    d.glowShell(c, rad * 0.96, 0x8C55FF, 0.6f * out);
+                    for (int i = 0; i < 3; i++) d.flat(Rt.RING, true, c.subtract(0, 0.9, 0), new Vec3(0, 1, 0), rad * (1.05f + i * 0.08f), i == 0 ? 0xFFFFFF : 0x9C6BFF, 0.8f * out * (1 - i * 0.3f), 0);
+                    d.flat(Rt.RING, true, c, d.fwdVec(), rad * 0.7f, 0xD8C8FF, 0.5f * out, 0);
+                    for (int i = 0; i < 30; i++) {
+                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6, r.nextGaussian()).normalize();
+                        d.voidShard(c.add(dir.scale(rad * (0.85 + r.nextDouble() * 0.15))), dir, 1.2f * out, 0.12f, out);
+                    }
+                }
             }
             case S2CFx.DOMAIN_PULSE -> {
                 float rad = p.a() * t;
@@ -403,7 +469,62 @@ public final class FxManager {
                 d.voidSphere(at, 1.1 * (1 - t), 1 - t, 0.5f, 0xFFFFFF);
                 d.glowShell(at, 0.5 + t * 3, 0xE8DCFF, 0.8f * (1 - t));
             }
+            case S2CFx.DOMAIN_SPEARS -> spears(d, f, pt, t, r);
+            case S2CFx.DOMAIN_COLLAPSE -> collapse(d, f, t, r);
+            case S2CFx.INHALE -> inhale(d, f, pt, r);
+            case S2CFx.DODGE -> {
+                Vec3 dir = new Vec3(p.a(), 0, p.b());
+                for (int i = 0; i < 4; i++) {
+                    float k = Mth.clamp(t * 1.4f - i * 0.12f, 0, 1);
+                    Vec3 at = c.subtract(dir.scale(0.4 + i * 0.7)).add(0, -0.05, 0);
+                    d.voidBillboard(Rt.BODY_CORE, at, 0.3f, 0.92f, 0.6f * (1 - k), 0);
+                }
+                d.beam(Rt.STREAK, true, c.subtract(dir.scale(3)), c, 0.6f * (1 - t), 0x9C6BFF, 0.7f * (1 - t));
+                d.flat(Rt.RING, true, c.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 0.6f + t * 1.6f, 0xB58CFF, 0.6f * (1 - t), 0);
+            }
+            case S2CFx.PERFECT_DODGE -> {
+                Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1, 0) : c;
+                float k = Mth.clamp(t * 2.2f, 0, 1);
+                d.glowShell(at, 0.8 + k * 9, 0xE8F4FF, 0.85f * (1 - t));
+                d.flat(Rt.RING, true, at.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 1 + k * 10, 0xFFFFFF, 0.9f * (1 - t), 0);
+                // a clock face of crystal ticks: time catching its breath
+                for (int i = 0; i < 12; i++) {
+                    double a = i * Math.PI / 6 + t * 0.6;
+                    Vec3 q = at.add(Math.cos(a) * (2.2 + k), -0.4, Math.sin(a) * (2.2 + k));
+                    d.voidShard(q, new Vec3(Math.cos(a), 0.2, Math.sin(a)), 0.6f * (1 - t), 0.06f, 1 - t);
+                }
+                d.voidBillboard(Rt.BODY_CORE, at.add(0, -0.05, 0), 0.33f, 0.95f, 0.8f * (1 - t), 0);
+            }
+            case S2CFx.FORGE -> {
+                Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1.2, 0) : c;
+                for (int i = 0; i < 20; i++) {
+                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                    Vec3 from = at.add(dir.scale(2.5 * (1 - t)));
+                    d.voidShard(from, dir.scale(-1), 0.3f, 0.05f, Math.min(1, t * 3) * (1 - t));
+                }
+                d.glowShell(at, 0.4 + t * 1.4, 0xD8C8FF, 0.6f * (1 - t));
+            }
+            case S2CFx.REALM_ENTER, S2CFx.REALM_EXIT -> realmGate(d, f, pt, t, r);
+            case S2CFx.PEEK -> {
+                float open = p.a() == 2 ? 1 - t : t < 0.3f ? t / 0.3f : 1 - (t - 0.3f) / 0.7f;
+                Vec3 n = d.cam.subtract(c).normalize();
+                d.flat(Rt.RING, true, c, n, 0.9f * open + 0.2f, 0xE8DCFF, 0.8f * open, (float) d.time);
+                d.flat(Rt.RING, true, c, n, 1.5f * open + 0.2f, 0x7A45E0, 0.5f * open, (float) -d.time);
+                d.voidSphere(c, 0.35 * open, open, 0.15f, 0xFFFFFF);
+                d.billboard(Rt.GLOW, true, c, 0.25f * open, 0xFFFFFF, open, 0);
+            }
+            case S2CFx.FORM_OPEN -> formOpen(d, f, pt, t, r);
+            case S2CFx.GUARD -> {
+                Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1, 0) : c;
+                Vec3 fwd = e1 != null ? Vec3.directionFromRotation(0, e1.getYRot()) : d.fwdVec();
+                Vec3 front = at.add(fwd.scale(0.8));
+                if (p.a() == 2) {
+                    for (int i = 0; i < 3; i++) d.flat(Rt.RING, true, front, fwd, 0.4f + t * (1.6f + i * 0.6f), 0xFFFFFF, (1 - t) * (1 - i * 0.25f), 0);
+                    d.billboard(Rt.GLOW, true, front, 1.4f, 0xE8DCFF, (1 - t) * d.near(front, 1), 0);
+                } else d.flat(Rt.RING, true, front, fwd, p.a() == 1 ? 0.6f + t * 0.6f : 1.2f - t * 0.8f, 0xB58CFF, 0.8f * (1 - t), 0);
+            }
             default -> {}
+
         }
     }
 
@@ -513,6 +634,226 @@ public final class FxManager {
             d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.9)), 0.07f, 0xFF4A9A, 0.6f * open);
         }
         d.glowShell(c, size * 1.7, 0xFF4A9A, 0.5f * open);
+    }
+
+    // ------------------------------------------------------------------------------------------------- new effects
+    /** Sure-hit spears: a sigil opens under the victim, then crystal erupts through it from below. */
+    private static void spears(Draw d, Fx f, float pt, float t, Random r) {
+        S2CFx p = f.p;
+        var mc = Minecraft.getInstance();
+        Entity v = mc.level.getEntity(p.e1());
+        Vec3 base = v != null && t < 0.5f ? v.getPosition(pt) : f.pos;
+        float size = Math.max(1, p.a());
+        float age = t * f.life;
+        float sig = Mth.clamp(age / 6, 0, 1) * (1 - Mth.clamp((age - 22) / 8, 0, 1));
+        d.flat(Rt.RING, true, base.add(0, 0.05, 0), new Vec3(0, 1, 0), size * 1.2f * sig, 0xE8DCFF, 0.9f * sig, (float) d.time * 2);
+        d.flat(Rt.RING, true, base.add(0, 0.06, 0), new Vec3(0, 1, 0), size * 0.8f * sig, 0x8C55FF, 0.8f * sig, (float) -d.time * 3);
+        for (int i = 0; i < 6; i++) {
+            double a = i * Math.PI / 3 + d.time;
+            Vec3 q0 = base.add(Math.cos(a) * size * 1.1 * sig, 0.07, Math.sin(a) * size * 1.1 * sig), q1 = base.add(Math.cos(a + Math.PI * 2 / 3) * size * 1.1 * sig, 0.07, Math.sin(a + Math.PI * 2 / 3) * size * 1.1 * sig);
+            d.beam(Rt.STREAK, true, q0, q1, 0.05f, 0xC8B0FF, 0.7f * sig);
+        }
+        float rise = Mth.clamp((age - 6) / 2.5f, 0, 1) * (1 - Mth.clamp((age - 20) / 9, 0, 1));
+        if (rise > 0) {
+            int n = p.b() == 1 ? 9 : 5;
+            for (int i = 0; i < n; i++) {
+                double a = i * Math.PI * 2 / n + r.nextDouble() * 0.4;
+                double rad = i == 0 ? 0 : size * 0.35 * (0.5 + r.nextDouble());
+                Vec3 b = base.add(Math.cos(a) * rad, 0, Math.sin(a) * rad);
+                Vec3 dir = new Vec3(-Math.cos(a) * rad * 0.25, 1, -Math.sin(a) * rad * 0.25);
+                d.voidShard(b, dir, (i == 0 ? 3.2f : 1.8f + r.nextFloat()) * size * 0.6f * rise, (i == 0 ? 0.24f : 0.13f) * size * 0.6f, rise);
+            }
+            if (age < 10) d.billboard(Rt.GLOW, true, base.add(0, 1, 0), size * 2, 0xFFFFFF, Math.max(0, 1 - (age - 6) / 4) * d.near(base, 1), 0);
+        }
+    }
+
+    /** The domain implodes: the shell falls inward, everything streams to the centre, then one white detonation. */
+    private static void collapse(Draw d, Fx f, float t, Random r) {
+        Vec3 c = f.pos;
+        float R0 = Math.max(4, f.p.a());
+        float age = t * f.life;
+        if (age < 32) {
+            float k = age / 32, e = k * k;
+            float rad = R0 * (1 - e) + 1;
+            d.glowShell(c, rad, 0xE8DCFF, 0.9f);
+            d.glowShell(c, rad * 0.97, 0x7A45E0, 0.6f);
+            d.flat(Rt.RING, true, c, new Vec3(0.1, 1, 0.05), rad * 1.1f, 0xFFFFFF, 0.8f, (float) d.time * (2 + k * 8));
+            for (int i = 0; i < 60; i++) {
+                Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                float ph = (float) ((age * 0.06 + r.nextDouble()) % 1.0);
+                Vec3 from = c.add(dir.scale(rad * (1 - ph)));
+                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.08 - 0.4)), 0.09f, ph > 0.6f ? 0xFFFFFF : 0x9C6BFF, 0.85f);
+            }
+            d.voidSphere(c, 0.4 + k * 2.5, 1, 0.1f, 0xFFFFFF);
+        } else {
+            float k = Mth.clamp((age - 32) / 14, 0, 1);
+            if (k < 0.2f) d.billboard(Rt.GLOW, true, c, R0 * 1.2f, 0xFFFFFF, (1 - k / 0.2f) * d.near(c, 3), 0);
+            d.glowShell(c, 2 + k * R0 * 1.3, 0xFFFFFF, 1 - k);
+            d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), 2 + k * R0 * 1.6f, 0xF0E8FF, 1 - k, 0);
+            d.flat(Rt.RING, true, c, d.fwdVec(), 2 + k * R0, 0x9C6BFF, 0.8f * (1 - k), 0);
+            for (int i = 0; i < 40; i++) {
+                Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+                d.voidShard(c.add(dir.scale(2 + k * R0)), dir, 1.4f * (1 - k), 0.14f, 1 - k);
+            }
+        }
+    }
+
+    /** Beelzebub inhales: the maw over the shoulder gapes and the air itself pours in. */
+    private static void inhale(Draw d, Fx f, float pt, Random r) {
+        var mc = Minecraft.getInstance();
+        Entity e = mc.level.getEntity(f.p.e1());
+        Vec3 maw = f.pos;
+        Vec3 look = d.fwdVec();
+        if (e != null) { look = e.getViewVector(pt); maw = e.getEyePosition(pt).add(look.scale(1.6)).add(0, 0.2, 0); }
+        float age = f.age + pt, life = f.life - 8;
+        float open = Mth.clamp(age / 6, 0, 1) * (1 - Mth.clamp((age - life) / 8, 0, 1));
+        float size = 1.3f * open;
+        Vec3[] b = Draw.basis(look);
+        d.voidSphere(maw, size * 0.75, open, 0.2f, 0xFFFFFF);
+        for (int i = 0; i < 16; i++) {
+            double a = i * Math.PI * 2 / 16 + d.time * 0.5;
+            Vec3 dir = b[0].scale(Math.cos(a)).add(b[1].scale(Math.sin(a)));
+            d.voidShard(maw.add(dir.scale(size * 1.25)), dir.scale(-1).add(look.scale(-0.5)), size * 0.6f, size * 0.09f, open);
+        }
+        d.flat(Rt.RING, true, maw, look, size * 1.6f, 0xFF4A9A, 0.6f * open, (float) d.time * 2);
+        d.glowShell(maw, size * 1.6, 0xFF4A9A, 0.5f * open);
+        for (int i = 0; i < 50; i++) {
+            Vec3 o = look.scale(2 + r.nextDouble() * 12).add(b[0].scale(r.nextGaussian() * 3)).add(b[1].scale(r.nextGaussian() * 3));
+            float ph = (float) ((age * 0.08 + r.nextDouble()) % 1.0);
+            Vec3 from = maw.add(o.scale(1 - ph));
+            Vec3 to = from.add(maw.subtract(from).normalize().scale(0.8 + ph));
+            d.beam(Rt.STREAK, true, from, to, 0.06f, ph > 0.7f ? 0xFFFFFF : 0xFF7AB8, 0.75f * open * ph);
+        }
+    }
+
+    /** The great gate to the Realm: a rift as tall as a house opens behind you and swallows you, or spits you out. */
+    private static void realmGate(Draw d, Fx f, float pt, float t, Random r) {
+        boolean enter = f.p.type() == S2CFx.REALM_ENTER, arrive = f.p.a() == 1;
+        Vec3 c = f.pos;
+        float open = t < 0.3f ? (float) Math.pow(t / 0.3f, 0.6) : 1 - (float) Math.pow((t - 0.3f) / 0.7f, 2);
+        d.voidBillboard(Rt.RIFT, c.add(0, 0.6, 0), 1.2f * open + 0.02f, 2.6f * open + 0.02f, open, 0);
+        d.billboard(Rt.GLOW, true, c.add(0, 0.6, 0), 3.2f * open, enter ? 0x7A45E0 : 0xE8DCFF, 0.6f * open, 0);
+        d.flat(Rt.RING, true, c.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 0.6f + t * 5, enter ? 0x9C6BFF : 0xFFFFFF, 0.8f * (1 - t), 0);
+        boolean inward = enter != arrive;
+        for (int i = 0; i < 30; i++) {
+            Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
+            float ph = (float) ((t * 2.5 + r.nextDouble()) % 1.0);
+            Vec3 from = c.add(dir.scale((inward ? 1 - ph : ph) * 4));
+            d.beam(Rt.STREAK, true, from, from.add(dir.scale(inward ? -0.6 : 0.6)), 0.06f, 0xC8B0FF, open);
+        }
+        if (arrive && t < 0.2f) d.glowShell(c, 0.5 + t * 12, 0xFFFFFF, 1 - t / 0.2f);
+    }
+
+    /** A form opens: its sigil rises around you in its colour; closing, the sigil breaks into shards. */
+    private static void formOpen(Draw d, Fx f, float pt, float t, Random r) {
+        var mc = Minecraft.getInstance();
+        Entity e = mc.level.getEntity(f.p.e1());
+        Vec3 feet = e != null ? e.getPosition(pt) : f.pos.subtract(0, 1, 0);
+        Ability a = Ability.byIndex((int) f.p.a());
+        int col = a != null ? a.color : 0x9B6BFF;
+        if (f.p.b() == 1) {
+            float k = (float) (1 - Math.pow(1 - Math.min(1, t * 1.6), 3));
+            float out = 1 - Mth.clamp((t - 0.55f) / 0.45f, 0, 1);
+            for (int i = 0; i < 3; i++) {
+                float y = 0.05f + k * (0.3f + i * 0.75f);
+                d.flat(Rt.RING, true, feet.add(0, y, 0), new Vec3(0, 1, 0), 1.6f - i * 0.35f, i == 1 ? 0xFFFFFF : col, 0.85f * out, (float) d.time * (i % 2 == 0 ? 2 : -2.5f));
+            }
+            for (int i = 0; i < 8; i++) {
+                double an = i * Math.PI / 4 + t * 2;
+                Vec3 q = feet.add(Math.cos(an) * 1.5, 0.1 + k * 1.8 * ((i % 3) / 2.0), Math.sin(an) * 1.5);
+                d.voidShard(q, new Vec3(-Math.cos(an), 0.4, -Math.sin(an)), 0.35f * out, 0.05f, out);
+            }
+            d.glowShell(feet.add(0, 1, 0), 0.6 + k * 1.2, col, 0.5f * out);
+        } else {
+            for (int i = 0; i < 18; i++) {
+                Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.5 + 0.4, r.nextGaussian()).normalize();
+                d.voidShard(feet.add(0, 1, 0).add(dir.scale(0.6 + t * 2.4)), dir, 0.35f * (1 - t), 0.05f, 1 - t);
+            }
+            d.flat(Rt.RING, true, feet.add(0, 0.05, 0), new Vec3(0, 1, 0), 1.6f + t * 2, col, 0.7f * (1 - t), 0);
+        }
+    }
+
+    /** What an open form looks like on its owner, for everyone to see. */
+    private static void auras(Draw d) {
+        var mc = Minecraft.getInstance();
+        boolean fp = mc.options.getCameraType().isFirstPerson();
+        for (Entity e : mc.level.entitiesForRendering()) {
+            Ability a = Ability.byIndex(ClientState.formOf(e.getId()));
+            if (a == null || e.distanceToSqr(mc.player) > 64 * 64) continue;
+            boolean self = e == mc.player && fp;
+            Vec3 pos = e.getPosition(d.pt);
+            float yaw = e instanceof LivingEntity le ? Mth.rotLerp(d.pt, le.yBodyRotO, le.yBodyRot) : e.getYRot();
+            Vec3 fwd = Vec3.directionFromRotation(0, yaw), back = fwd.scale(-1), side = fwd.cross(new Vec3(0, 1, 0));
+            Random r = new Random(e.getId());
+            double time = d.time;
+            switch (a) {
+                case SPORES -> {
+                    for (int i = 0; i < 14; i++) {
+                        double an = time * (0.6 + r.nextDouble() * 0.6) * (i % 2 == 0 ? 1 : -1) + r.nextDouble() * 6;
+                        double rad = 0.8 + r.nextDouble() * 0.6;
+                        Vec3 q = pos.add(Math.cos(an) * rad, 0.3 + r.nextDouble() * 1.6 + Math.sin(time * 2 + i) * 0.15, Math.sin(an) * rad);
+                        if (self && q.distanceTo(d.cam) < 0.6) continue;
+                        d.billboard(Rt.CORE, false, q, 0.06f, 0x07040C, 0.9f, 0);
+                        d.billboard(Rt.GLOW, true, q, 0.16f, 0xD06AFF, 0.5f, 0);
+                    }
+                }
+                case AUTHORITY -> {
+                    if (self) break;
+                    Vec3 q = pos.add(back.scale(0.9)).add(0, 1.5, 0);
+                    float br = 0.9f + 0.1f * (float) Math.sin(time * 2);
+                    d.voidBillboard(Rt.RIFT, q, 0.55f * br, 1.5f * br, 0.95f, 0);
+                    d.billboard(Rt.GLOW, true, q, 2.2f, 0x7FA8FF, 0.35f, 0);
+                }
+                case BEELZEBUB -> {
+                    if (self) break;
+                    Vec3 q = pos.add(back.scale(0.7)).add(side.scale(0.45)).add(0, 2.0, 0);
+                    Vec3[] b = Draw.basis(fwd);
+                    d.voidSphere(q, 0.32, 1, 0.2f, 0xFFFFFF);
+                    for (int i = 0; i < 10; i++) {
+                        double an = i * Math.PI / 5 + time * 0.4;
+                        Vec3 dir = b[0].scale(Math.cos(an)).add(b[1].scale(Math.sin(an)));
+                        d.voidShard(q.add(dir.scale(0.45)), dir.scale(-1).add(fwd.scale(0.3)), 0.28f, 0.04f, 1);
+                    }
+                    d.glowShell(q, 0.55, 0xFF4A9A, 0.5f);
+                }
+                case BODIES -> {
+                    for (int s = -1; s <= 1; s += 2) {
+                        Vec3 q = pos.add(side.scale(0.9 * s)).add(back.scale(0.5)).add(0, 0.95, 0);
+                        d.voidBillboard(Rt.BODY_CORE, q, 0.3f, 0.9f, 0.25f + 0.1f * (float) Math.sin(time * 2 + s), 0);
+                    }
+                }
+                case DOMAIN -> {
+                    if (self) break;
+                    Vec3 q = pos.add(0, e.getBbHeight() + 0.45, 0);
+                    d.flat(Rt.RING, true, q, new Vec3(0, 1, 0), 0.45f, 0x9B6BFF, 0.9f, (float) time);
+                    d.flat(Rt.RING, true, q, new Vec3(0, 1, 0), 0.3f, 0xFFFFFF, 0.7f, (float) -time * 1.5f);
+                }
+                default -> {}
+            }
+        }
+    }
+
+    /** In the Realm you see the souls of the reflected world, through walls: a white spark with a blue halo. */
+    private static void souls(Draw d) {
+        if (!ClientState.inRealm() || ClientState.soulXyz.length == 0) return;
+        float[] xyz = ClientState.soulXyz;
+        var g = d.buf.getBuffer(Rt.xray(Rt.GLOW));
+        for (int i = 0; i + 2 < xyz.length; i += 3) {
+            Vec3 p = new Vec3(xyz[i], xyz[i + 1] + 1.1, xyz[i + 2]);
+            double dist = p.distanceTo(d.cam);
+            float s = (float) (0.35 + dist * 0.012);
+            float pulse = 0.75f + 0.25f * (float) Math.sin(d.time * 3 + i);
+            xquad(d, g, p, s * 2.2f, 0x7FA8FF, 0.35f * pulse);
+            xquad(d, g, p, s, 0xF0F4FF, 0.9f * pulse);
+        }
+    }
+
+    private static void xquad(Draw d, com.mojang.blaze3d.vertex.VertexConsumer vc, Vec3 p, float size, int rgb, float a) {
+        float lx = d.left.x * size, ly = d.left.y * size, lz = d.left.z * size, ux = d.up.x * size, uy = d.up.y * size, uz = d.up.z * size;
+        d.sv(vc, p.x - lx - ux, p.y - ly - uy, p.z - lz - uz, rgb, a, 0, 1);
+        d.sv(vc, p.x + lx - ux, p.y + ly - uy, p.z + lz - uz, rgb, a, 1, 1);
+        d.sv(vc, p.x + lx + ux, p.y + ly + uy, p.z + lz + uz, rgb, a, 1, 0);
+        d.sv(vc, p.x - lx + ux, p.y - ly + uy, p.z - lz + uz, rgb, a, 0, 0);
     }
 
     public static void clear() { ACTIVE.clear(); MOTES.clear(); com.andy.abyss.client.InfectionClient.clear(); }

@@ -118,7 +118,7 @@ public final class Payloads {
         Util.fx(l, S2CFx.IMPLODE, at, r, 0, 0);
         Util.sound(l, at, ModSounds.CHARGE.get(), 2f, 0.6f);
         UUID owner = p.getUUID();
-        Scheduler.later(12, () -> {
+        Scheduler.later(22, () -> {
             Util.fx(l, S2CFx.NUKE, at, r, 0, 0);
             Util.sound(l, at, ModSounds.NUKE.get(), 4f, 0.7f);
             float dmg = Config.nukeDamage.get().floatValue() * power * Util.masteryScale(d);
@@ -146,6 +146,14 @@ public final class Payloads {
     }
 
     static void insideOutN(ServerPlayer p, Entity by, LivingEntity host, int n) {
+        // build-up: the host glows and cracks from within, then goes off
+        ServerLevel l0 = (ServerLevel) host.level();
+        Util.fx(l0, S2CFx.IMPLODE, host.position().add(0, host.getBbHeight() * 0.5, 0), Math.max(2, host.getBbWidth() * 2 + n * 0.3f), 1, 0, host.getId(), -1);
+        Util.sound(l0, host.position(), ModSounds.CHARGE.get(), 1.5f, 1.3f);
+        Scheduler.later(18, () -> { if (host.isAlive()) insideOutNow(p, by, host, n); });
+    }
+
+    static void insideOutNow(ServerPlayer p, Entity by, LivingEntity host, int n) {
         ServerLevel l = (ServerLevel) host.level();
         Vec3 c = host.position().add(0, host.getBbHeight() * 0.5, 0);
         Util.fx(l, S2CFx.NUKE, c, Math.max(2, host.getBbWidth() * 2 + n * 0.3f), 1, n, host.getId(), -1);

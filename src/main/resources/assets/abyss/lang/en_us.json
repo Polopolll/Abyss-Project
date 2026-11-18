@@ -18,16 +18,11 @@
   "death.attack.abyss.devoured": "%1$s was devoured by Beelzebub",
   "death.attack.abyss.devoured.player": "%1$s was devoured by %2$s's Beelzebub",
   "key.categories.abyss": "Abyss",
-  "key.abyss.wheel": "Ability wheel (hold, or tap to keep open)",
-  "key.abyss.cast": "Cast selected (hold: charge)",
-  "key.abyss.spores": "Spores (Shift: change mode)",
-  "key.abyss.lens": "Spore Lens (hold)",
-  "key.abyss.prev": "Previous body",
-  "key.abyss.next": "Next body (Shift: previous)",
-  "key.abyss.main": "Back to main body",
-  "key.abyss.roster": "Bodies screen",
   "dimension.abyss.the_abyss": "The Abyss",
   "item.abyss.abyssal_upgrade": "Abyssal Upgrade",
   "block.abyss.abyssal_rot": "Abyssal Rot",
-  "key.abyss.combat": "Combat mode (abyssal combo on left click)"
+  "key.abyss.wheel": "Skills: tap — next, hold — wheel (+1-8, +scroll)",
+  "key.abyss.cast": "Use skill (hold to charge)",
+  "key.abyss.roster": "Bodies screen",
+  "key.abyss.guide": "Guide"
 }

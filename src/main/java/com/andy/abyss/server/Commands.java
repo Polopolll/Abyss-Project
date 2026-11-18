@@ -67,7 +67,7 @@ public final class Commands {
                     AbyssData d = AbyssData.get(p);
                     if (name.startsWith("DOMAIN")) { d.domainVariant = name.endsWith("CLOSED") ? 1 : 0; name = "DOMAIN"; }
                     Ability a = Ability.valueOf(name);
-                    if (a.charged) d.charge = 120;
+                    if (a.charged()) d.charge = 120;
                     Actions.cast(p, a);
                     d.charge = 0;
                     return 1;
@@ -92,6 +92,22 @@ public final class Commands {
                     for (var t : Bodies.rosterTag(p)) c.getSource().sendSuccess(() -> Component.literal(t.toString()), false);
                     return 1;
                 })));
+        root.then(literal("demo").requires(s -> s.hasPermission(2))
+                .then(literal("move").then(argument("weapon", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 6)).then(argument("index", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 20)).executes(c -> {
+                    Arsenal.demo(c.getSource().getPlayerOrException(), com.andy.abyss.combat.Weapon.byIndex(com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "weapon")), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "index"));
+                    return 1;
+                }))))
+                .then(literal("form").then(argument("ability", StringArgumentType.word()).executes(c -> {
+                    var a = com.andy.abyss.data.Ability.valueOf(StringArgumentType.getString(c, "ability").toUpperCase(java.util.Locale.ROOT));
+                    Forms.toggle(c.getSource().getPlayerOrException(), a);
+                    return 1;
+                })))
+                .then(literal("fx").then(argument("type", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 64)).then(argument("a", FloatArgumentType.floatArg()).executes(c -> {
+                    var pl = c.getSource().getPlayerOrException();
+                    Util.fx(pl.serverLevel(), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "type"), pl.position().add(pl.getLookAngle().multiply(1, 0, 1).normalize().scale(4)).add(0, 1, 0),
+                            FloatArgumentType.getFloat(c, "a"), 0, 0, pl.getId(), -1);
+                    return 1;
+                })))));
         root.then(literal("selftest").requires(s -> s.hasPermission(2)).executes(c -> SelfTest.run(c.getSource())));
         // config
         LiteralArgumentBuilder<CommandSourceStack> cfg = literal("config");

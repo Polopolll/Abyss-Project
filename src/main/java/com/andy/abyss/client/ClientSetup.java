@@ -39,11 +39,12 @@ public final class ClientSetup {
             try {
                 EntityRenderer<?> r = e.getRenderer((EntityType) t);
                 if (r instanceof LivingEntityRenderer lr && !(r instanceof BodyRenderer)) lr.addLayer(new CorrosionLayer(lr));
+                if (r instanceof BodyRenderer br) br.addLayer(new com.andy.abyss.client.render.WeaponLayer(br));
             } catch (Exception ignored) {}
         }
         for (String skin : e.getSkins()) {
             var r = e.getSkin(skin);
-            if (r instanceof PlayerRenderer pr) pr.addLayer(new CorrosionLayer<>(pr));
+            if (r instanceof PlayerRenderer pr) { pr.addLayer(new CorrosionLayer<>(pr)); pr.addLayer(new com.andy.abyss.client.render.WeaponLayer<>(pr)); }
         }
     }
     private ClientSetup() {}

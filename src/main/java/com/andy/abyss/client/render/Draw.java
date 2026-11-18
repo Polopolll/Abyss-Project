@@ -94,6 +94,10 @@ public final class Draw {
 
     /** A galaxy sphere. rim: alpha boost at the silhouette (0 = solid ball, 1 = a shell that is clear in the middle). */
     public void voidSphere(Vec3 c, double r, float alpha, float rim, int rgb) {
+        // from inside, a void sphere would replace the whole screen with galaxy: it thins out as your eye reaches it
+        double dc = c.distanceTo(cam);
+        alpha *= (float) Math.max(0, Math.min(1, (dc - r * 1.02) / Math.max(0.4, r * 0.5)));
+        if (alpha < 0.01f) return;
         VertexConsumer vc = buf.getBuffer(Rt.voidFx(Rt.FILL));
         int lat = r > 20 ? 28 : 16, lon = r > 20 ? 48 : 24;
         for (int i = 0; i < lat; i++) {

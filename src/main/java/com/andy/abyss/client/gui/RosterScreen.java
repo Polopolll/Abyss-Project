@@ -48,18 +48,12 @@ public class RosterScreen extends Screen {
         }
         y += 24;
         addRenderableWidget(Button.builder(Component.literal("Send clone where I look"), bt -> {
-            int prev = ClientState.selected();
-            Net.toServer(new C2SAction(C2SAction.SELECT, Ability.SEND_CLONE.ordinal()));
-            Net.toServer(new C2SAction(C2SAction.CAST_START, 0));
-            Net.toServer(new C2SAction(C2SAction.SELECT, prev));
+            Net.toServer(new C2SAction(C2SAction.SEND_CLONE, 0));
             onClose();
         }).bounds(width / 2 - 170, y, 166, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Recall all"), bt -> Net.toServer(new C2SAction(C2SAction.RECALL_ONE, -1))).bounds(width / 2 + 4, y, 80, 18).build());
         addRenderableWidget(Button.builder(Component.literal(ClientState.me.getBoolean("inMain") ? "Descend" : "Go home"), bt -> {
-            int prev = ClientState.selected();
-            Net.toServer(new C2SAction(C2SAction.SELECT, Ability.DESCEND.ordinal()));
-            Net.toServer(new C2SAction(C2SAction.CAST_START, 0));
-            Net.toServer(new C2SAction(C2SAction.SELECT, prev));
+            Net.toServer(new C2SAction(C2SAction.DESCEND, 0));
             onClose();
         }).bounds(width / 2 + 88, y, 82, 18).build());
         lastSize = ClientState.bodies().size();

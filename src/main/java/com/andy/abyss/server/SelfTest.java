@@ -54,7 +54,8 @@ public final class SelfTest {
         // inside-out nuke
         float hp = z.getHealth();
         Payloads.request(p, Payload.NUKE.ordinal(), new int[0], new int[]{z.getId()});
-        check(out, "inside-out nuke", !z.isAlive() || z.getHealth() < hp);
+        for (int i = 0; i < 20; i++) Scheduler.tick(); // the 18-tick build-up
+        check(out, "inside-out nuke (after its build-up)", !z.isAlive() || z.getHealth() < hp);
         // domain
         Domains.open(p, 40);
         check(out, "open domain", Domains.ownedBy(p.getUUID()) != null);
@@ -85,20 +86,33 @@ public final class SelfTest {
         Beelzebub.devour(p, p, z2);
         check(out, "beelzebub devours + absorbs", !z2.isAlive() && d.absorbed.stream().anyMatch(a -> a.type.equals("minecraft:zombie")));
         check(out, "abyss dimension", AbyssDim.level(p.server) != null);
-        // combo
+        // arsenal: every weapon's chain lands
         Zombie z3 = EntityType.ZOMBIE.create(l);
         z3.moveTo(p.getX(), p.getY(), p.getZ() + 2.5);
         z3.setNoAi(true);
+        z3.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(2000);
+        z3.setHealth(2000);
         l.addFreshEntity(z3);
         p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, z3.getEyePosition());
-        d.combat = true; d.comboStep = 0;
-        float zh = z3.getHealth();
-        for (int i = 0; i < 2; i++) { d.nextHit = 0; Combat.m1(p, 0); }
-        check(out, "combo hits (" + Combat.NAMES[d.comboStep] + ")", !z3.isAlive() || z3.getHealth() < zh);
-        d.nextHit = 0;
-        Combat.heavy(p, 20);
-        check(out, "abyssal beam", true);
-        d.combat = false;
+        // clear leftovers from the earlier checks so the lock can only find the dummy
+        for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(24), x -> x != p && x != z3 && !(x instanceof net.minecraft.world.entity.player.Player))) e.discard();
+        Forms.toggle(p, com.andy.abyss.data.Ability.ARSENAL);
+        check(out, "arsenal form opens", d.form == com.andy.abyss.data.Ability.ARSENAL.ordinal());
+        for (com.andy.abyss.combat.Weapon w : com.andy.abyss.combat.Weapon.values()) {
+            d.weapon = w.ordinal();
+            // put the dummy back in front (the previous weapon's knockback moved it)
+            net.minecraft.world.phys.Vec3 front = p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(2.5));
+            z3.teleportTo(front.x, p.getY(), front.z);
+            z3.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, z3.getEyePosition());
+            float hp0 = z3.getHealth();
+            d.busyUntil = 0; d.chainUntil = 0; d.pending = -1;
+            Arsenal.input(p, com.andy.abyss.net.C2SInput.LMB, com.andy.abyss.net.C2SInput.RELEASE, 0, 1);
+            for (int i = 0; i < 40; i++) Scheduler.tick();
+            LivingEntity lk = Arsenal.lock(p, w.reach * 2.4f + 4);
+            check(out, w.title + " basic lands" + (z3.getHealth() < hp0 ? "" : " (lock=" + (lk == null ? "none" : lk.getType().toShortString() + (lk == z3 ? "*" : "")) + " d=" + String.format("%.1f", z3.distanceTo(p)) + " alive=" + z3.isAlive() + ")"), z3.getHealth() < hp0);
+        }
+        d.form = -1;
         // infinite output
         boolean wasInf = d.infinite;
         d.infinite = true;

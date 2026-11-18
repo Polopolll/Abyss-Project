@@ -75,26 +75,45 @@ public final class ServerEvents {
         d.dirty = true;
     }
 
+    /** Bulwark guard turns projectiles back at whoever fired them. */
+    @SubscribeEvent
+    public static void projectile(net.minecraftforge.event.entity.ProjectileImpactEvent e) {
+        if (!(e.getRayTraceResult() instanceof net.minecraft.world.phys.EntityHitResult eh) || !(eh.getEntity() instanceof ServerPlayer p)) return;
+        AbyssData d = AbyssData.get(p);
+        if (d.guardSince < 0 || d.form != com.andy.abyss.data.Ability.ARSENAL.ordinal()) return;
+        Projectile pr = e.getProjectile();
+        net.minecraft.world.phys.Vec3 to = pr.position().subtract(p.position()).multiply(1, 0, 1).normalize();
+        if (to.dot(net.minecraft.world.phys.Vec3.directionFromRotation(0, p.getYRot())) < 0.2) return;
+        e.setImpactResult(net.minecraftforge.event.entity.ProjectileImpactEvent.ImpactResult.SKIP_ENTITY);
+        pr.setDeltaMovement(pr.getDeltaMovement().scale(-1.2));
+        pr.setOwner(p);
+        pr.hurtMarked = true;
+        Util.fx(p.serverLevel(), S2CFx.GUARD, p.position().add(0, 1, 0), 2, 0, 0, p.getId(), -1);
+    }
+
     @SubscribeEvent
     public static void login(PlayerEvent.PlayerLoggedInEvent e) {
         if (!(e.getEntity() instanceof ServerPlayer p)) return;
+        Realm.restoreOnLogin(p);
         Bodies.loadFrom(p);
         Beelzebub.applyPassives(p);
         Actions.sync(p);
         for (ServerPlayer o : p.server.getPlayerList().getPlayers())
-            if (AbyssData.get(o).awakened) Net.to(p, new S2CVisual(o.getId(), true));
-        if (AbyssData.get(p).awakened) Net.around(p, new S2CVisual(p.getId(), true));
+            if (AbyssData.get(o).awakened) Net.to(p, visual(o));
+        if (AbyssData.get(p).awakened) Net.around(p, visual(p));
     }
 
     @SubscribeEvent public static void logout(PlayerEvent.PlayerLoggedOutEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Infection.forget(p); Bodies.saveTo(p); Actions.stopSpreading(p.getUUID()); } }
-    @SubscribeEvent public static void respawn(PlayerEvent.PlayerRespawnEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Beelzebub.applyPassives(p); Actions.sync(p); Net.around(p, new S2CVisual(p.getId(), AbyssData.get(p).awakened)); } }
-    @SubscribeEvent public static void dim(PlayerEvent.PlayerChangedDimensionEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Actions.sync(p); Net.around(p, new S2CVisual(p.getId(), AbyssData.get(p).awakened)); } }
+    @SubscribeEvent public static void respawn(PlayerEvent.PlayerRespawnEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Beelzebub.applyPassives(p); Actions.sync(p); Net.around(p, visual(p)); } }
+    @SubscribeEvent public static void dim(PlayerEvent.PlayerChangedDimensionEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Actions.sync(p); Net.around(p, visual(p)); } }
 
     @SubscribeEvent
     public static void track(PlayerEvent.StartTracking e) {
         if (e.getTarget() instanceof ServerPlayer t && e.getEntity() instanceof ServerPlayer viewer && AbyssData.get(t).awakened)
-            Net.to(viewer, new S2CVisual(t.getId(), true));
+            Net.to(viewer, visual(t));
     }
+
+    public static S2CVisual visual(ServerPlayer p) { AbyssData d = AbyssData.get(p); return new S2CVisual(p.getId(), d.awakened, d.form, d.weapon); }
 
     @SubscribeEvent public static void reload(AddReloadListenerEvent e) { e.addListener(new CpOverrides()); }
     @SubscribeEvent public static void commands(RegisterCommandsEvent e) { Commands.register(e.getDispatcher()); }
@@ -170,6 +189,10 @@ public final class ServerEvents {
         ServerPlayer p = Util.player(owner);
         if (p == null) return;
         AbyssData d = AbyssData.get(p);
+        if (t == p && !src.is(DamageTypes.FELL_OUT_OF_WORLD) && !src.is(DamageTypes.GENERIC_KILL)) {
+            if (Arsenal.dodged(p, src.getEntity() != null)) { e.setCanceled(true); return; }
+            if (Arsenal.guarded(p, src, e.getAmount())) { e.setCanceled(true); return; }
+        }
         if (src.getEntity() != null && Util.friend(owner, src.getEntity()) && src.getEntity() != t) { e.setCanceled(true); return; }
         if (d.has("fire_immune") && src.is(DamageTypeTags.IS_FIRE)) { e.setCanceled(true); return; }
         if (Config.vesselImmunities.get() && (src.is(DamageTypeTags.IS_FIRE) || src.is(DamageTypeTags.IS_FALL) || src.is(DamageTypeTags.IS_DROWNING)
