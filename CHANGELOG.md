@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (2026-11-18)
+- Domain corruption reworked: blocks keep their own texture and the abyss spreads over them as an overlay in five stages (veins → cracks → patches → spreading → nearly swallowed), 4 patterns × 4 rotations per face so nothing repeats. Dark galaxy veins with thin violet rims; uncovered parts darken as the stage rises.
+- Plants and liquids wither at stage 2, leaves at stage 4; veins creep into neighbouring blocks.
+- When the domain ends the infection recedes stage by stage and withered plants and water grow back. `domainScarsPermanent=true` instead turns fully infected blocks into Abyssal Rot (now with random rotations).
+
 ## 0.2.0 (2026-11-18)
 - Chronoweave-style radial wheel (with icons) and a compact HUD by the hotbar (selected-ability medallion, every ability with cooldown sweeps, output bar, bodies).
 - One-handed controls: V wheel, R cast, C spores, Left Alt lens, X combat mode, Z/Shift+Z bodies, B main, G bodies screen.

@@ -118,16 +118,11 @@ public final class SelfTest {
         Domains.open(p, 20);
         for (int i = 0; i < 30; i++) Domains.tick(p.server);
         check(out, "domain still up after 30 ticks (alive=" + p.isAlive() + " hp=" + p.getHealth() + ")", Domains.ownedBy(p.getUUID()) != null);
-        int rot = 0;
-        for (var bp : net.minecraft.core.BlockPos.betweenClosed(p.blockPosition().offset(-10, -4, -10), p.blockPosition().offset(10, 2, 10)))
-            if (l.getBlockState(bp).is(com.andy.abyss.registry.ModBlocks.ABYSSAL_ROT.get())) rot++;
-        check(out, "domain rots the ground (" + rot + " blocks)", rot > 0 || !Util.griefing(l));
+        int infected = Infection.count(l);
+        check(out, "domain infects the ground (" + infected + " blocks)", infected > 0 || !Util.griefing(l));
         if (Domains.ownedBy(p.getUUID()) != null) Domains.end(Domains.ownedBy(p.getUUID()));
-        for (int i = 0; i < 200; i++) Domains.tick(p.server);
-        int left = 0;
-        for (var bp : net.minecraft.core.BlockPos.betweenClosed(p.blockPosition().offset(-30, -6, -30), p.blockPosition().offset(30, 4, 30)))
-            if (l.getBlockState(bp).is(com.andy.abyss.registry.ModBlocks.ABYSSAL_ROT.get())) left++;
-        check(out, "the world heals afterwards", left == 0);
+        for (int i = 0; i < 400; i++) Domains.tick(p.server);
+        check(out, "the infection recedes afterwards (" + Infection.count(l) + " left)", Infection.count(l) == 0);
         SporeManager.clear(p.getUUID());
         check(out, "no task errors", errors == before);
         long fails = out.stream().filter(x -> x.startsWith("§c")).count();

@@ -44,7 +44,7 @@ public final class Domains {
         final List<UUID> moved = new ArrayList<>(); final Map<UUID, Vec3> returnTo = new HashMap<>(); final Map<UUID, ServerLevel> returnLevel = new HashMap<>();
         final List<BlockPos> placed = new ArrayList<>();
         /** What the domain's rot replaced, so the world can heal afterwards. */
-        final LinkedHashMap<BlockPos, BlockState> scars = new LinkedHashMap<>();
+        final it.unimi.dsi.fastutil.longs.LongOpenHashSet infected = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         Domain(int id, UUID owner, ServerLevel l, Vec3 c, double max, boolean closed, boolean small, int duration) {
             this.id = id; this.owner = owner; this.level = l; this.center = c; this.max = max; this.closed = closed; this.small = small; this.duration = duration;
         }
@@ -52,13 +52,17 @@ public final class Domains {
     }
 
     public static final List<Domain> ALL = new ArrayList<>();
-    /** Rot left behind by ended domains, healing a little every tick. */
-    private static final List<Map.Entry<ServerLevel, LinkedHashMap<BlockPos, BlockState>>> HEALING = new ArrayList<>();
     private static int nextId = 1, arenaSlot;
 
     public static boolean sureHit(UUID owner, Entity target) {
         if (owner == null) return false;
         for (Domain d : ALL) if (owner.equals(d.owner) && d.contains(target) && d.phase >= 2 - (d.closed ? 0 : 2)) return true;
+        return false;
+    }
+
+    /** Is this block inside a live domain that infected it (so it should not recede yet). */
+    public static boolean holds(ServerLevel l, long pos) {
+        for (Domain d : ALL) if (d.level == l && d.infected.contains(pos)) return true;
         return false;
     }
 
@@ -119,7 +123,7 @@ public final class Domains {
         for (Domain d : new ArrayList<>(ALL)) {
             try { tickOne(server, d); } catch (Exception ex) { com.andy.abyss.Abyss.LOG.error("domain tick", ex); ALL.remove(d); }
         }
-        heal();
+        Infection.tick(server);
         if (server.getTickCount() % 4 == 0) syncAll(server);
     }
 
@@ -224,7 +228,7 @@ public final class Domains {
         if (d.closed && d.phase < 2) { d.phase = 3; return; }
         ALL.remove(d);
         Util.fx(d.level, S2CFx.IMPLODE, d.center, (float) d.radius, 0, 0);
-        if (!d.scars.isEmpty() && !Config.domainScarsPermanent.get()) HEALING.add(Map.entry(d.level, d.scars));
+        Infection.release(d.level, d.infected);
     }
 
     /**
@@ -236,32 +240,24 @@ public final class Domains {
         if (!Config.domainDecay.get() || !Util.griefing(d.level)) return;
         int budget = Config.domainDecayPerTick.get();
         var rand = d.level.getRandom();
-        BlockState rot = ModBlocks.ABYSSAL_ROT.get().defaultBlockState();
-        int particles = 0;
         for (int i = 0; i < budget; i++) {
             BlockPos p;
             double a = rand.nextDouble() * Math.PI * 2, rr = Math.sqrt(rand.nextDouble()) * d.radius;
             int x = (int) Math.floor(d.center.x + Math.cos(a) * rr), z = (int) Math.floor(d.center.z + Math.sin(a) * rr);
             if (i % 3 != 0) {
-                int top = d.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z) - 1 - rand.nextInt(3);
+                int top = d.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z) - 1 - (rand.nextInt(4) == 0 ? 1 : 0);
                 if (Math.abs(top - d.center.y) > d.radius) continue;
                 p = new BlockPos(x, top, z);
             } else {
-                double y = d.center.y + (rand.nextDouble() * 2 - 1) * d.radius;
-                p = new BlockPos(x, (int) Math.floor(y), z);
+                p = new BlockPos(x, (int) Math.floor(d.center.y + (rand.nextDouble() * 2 - 1) * d.radius), z);
                 if (p.distSqr(BlockPos.containing(d.center)) > d.radius * d.radius) continue;
             }
             if (!d.level.isLoaded(p)) continue;
-            BlockState s = d.level.getBlockState(p);
-            if (s.isAir() || s.is(rot.getBlock()) || s.hasBlockEntity()) continue;
-            boolean soft = !s.getFluidState().isEmpty() || s.canBeReplaced() || s.is(net.minecraft.tags.BlockTags.LEAVES)
-                    || s.is(net.minecraft.tags.BlockTags.FLOWERS) || s.is(net.minecraft.tags.BlockTags.CROPS) || s.is(net.minecraft.tags.BlockTags.SAPLINGS)
-                    || !s.isCollisionShapeFullBlock(d.level, p);
-            if (!soft && !Util.consumable(d.level, p, s)) continue;
-            if (!Config.domainScarsPermanent.get()) d.scars.putIfAbsent(p.immutable(), s);
-            d.level.setBlock(p, soft ? Blocks.AIR.defaultBlockState() : rot, 2 | 16);
-            if (particles++ < 12) d.level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK, s),
-                    p.getX() + 0.5, p.getY() + 1, p.getZ() + 0.5, 6, 0.3, 0.2, 0.3, 0.05);
+            if (Infection.infect(d.level, p, d.infected) && rand.nextInt(3) == 0) {
+                // veins creep into a neighbour
+                BlockPos n = p.relative(net.minecraft.core.Direction.getRandom(rand));
+                if (n.distSqr(BlockPos.containing(d.center)) <= d.radius * d.radius) Infection.infect(d.level, n, d.infected);
+            }
         }
         if (Config.domainDissolveItems.get() && d.age % 10 == 5) {
             for (net.minecraft.world.entity.item.ItemEntity it : d.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new AABB(d.center, d.center).inflate(d.radius))) {
@@ -283,25 +279,6 @@ public final class Domains {
             e.setDeltaMovement(e.getDeltaMovement().add(in.x * 0.4, -0.8, in.z * 0.4));
             e.hurtMarked = true;
             Util.hurt(d.owner, owner, e, (float) Config.domainCrush.get().doubleValue(), "abyss");
-        }
-    }
-
-    private static void heal() {
-        if (HEALING.isEmpty()) return;
-        int budget = Math.max(200, Config.domainDecayPerTick.get() * 2);
-        var it = HEALING.iterator();
-        while (it.hasNext() && budget > 0) {
-            var job = it.next();
-            ServerLevel l = job.getKey();
-            var map = job.getValue();
-            var mi = map.entrySet().iterator();
-            while (mi.hasNext() && budget-- > 0) {
-                var en = mi.next();
-                mi.remove();
-                BlockState now = l.getBlockState(en.getKey());
-                if (now.is(ModBlocks.ABYSSAL_ROT.get()) || now.isAir()) l.setBlock(en.getKey(), en.getValue(), 2 | 16);
-            }
-            if (map.isEmpty()) it.remove();
         }
     }
 
@@ -340,8 +317,7 @@ public final class Domains {
 
     public static void clearAll() {
         for (Domain d : new ArrayList<>(ALL)) end(d);
-        // heal everything now: the server is stopping
-        for (int i = 0; i < 100000 && !HEALING.isEmpty(); i++) heal();
+        Infection.healAll(Util.server());
     }
 
     private Domains() {}

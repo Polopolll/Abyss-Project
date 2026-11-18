@@ -86,7 +86,7 @@ public final class ServerEvents {
         if (AbyssData.get(p).awakened) Net.around(p, new S2CVisual(p.getId(), true));
     }
 
-    @SubscribeEvent public static void logout(PlayerEvent.PlayerLoggedOutEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Bodies.saveTo(p); Actions.stopSpreading(p.getUUID()); } }
+    @SubscribeEvent public static void logout(PlayerEvent.PlayerLoggedOutEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Infection.forget(p); Bodies.saveTo(p); Actions.stopSpreading(p.getUUID()); } }
     @SubscribeEvent public static void respawn(PlayerEvent.PlayerRespawnEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Beelzebub.applyPassives(p); Actions.sync(p); Net.around(p, new S2CVisual(p.getId(), AbyssData.get(p).awakened)); } }
     @SubscribeEvent public static void dim(PlayerEvent.PlayerChangedDimensionEvent e) { if (e.getEntity() instanceof ServerPlayer p) { Actions.sync(p); Net.around(p, new S2CVisual(p.getId(), AbyssData.get(p).awakened)); } }
 

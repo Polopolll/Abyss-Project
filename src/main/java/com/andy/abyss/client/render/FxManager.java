@@ -63,6 +63,7 @@ public final class FxManager {
 
     public static void tick() {
         ACTIVE.removeIf(f -> ++f.age > f.life);
+        com.andy.abyss.client.InfectionClient.tick();
         shake *= 0.86f;
         pulse *= 0.9f;
         flash *= 0.82f;
@@ -87,6 +88,7 @@ public final class FxManager {
         double time = (mc.level.getGameTime() + pt) / 20.0;
         Draw d = new Draw(ps, cam, pt, buf, time);
         try {
+            com.andy.abyss.client.InfectionClient.render(d);
             for (S2CWorld.Dom dom : ClientState.domains) domain(d, dom);
             for (S2CWorld.Clash c : ClientState.clashes) clash(d, c);
             SporeClient.render(d);
@@ -513,6 +515,6 @@ public final class FxManager {
         d.glowShell(c, size * 1.7, 0xFF4A9A, 0.5f * open);
     }
 
-    public static void clear() { ACTIVE.clear(); MOTES.clear(); }
+    public static void clear() { ACTIVE.clear(); MOTES.clear(); com.andy.abyss.client.InfectionClient.clear(); }
     private FxManager() {}
 }

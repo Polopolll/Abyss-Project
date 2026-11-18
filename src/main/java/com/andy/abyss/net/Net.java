@@ -23,6 +23,7 @@ public final class Net {
         CH.registerMessage(i++, S2CSpores.class, S2CSpores::write, S2CSpores::read, S2CSpores::handle);
         CH.registerMessage(i++, S2CFx.class, S2CFx::write, S2CFx::read, S2CFx::handle);
         CH.registerMessage(i++, S2CCp.class, S2CCp::write, S2CCp::read, S2CCp::handle);
+        CH.registerMessage(i++, S2CInfection.class, S2CInfection::write, S2CInfection::read, S2CInfection::handle);
         CH.registerMessage(i++, S2CWorld.class, S2CWorld::write, S2CWorld::read, S2CWorld::handle);
     }
 
