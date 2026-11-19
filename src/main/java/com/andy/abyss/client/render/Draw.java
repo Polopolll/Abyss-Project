@@ -48,6 +48,11 @@ public final class Draw {
     public void billboard(ResourceLocation tex, boolean additive, Vec3 p, float size, int rgb, float a, float rot) {
         // big additive glows wash the screen out: the bigger the flash, the softer it is
         if (additive && tex == Rt.GLOW && size > 1.5f) a *= (float) Math.pow(1.5f / size, 1.1);
+        // a sprite almost on the camera covers the whole view as a blurry blob: fade it as it closes in
+        double dist = Math.sqrt((p.x - cam.x) * (p.x - cam.x) + (p.y - cam.y) * (p.y - cam.y) + (p.z - cam.z) * (p.z - cam.z));
+        float cover = (float) Math.max(0, Math.min(1, (dist - size * 0.8) / (size * 1.6 + 0.3)));
+        a *= cover;
+        if (a < 0.005f) return;
         VertexConsumer vc = buf.getBuffer(additive ? Rt.add(tex) : Rt.alpha(tex));
         float cs = (float) Math.cos(rot) * size, sn = (float) Math.sin(rot) * size;
         float lx = left.x * cs + up.x * sn, ly = left.y * cs + up.y * sn, lz = left.z * cs + up.z * sn;
@@ -60,8 +65,16 @@ public final class Draw {
 
     /** A camera-facing ribbon from a to b. */
     public void beam(ResourceLocation tex, boolean additive, Vec3 a, Vec3 b, float width, int rgb, float alpha) {
-        VertexConsumer vc = buf.getBuffer(additive ? Rt.add(tex) : Rt.alpha(tex));
         Vec3 d = b.subtract(a);
+        if (width > 0.5f) {
+            // a wide beam passing right by the eye fills the screen: fade it by its closest approach
+            double len2 = d.lengthSqr();
+            double t = len2 < 1e-8 ? 0 : Math.max(0, Math.min(1, cam.subtract(a).dot(d) / len2));
+            double dist = a.add(d.scale(t)).distanceTo(cam);
+            alpha *= (float) Math.max(0, Math.min(1, (dist - width * 0.4) / (width * 0.8 + 0.3)));
+            if (alpha < 0.005f) return;
+        }
+        VertexConsumer vc = buf.getBuffer(additive ? Rt.add(tex) : Rt.alpha(tex));
         Vec3 mid = a.add(b).scale(0.5);
         Vec3 toCam = cam.subtract(mid);
         Vec3 side = d.cross(toCam);
@@ -127,6 +140,11 @@ public final class Draw {
 
     /** An additive glowing shell: bright at the silhouette, invisible face-on. */
     public void glowShell(Vec3 c, double r, int rgb, float alpha) {
+        // A rim shell seen from inside (or with the camera on its surface) smears across the whole screen: fade it out.
+        double dc = Math.sqrt((c.x - cam.x) * (c.x - cam.x) + (c.y - cam.y) * (c.y - cam.y) + (c.z - cam.z) * (c.z - cam.z));
+        float outside = (float) Math.max(0, Math.min(1, (dc - r * 1.05) / Math.max(0.6, r * 0.5)));
+        alpha *= outside * outside;
+        if (alpha < 0.01f) return;
         VertexConsumer vc = buf.getBuffer(Rt.add(Rt.WHITE));
         int lat = 20, lon = 32;
         for (int i = 0; i < lat; i++) {
@@ -203,7 +221,8 @@ public final class Draw {
      */
     public void blackHole(Vec3 c, float size, boolean lensed, float alpha, float spin) {
         if (alpha <= 0.01f || size <= 0.01f) return;
-        float near = near(c, Math.max(1.2f, size * 1.5f));
+        float near = near(c, Math.max(1.2f, size * 0.6f));
+        near *= near; // fade quickly and fully rather than lingering as a grey film
         if (near <= 0.01f) return;
         float rx = lensed ? 0.25f : 0.257f, ry = lensed ? 0.25f : 0.157f;
         float cs = (float) Math.cos(spin), sn = (float) Math.sin(spin);

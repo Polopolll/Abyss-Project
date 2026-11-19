@@ -78,7 +78,7 @@ public final class SporeClient {
             if (p == null) continue;
             double dist = p.distanceTo(d.cam);
             if (dist > 120) continue;
-            float near = d.near(p, 1.2f);
+            float near = d.near(p, 2.4f);
             boolean sel = SELECTED.contains(s.id) || (s.host >= 0 && SELECTED_HOSTS.contains(s.host));
             boolean hov = s.id == hoverSpore || (s.host >= 0 && s.host == hoverHost);
             float pulse = 0.8f + 0.2f * (float) Math.sin(d.time * 4 + s.id);

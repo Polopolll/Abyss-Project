@@ -14,6 +14,8 @@
 - Black holes everywhere: stars in moves, the gathering before a nuke, the domain's birth and Collapse are now real black holes, a spinning swirl (cyan-white arcs into an oval shadow) or the lensed kind (a hot disk across the shadow, its far side bent into a ring).
 - Spores are tiny turning black holes.
 - Big flashes are softer (no more white-outs). The welcome message shows your actual key bindings.
+- First-person clean-up: nothing smears across your view any more. Glows, beams, motes and shells that pass right by your eye fade out instead of filling the screen. Ground shockwaves stay rings instead of a disc under your feet.
+- Liberations: stars and black holes sit far enough out to be seen whole. The Rift Lance's giant spear hangs over your right shoulder and its beam slants down onto your target. The Aegis shield lands in front of you, not on top of you.
 
 ## 0.3.1
 Scope cut down to what matters most: the wheel, the movesets, and Domain Expansion.

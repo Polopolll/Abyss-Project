@@ -234,7 +234,7 @@ public final class Moves {
                 L(fx(4, BARRIER, 6, 80)));
         Move bwLib = mv("bw_lib", "Aegis of the Abyss", P_BASH, 44, 8, 40, 0,
                 L(line(14, 15, 9, 4.0f, Knock.PUSH, 2.0f)),
-                L(fx(2, GIANT, 7, 2, 0, 3), fx(14, SHOCK, 8, 1.2f), fx(14, CAMERA, 1.3f, 0.07f)));
+                L(fx(2, GIANT, 7, 6, 0, 3), fx(14, SHOCK, 8, 1.2f), fx(14, CAMERA, 1.3f, 0.07f)));
         ALL.put(Weapon.BULWARK, new Set(bw, bwHeavy, bwPlunge, bwCounter, bwSkill, bwLib));
 
         // ================================================================ GAUNTLETS — arms out of rifts

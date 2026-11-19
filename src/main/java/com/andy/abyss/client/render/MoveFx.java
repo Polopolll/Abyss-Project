@@ -548,7 +548,7 @@ public final class MoveFx {
         float bw = f.b() * fade;
         for (int i = 0; i < seg; i++) {
             double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg;
-            double ro = rad, ri = Math.max(0, rad - bw);
+            double ro = rad, ri = Math.max(rad * 0.72, rad - bw); // always a ring, never a filled disc under your feet
             Vec3 o0 = c.add(Math.cos(a0) * ro, 0.03, Math.sin(a0) * ro), o1 = c.add(Math.cos(a1) * ro, 0.03, Math.sin(a1) * ro);
             Vec3 i0 = c.add(Math.cos(a0) * ri, 0.03, Math.sin(a0) * ri), i1 = c.add(Math.cos(a1) * ri, 0.03, Math.sin(a1) * ri);
             d.vv(vt, o0.x, o0.y, o0.z, 0xFFFFFF, fade, .5f, .5f); d.vv(vt, o1.x, o1.y, o1.z, 0xFFFFFF, fade, .5f, .5f); d.vv(vt, i1.x, i1.y, i1.z, 0xFFFFFF, fade, .5f, .5f);
@@ -620,7 +620,7 @@ public final class MoveFx {
      * ring and a thin lensing halo; at the end it bursts in one white ring and a spray of crystal.
      */
     private static void star(Draw d, Act a, Move.Fx f, float age, Random r) {
-        Vec3 c = f.c() == 1 ? a.target(d.pt, f.b()) : f.c() == 2 ? a.groundAt(a.o).add(0, f.a() * 0.4, 0) : a.o.add(a.fwd.scale(Math.max(1.5f + f.a(), f.b())));
+        Vec3 c = f.c() == 1 ? a.target(d.pt, f.b()) : f.c() == 2 ? a.groundAt(a.o).add(0, f.a() * 0.4, 0) : a.o.add(a.fwd.scale(Math.max(2f + f.a() * 2.6f, f.b())));
         float life = Math.max(6, f.d());
         float grow = smooth(age / Math.min(8, life * 0.4f));
         float burst = age - life;
@@ -640,7 +640,7 @@ public final class MoveFx {
             float k = Mth.clamp(burst / 12, 0, 1), out = 1 - k;
             if (burst < 3) d.blackHole(c, rad * 2.6f * (1 - burst / 3), false, 1, (float) d.time * -0.9f);
             if (burst < 3) d.billboard(Rt.GLOW, true, c, rad * 1.8f, 0xFFFFFF, (1 - burst / 3) * 0.6f * d.near(c, rad * 3f), 0);
-            d.billboard(Rt.RING, true, c, rad * (1.2f + k * 6), 0xFFFFFF, out, 0);
+            d.billboard(Rt.RING, true, c, rad * (1.2f + k * 6), 0xFFFFFF, out * out * 0.75f * d.near(c, rad * 2f), 0);
             d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad * (1 + k * 8), 0xB58CFF, out * 0.8f, 0);
             for (int i = 0; i < 26; i++) {
                 Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
@@ -672,9 +672,15 @@ public final class MoveFx {
         d.voidSphere(c, 0.25 + 0.35 * k, k, 0.2f, 0xFFFFFF);
     }
 
+    /** Where a summoned giant spear hangs before it fires: high over the right shoulder. */
+    static Vec3 spearMount(Act a) { return a.o.add(0, 3.6, 0).add(a.right.scale(2.6)); }
+
     private static void beam(Draw d, Act a, Move.Fx f, float age, Random r) {
-        Vec3 dir = a.aim;
-        Vec3 start = a.o.add(dir.scale(0.8));
+        // fired from above the shoulder, angled down onto the aim point, so the beam is seen along its side
+        // instead of as a sheet straight out of your eye
+        Vec3 aimPt = a.o.add(a.aim.scale(f.a()));
+        Vec3 start = spearMount(a).add(a.aim.scale(6));
+        Vec3 dir = aimPt.subtract(start).normalize();
         float charge = smooth(age / 4);
         float fire = age - 4;
         float w = f.b();
@@ -694,7 +700,7 @@ public final class MoveFx {
         Vec3 end = start.add(dir.scale(len));
         d.voidRibbon(start, end, ww * 1.3f, 1 - k);
         d.beam(Rt.STREAK, true, start, end, ww * 0.45f, 0xFFFFFF, 1 - k);
-        d.beam(Rt.GLOW, true, start, end, ww * 3.4f, 0x7A45E0, 0.45f * (1 - k));
+        d.beam(Rt.GLOW, true, start, end, ww * 1.7f, 0x7A45E0, 0.4f * (1 - k));
         Vec3[] b = Draw.basis(dir);
         for (int i = 0; i < 7; i++) {
             float along = (float) (((fire * 0.15f + i / 7f)) % 1.0) * len;
@@ -707,7 +713,7 @@ public final class MoveFx {
             Vec3 p = start.add(dir.scale(along)).add(b[0].scale(Math.cos(an) * ww)).add(b[1].scale(Math.sin(an) * ww));
             d.beam(Rt.STREAK, true, p, p.add(dir.scale(1.2)), 0.04f, 0xE8DCFF, 0.8f * (1 - k));
         }
-        if (fire < 3) { d.billboard(Rt.GLOW, true, start, w * 4, 0xFFFFFF, (1 - fire / 3) * d.near(start, 1), 0); d.flat(Rt.RING, true, start, dir, w * (2 + fire * 2), 0xFFFFFF, 1 - fire / 3, 0); }
+        if (fire < 3) { d.billboard(Rt.GLOW, true, start, w * 2, 0xFFFFFF, (1 - fire / 3) * 0.8f, 0); d.flat(Rt.RING, true, start, dir, w * (1 + fire), 0xFFFFFF, (1 - fire / 3) * 0.8f, 0); }
         d.billboard(Rt.GLOW, true, end, ww * 2.5f, 0xE8DCFF, 0.7f * (1 - k), 0);
     }
 
@@ -720,19 +726,20 @@ public final class MoveFx {
         Vec3 tgt = f.c() == 1 ? a.target(d.pt, f.b()) : a.o.add(a.fwd.scale(f.b()));
         Vec3 ground = a.groundAt(tgt);
         Vec3 riftPos = ground.add(0, size * 1.9 + 4, 0).subtract(a.fwd.scale(kind == 2 ? size * 0.6 : 0));
-        if (kind == 2) riftPos = a.o.add(0, size * 0.5 + 2, 0).subtract(a.fwd.scale(1.5));
+        if (kind == 2) riftPos = spearMount(a); // up and to the right, clear of the crosshair
         float open = smooth(age / 6) * (1 - smooth((age - impact - 14) / 8));
+        float rs = kind == 2 ? 0.4f : 1f; // the spear's rift faces you up close: keep its sigil small
         // the rift: a horizontal void disc with lensing rings
         // a sigil where it comes through (no flat void panels)
         for (int i = 0; i < 6; i++) {
             double an = i * Math.PI / 3 + d.time * 0.6;
             Vec3[] b = Draw.basis(kind == 2 ? a.fwd : new Vec3(0, 1, 0));
-            Vec3 q0 = riftPos.add(b[0].scale(Math.cos(an) * size * 0.9 * open)).add(b[1].scale(Math.sin(an) * size * 0.9 * open));
-            Vec3 q1 = riftPos.add(b[0].scale(Math.cos(an + 2.094) * size * 0.9 * open)).add(b[1].scale(Math.sin(an + 2.094) * size * 0.9 * open));
+            Vec3 q0 = riftPos.add(b[0].scale(Math.cos(an) * size * rs * 0.9 * open)).add(b[1].scale(Math.sin(an) * size * rs * 0.9 * open));
+            Vec3 q1 = riftPos.add(b[0].scale(Math.cos(an + 2.094) * size * rs * 0.9 * open)).add(b[1].scale(Math.sin(an + 2.094) * size * rs * 0.9 * open));
             d.beam(Rt.STREAK, true, q0, q1, 0.06f, 0xC8B0FF, 0.75f * open);
         }
-        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * 0.85f * open, 0xD8C8FF, 0.8f * open, (float) d.time);
-        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * 1.15f * open, 0x7A45E0, 0.5f * open, (float) -d.time * 1.4f);
+        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * rs * 0.85f * open, 0xD8C8FF, 0.8f * open, (float) d.time);
+        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * rs * 1.15f * open, 0x7A45E0, 0.5f * open, (float) -d.time * 1.4f);
         float emerge = smooth((age - 4) / Math.max(2, impact - 6));
         float shatter = smooth((age - impact - 10) / 10);
         float alpha = (1 - shatter);

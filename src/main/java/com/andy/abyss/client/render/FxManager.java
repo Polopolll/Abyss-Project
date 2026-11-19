@@ -110,7 +110,8 @@ public final class FxManager {
             for (S2CWorld.Clash c : ClientState.clashes) clash(d, c);
             SporeClient.render(d);
             for (Mote m : MOTES) {
-                float a = 1 - m.age / (float) m.life;
+                float a = (1 - m.age / (float) m.life) * d.near(m.p, 1.5f); // motes drifting past the eye would fill the screen
+                if (a < 0.02f) continue;
                 d.billboard(Rt.CORE, false, m.p, 0.05f, 0x07040C, 0.8f * a, 0);
                 d.billboard(Rt.GLOW, true, m.p, 0.12f, 0x7A45E0, 0.35f * a, 0);
             }
@@ -794,9 +795,11 @@ public final class FxManager {
                         double an = time * (0.6 + r.nextDouble() * 0.6) * (i % 2 == 0 ? 1 : -1) + r.nextDouble() * 6;
                         double rad = 0.8 + r.nextDouble() * 0.6;
                         Vec3 q = pos.add(Math.cos(an) * rad, 0.3 + r.nextDouble() * 1.6 + Math.sin(time * 2 + i) * 0.15, Math.sin(an) * rad);
-                        if (self && q.distanceTo(d.cam) < 0.6) continue;
-                        d.billboard(Rt.CORE, false, q, 0.06f, 0x07040C, 0.9f, 0);
-                        d.billboard(Rt.GLOW, true, q, 0.16f, 0xD06AFF, 0.5f, 0);
+                        // in first person the motes orbit right past your eye: fade them before they smear over the view
+                        float nf = self ? d.near(q, 1.6f) : 1f;
+                        if (nf < 0.02f) continue;
+                        d.billboard(Rt.CORE, false, q, 0.06f, 0x07040C, 0.9f * nf, 0);
+                        d.billboard(Rt.GLOW, true, q, 0.16f, 0xD06AFF, 0.5f * nf, 0);
                     }
                 }
                 case AUTHORITY -> {
