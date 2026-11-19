@@ -1,14 +1,197 @@
 {
-  "spread": {"sounds": [{"name": "abyss:whoosh", "pitch": 0.6}]},
-  "rift": {"sounds": ["abyss:space_warp"]},
-  "devour": {"sounds": ["abyss:vacuum"]},
-  "nuke": {"sounds": ["abyss:night_guy_impact"]},
-  "domain": {"sounds": [{"name": "abyss:air_column", "pitch": 0.5}]},
-  "swap": {"sounds": ["abyss:blink"]},
-  "heartbeat": {"sounds": ["abyss:heartbeat"]},
-  "collapse": {"sounds": ["abyss:collapse"]},
-  "negate": {"sounds": [{"name": "abyss:steam", "pitch": 1.6, "volume": 0.5}]},
-  "triangle": {"sounds": [{"name": "abyss:tiger_charge", "pitch": 0.7}]},
-  "impact": {"sounds": ["abyss:ground_slam"]},
-  "charge": {"sounds": [{"name": "abyss:air_burst", "pitch": 0.5}]}
+ "spread": {
+  "sounds": [
+   {
+    "name": "abyss:whoosh",
+    "pitch": 0.6
+   }
+  ]
+ },
+ "rift": {
+  "sounds": [
+   "abyss:space_warp"
+  ]
+ },
+ "devour": {
+  "sounds": [
+   "abyss:vacuum"
+  ]
+ },
+ "nuke": {
+  "sounds": [
+   "abyss:night_guy_impact"
+  ]
+ },
+ "domain": {
+  "sounds": [
+   {
+    "name": "abyss:domain_open"
+   }
+  ]
+ },
+ "swap": {
+  "sounds": [
+   "abyss:blink"
+  ]
+ },
+ "heartbeat": {
+  "sounds": [
+   "abyss:heartbeat"
+  ]
+ },
+ "collapse": {
+  "sounds": [
+   "abyss:collapse"
+  ]
+ },
+ "negate": {
+  "sounds": [
+   {
+    "name": "abyss:steam",
+    "pitch": 1.6,
+    "volume": 0.5
+   }
+  ]
+ },
+ "triangle": {
+  "sounds": [
+   {
+    "name": "abyss:tiger_charge",
+    "pitch": 0.7
+   }
+  ]
+ },
+ "impact": {
+  "sounds": [
+   "abyss:ground_slam"
+  ]
+ },
+ "charge": {
+  "sounds": [
+   {
+    "name": "abyss:air_burst",
+    "pitch": 0.5
+   }
+  ]
+ },
+ "arsenal_swing": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_swing_1"
+   },
+   {
+    "name": "abyss:arsenal_swing_2"
+   },
+   {
+    "name": "abyss:arsenal_swing_3"
+   }
+  ]
+ },
+ "arsenal_swing_heavy": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_swing_heavy"
+   }
+  ]
+ },
+ "arsenal_tear": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_tear_1"
+   },
+   {
+    "name": "abyss:arsenal_tear_2"
+   }
+  ]
+ },
+ "arsenal_hit": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_hit_1"
+   },
+   {
+    "name": "abyss:arsenal_hit_2"
+   },
+   {
+    "name": "abyss:arsenal_hit_3"
+   }
+  ]
+ },
+ "arsenal_hit_heavy": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_hit_heavy"
+   }
+  ]
+ },
+ "arsenal_summon": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_summon"
+   }
+  ]
+ },
+ "arsenal_shatter": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_shatter"
+   }
+  ]
+ },
+ "arsenal_liberation": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_liberation"
+   }
+  ]
+ },
+ "arsenal_dodge": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_dodge"
+   }
+  ]
+ },
+ "arsenal_perfect": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_perfect"
+   }
+  ]
+ },
+ "arsenal_charge": {
+  "sounds": [
+   {
+    "name": "abyss:arsenal_charge"
+   }
+  ]
+ },
+ "domain_spears": {
+  "sounds": [
+   {
+    "name": "abyss:domain_spears"
+   }
+  ]
+ },
+ "domain_pulse": {
+  "sounds": [
+   {
+    "name": "abyss:domain_pulse"
+   }
+  ]
+ },
+ "form_open": {
+  "sounds": [
+   {
+    "name": "abyss:form_open"
+   }
+  ]
+ },
+ "domain_collapse": {
+  "sounds": [
+   {
+    "name": "abyss:domain_collapse"
+   }
+  ]
+ }
 }

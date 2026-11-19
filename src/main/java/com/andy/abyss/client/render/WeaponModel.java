@@ -118,6 +118,36 @@ public final class WeaponModel {
     public static void render(PoseStack ps, MultiBufferSource buf, Weapon w, float alpha, float glow) { render(ps, buf, mesh(w), alpha, glow); }
     public static void renderShield(PoseStack ps, MultiBufferSource buf, float alpha, float glow) { render(ps, buf, shield(), alpha, glow); }
 
+    /**
+     * A construct made of light (the giant summons, like sword shadows): no dark body, a faint violet fill and bright
+     * thick edges, additive, so it never reads as a flat panel.
+     */
+    public static void renderEthereal(PoseStack ps, MultiBufferSource buf, Weapon w, float alpha) {
+        Mesh m = w == null ? shield() : mesh(w);
+        if (alpha <= 0.01f) return;
+        Matrix4f mat = ps.last().pose();
+        VertexConsumer fill = buf.getBuffer(Rt.addTri(Rt.WHITE));
+        for (Tri t : m.tris) for (Vector3f p : new Vector3f[]{t.a(), t.b(), t.c()})
+            fill.vertex(mat, p.x, p.y, p.z).color(0.35f, 0.2f, 0.75f, 0.12f * alpha).uv(0.5f, 0.5f).endVertex();
+        edges(mat, buf.getBuffer(Rt.add(Rt.WHITE)), m, alpha, 0.035f, 0.85f, 0.72f, 1f);
+        edges(mat, buf.getBuffer(Rt.add(Rt.GLOW)), m, alpha * 0.6f, 0.12f, 0.5f, 0.3f, 0.95f);
+    }
+
+    private static void edges(Matrix4f mat, VertexConsumer g, Mesh m, float a, float wdt, float r, float gg, float b) {
+        for (Edge e : m.edges) {
+            Vector3f d = new Vector3f(e.b()).sub(e.a());
+            for (Vector3f ax : new Vector3f[]{new Vector3f(0, 0, 1), new Vector3f(1, 0, 0)}) {
+                Vector3f s = new Vector3f(d).cross(ax);
+                if (s.lengthSquared() < 1e-6f) continue;
+                s.normalize(wdt);
+                g.vertex(mat, e.a().x - s.x, e.a().y - s.y, e.a().z - s.z).color(r, gg, b, a).uv(0, 0.5f).endVertex();
+                g.vertex(mat, e.a().x + s.x, e.a().y + s.y, e.a().z + s.z).color(r, gg, b, a).uv(1, 0.5f).endVertex();
+                g.vertex(mat, e.b().x + s.x, e.b().y + s.y, e.b().z + s.z).color(r, gg, b, a).uv(1, 0.5f).endVertex();
+                g.vertex(mat, e.b().x - s.x, e.b().y - s.y, e.b().z - s.z).color(r, gg, b, a).uv(0, 0.5f).endVertex();
+            }
+        }
+    }
+
     private static void render(PoseStack ps, MultiBufferSource buf, Mesh m, float alpha, float glow) {
         if (AbyssShaders.VOID == null || alpha <= 0.01f) return;
         Matrix4f mat = ps.last().pose();

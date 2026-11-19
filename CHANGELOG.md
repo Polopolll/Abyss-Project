@@ -4,6 +4,31 @@
 - The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
 - Added [`pictures/`](pictures/) (screenshots of every weapon, the domain and the icons, plus 0.2 images) and [`references/`](references/) (credits for the mods and games Abyss drew on, and what each one inspired).
 
+## 0.3.1 (in review: the jar comes after Andy's go-ahead)
+Scope cut down to what matters most: the wheel, the movesets, and Domain Expansion.
+
+**The wheel works**
+- Holding X opens it, and it stays open while you hold. In 0.3.0, key-repeat made it close itself after about a second.
+- Point and let go to select. Drag a medallion onto another to swap their places (saved). Press 1-9 to pick a slot directly.
+- The details panel sits beside the wheel instead of under it, where it ran into the hotbar.
+
+**Movesets, rebuilt the Chronoweave / Wuthering Waves way**
+- One clean slash per hit: a crescent of light (violet glow, body, white core) that sweeps across in about 2 ticks with a white-hot head, holds a beat, and dissolves tail-first. A thin seam of the abyss is left behind and closes.
+- Slashes are laid out from your eyes and full look direction, so in first person they cross the screen around the crosshair wherever you aim. They always face the camera, so they never go edge-on, and they fade out right at your eye instead of flooding the screen.
+- Each move has one bold main cut, and its secondary cuts are faint hairlines, so nothing piles up.
+- Thrusts shoot a spear of light along your aim with a ring where it stops.
+- Rend storms are quick successive slashes ending in one bright burst.
+- Black stars have a hard black core and an accretion ring (no more pale discs).
+- Giant constructs are made of light, with a sigil where they come through (no flat void panels).
+- The Aegis barrier is a wall of glowing hex cells.
+- Impacts are a tight white star with spikes and a ring. Shockwave, landing and burst flashes are smaller.
+- **Sound for everything:** a new set of 21 sounds (made with `tools/make_sounds.py`): three swing takes, a heavy swing, the abyss "tear", three hit takes, a heavy hit, construct summon, crystal shatter, a Liberation drop, dodge, perfect dodge, charge, domain open, spears, pulse, collapse, and form open. Each is timed to its visual beat: on spawn, on each storm cut, and on each burst or landing.
+
+**Domain Expansion**
+- Fixed the misaligned sky: it was a 100-block cube that crossed the camera's far plane at short render distances and broke into flat panes. It's now a small cube drawn without depth, so the galaxy fills the whole sky cleanly.
+- Clouds are hidden inside an open domain and come back afterwards.
+- New open, pulse, collapse and spears sounds; the spears ring out at each target as they erupt.
+
 ## 0.3.0
 **Fixes from the screenshot review**
 - Constructs are mounted on the arm bone (third person) and have their own first-person view model; the first-person swing never lifts a weapon over the camera.

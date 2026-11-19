@@ -28,7 +28,11 @@ public class AbyssSky extends DimensionSpecialEffects {
     /** A galaxy cube around the camera (also used as the sky inside an open domain, faded in by alpha). */
     public static void drawGalaxy(PoseStack ps, float alpha) {
         if (AbyssShaders.VOID == null) return;
+        // a small cube with no depth test: it can never cross the far plane (a big one gets clipped into flat shards
+        // at short render distances); the galaxy is looked up by direction, so its size doesn't matter
         RenderSystem.depthMask(false);
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(() -> AbyssShaders.VOID);
@@ -36,7 +40,7 @@ public class AbyssSky extends DimensionSpecialEffects {
         BufferBuilder b = Tesselator.getInstance().getBuilder();
         b.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.NEW_ENTITY);
         Matrix4f m = ps.last().pose();
-        float s = 100;
+        float s = 8;
         float[][] faces = {
                 {-s, -s, -s, s, -s, -s, s, -s, s, -s, -s, s}, {-s, s, -s, -s, s, s, s, s, s, s, s, -s},
                 {-s, -s, -s, -s, s, -s, s, s, -s, s, -s, -s}, {-s, -s, s, s, -s, s, s, s, s, -s, s, s},
@@ -44,6 +48,8 @@ public class AbyssSky extends DimensionSpecialEffects {
         for (float[] f : faces) for (int i = 0; i < 4; i++)
             b.vertex(m, f[i * 3], f[i * 3 + 1], f[i * 3 + 2]).color(1f, 1f, 1f, alpha).uv(0.5f, 0.5f).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(0xF000F0).normal(0, 1, 0).endVertex();
         BufferUploader.drawWithShader(b.end());
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
         RenderSystem.depthMask(true);
         RenderSystem.setShader(GameRenderer::getPositionShader);
     }

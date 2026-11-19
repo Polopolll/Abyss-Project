@@ -36,6 +36,8 @@ public final class MoveFx {
         S2CMove p; Move m; Weapon w; Entity caster;
         Vec3 o, fwd, right, up = new Vec3(0, 1, 0), aim;
         float clock; int stop; int fired; int life; long seed;
+        /** The thickest cut of this move: cuts close to it are its main cuts, thinner ones are echoes. */
+        float maxThick;
         Vec3 target(float pt, float fwdDist) {
             Entity t = p.target() >= 0 ? Minecraft.getInstance().level.getEntity(p.target()) : null;
             if (t != null && t.isAlive()) return t.getPosition(pt).add(0, t.getBbHeight() * 0.55, 0);
@@ -43,7 +45,25 @@ public final class MoveFx {
         }
         Vec3 groundAt(Vec3 v) { return new Vec3(v.x, p.groundY() + 0.04, v.z); }
     }
-    static final class Prim { Act a; Move.Fx fx; Prim(Act a, Move.Fx fx) { this.a = a; this.fx = fx; } float age(float pt) { return a.clock + (a.stop > 0 ? 0 : pt) - fx.tick(); } }
+    static final class Prim {
+        Act a; Move.Fx fx;
+        /** The attacker's view frame when this fired: eyes (a touch lower) and the full look, pitch included. */
+        Vec3 o, fwd, right, up;
+        float lastAge = -1;
+        Prim(Act a, Move.Fx fx) {
+            this.a = a; this.fx = fx;
+            Entity c = a.caster;
+            var mc = Minecraft.getInstance();
+            if (c != null && c.isAlive()) {
+                o = c.getEyePosition(1).add(0, -0.28, 0);
+                fwd = c.getViewVector(1).normalize();
+            } else { o = a.o; fwd = a.aim; }
+            Vec3 r = fwd.cross(new Vec3(0, 1, 0));
+            right = r.lengthSqr() < 1e-4 ? a.right : r.normalize();
+            up = right.cross(fwd).normalize();
+        }
+        float age(float pt) { return a.clock + (a.stop > 0 ? 0 : pt) - fx.tick(); }
+    }
     record Num(Vec3 pos, String text, int color, long born, float scale, double dx, double dz) {}
 
     private static final List<Act> ACTS = new ArrayList<>();
@@ -55,6 +75,7 @@ public final class MoveFx {
     private static final Map<Integer, long[]> FORGED = new HashMap<>();
     private static float fov, fovTarget;
     private static final Random R = new Random();
+    private static final java.util.Set<Move.Kind> WARNED = java.util.EnumSet.noneOf(Move.Kind.class);
 
     // =====================================================================================================  packets
     public static void start(S2CMove p) {
@@ -69,6 +90,7 @@ public final class MoveFx {
         a.right = new Vec3(-a.fwd.z, 0, a.fwd.x);
         a.aim = Vec3.directionFromRotation(p.pitch(), p.yaw());
         a.seed = R.nextLong();
+        for (Move.Fx f : a.m.fx()) if (f.kind() == Move.Kind.REND) a.maxThick = Math.max(a.maxThick, f.e());
         int life = a.m.duration();
         for (Move.Fx f : a.m.fx()) life = Math.max(life, f.tick() + primLife(a, f));
         a.life = life + 2;
@@ -99,6 +121,11 @@ public final class MoveFx {
         if (v != null) {
             Vec3 at = v.position().add(0, v.getBbHeight() * 0.6, 0);
             IMPACTS.add(new Impact(at, ClientState.ticks, h.kind(), R.nextLong()));
+            switch (h.kind()) {
+                case 0 -> sfx(at, com.andy.abyss.registry.ModSounds.HIT, 1f, 1f);
+                case 1 -> { sfx(at, com.andy.abyss.registry.ModSounds.HIT, 1.1f, 0.8f); sfx(at, com.andy.abyss.registry.ModSounds.HIT_HEAVY, 0.6f, 1.2f); }
+                default -> { sfx(at, com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.2f, 1f); sfx(at, com.andy.abyss.registry.ModSounds.HIT, 0.9f, 0.7f); }
+            }
             if (Config.damageNumbers.get() && h.damage() > 0) {
                 int color = switch (h.kind()) { case 1 -> 0xD8B8FF; case 2 -> 0xFFFFFF; case 3 -> 0x9AF0FF; default -> 0xB58CFF; };
                 String txt = h.damage() >= 1e6 ? "∞" : String.valueOf(Math.round(h.damage()));
@@ -116,6 +143,75 @@ public final class MoveFx {
 
     public static float fovKick() { return fov; }
 
+    // ------------------------------------------------------------------------------------------------- sound
+    static void sfx(Vec3 at, net.minecraftforge.registries.RegistryObject<net.minecraft.sounds.SoundEvent> ev, float vol, float pitch) {
+        var mc = Minecraft.getInstance();
+        if (mc.level == null || at == null) return;
+        mc.level.playLocalSound(at.x, at.y, at.z, ev.get(), net.minecraft.sounds.SoundSource.PLAYERS, vol, pitch * (0.94f + R.nextFloat() * 0.12f), false);
+    }
+
+    /** What kind of move this is (basic, heavy, plunge, counter, skill, liberation), for how big it should sound. */
+    static int moveKind(Act a) {
+        Moves.Set set = Moves.ALL.get(a.w);
+        if (set == null) return 0;
+        if (a.m == set.liberation()) return 5;
+        if (a.m == set.skill()) return 4;
+        if (a.m == set.counter()) return 3;
+        if (a.m == set.plunge()) return 2;
+        if (a.m == set.heavy()) return 1;
+        return 0;
+    }
+
+    /** Sounds that fire the moment a primitive appears. */
+    private static void onSpawn(Prim p) {
+        int k = moveKind(p.a);
+        boolean big = k >= 1;
+        Vec3 at = p.o;
+        switch (p.fx.kind()) {
+            case REND -> {
+                sfx(at, big ? com.andy.abyss.registry.ModSounds.SWING_HEAVY : com.andy.abyss.registry.ModSounds.SWING, big ? 1.1f : 0.9f, 1f);
+                sfx(at, com.andy.abyss.registry.ModSounds.TEAR, big ? 0.8f : 0.32f, big ? 0.9f : 1.15f);
+            }
+            case REND_LINE -> { sfx(at, com.andy.abyss.registry.ModSounds.SWING, 0.9f, 1.25f); sfx(at, com.andy.abyss.registry.ModSounds.TEAR, 0.3f, 1.3f); }
+            case RIFT_ARM -> sfx(at, com.andy.abyss.registry.ModSounds.TEAR, 0.7f, 0.8f);
+            case SHOCK -> sfx(p.a.groundAt(p.a.o), com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.3f, 0.9f);
+            case FISSURE -> sfx(p.a.groundAt(p.a.o), com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.2f, 0.75f);
+            case SPIKES -> sfx(at, com.andy.abyss.registry.ModSounds.SHATTER, 0.8f, 1.25f);
+            case STAR, BEAM, VORTEX -> sfx(at, com.andy.abyss.registry.ModSounds.CHARGE_UP, 1f, k == 5 ? 0.8f : 1.05f);
+            case GIANT -> sfx(at, com.andy.abyss.registry.ModSounds.SUMMON, 1.3f, 0.75f);
+            case THROW -> sfx(at, com.andy.abyss.registry.ModSounds.SWING_HEAVY, 1f, 1.2f);
+            case BARRIER -> sfx(at, com.andy.abyss.registry.ModSounds.FORM_OPEN, 1f, 0.8f);
+            case GHOSTS -> sfx(at, com.andy.abyss.registry.ModSounds.DODGE, 0.9f, 0.9f);
+            default -> {}
+        }
+    }
+
+    /** Sounds on later beats of a primitive (a burst, a landing, each cut of a storm). */
+    private static void onBeat(Prim p, float prev, float age) {
+        int k = moveKind(p.a);
+        Move.Fx f = p.fx;
+        switch (f.kind()) {
+            case REND_STORM -> {
+                int n = Math.max(1, (int) f.a());
+                for (int i = 0; i < n; i += 2) if (cross(prev, age, i * 0.8f)) sfx(p.o.add(p.fwd.scale(3)), com.andy.abyss.registry.ModSounds.SWING, 0.6f, 1.1f + (i % 4) * 0.05f);
+                float end = n * 0.8f + 3;
+                if (cross(prev, age, end)) { sfx(p.o.add(p.fwd.scale(3)), k == 5 ? com.andy.abyss.registry.ModSounds.LIBERATION : com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.4f, 1f); sfx(p.o, com.andy.abyss.registry.ModSounds.TEAR, 1f, 0.8f); }
+            }
+            case STAR -> { if (cross(prev, age, Math.max(6, f.d()))) sfx(p.o.add(p.fwd.scale(f.b())), k == 5 ? com.andy.abyss.registry.ModSounds.LIBERATION : com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.4f, 1f); }
+            case BEAM -> { if (cross(prev, age, 4)) { sfx(p.o, k == 5 ? com.andy.abyss.registry.ModSounds.LIBERATION : com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.4f, 1.1f); sfx(p.o, com.andy.abyss.registry.ModSounds.TEAR, 0.9f, 0.7f); } }
+            case GIANT -> {
+                int imp = giantImpact(p.a, f);
+                if (cross(prev, age, imp)) sfx(p.a.groundAt(p.o.add(p.fwd.scale(f.b()))), k == 5 ? com.andy.abyss.registry.ModSounds.LIBERATION : com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.6f, 0.95f);
+                if (cross(prev, age, imp + 10)) sfx(p.o.add(p.fwd.scale(f.b())), com.andy.abyss.registry.ModSounds.SHATTER, 1.1f, 0.9f);
+            }
+            case RIFT_ARM -> { if (cross(prev, age, 6)) sfx(p.o.add(p.fwd.scale(3)), com.andy.abyss.registry.ModSounds.HIT, 0.9f, 0.8f); }
+            case VORTEX -> { if (cross(prev, age, Math.max(6, f.c()))) sfx(p.o.add(p.fwd.scale(f.b())), com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.2f, 1.1f); }
+            default -> {}
+        }
+    }
+
+    private static boolean cross(float prev, float now, float at) { return prev < at && now >= at; }
+
     public static void clear() { ACTS.clear(); PRIMS.clear(); NUMS.clear(); SWING.clear(); FORGED.clear(); IMPACTS.clear(); fov = fovTarget = 0; }
 
     // =====================================================================================================  ticking
@@ -125,6 +221,7 @@ public final class MoveFx {
             a.clock++;
             fire(a);
         }
+        for (Prim p : PRIMS) { float age = p.age(0); if (age > p.lastAge) { onBeat(p, p.lastAge, age); p.lastAge = age; } }
         ACTS.removeIf(a -> a.clock > a.life);
         PRIMS.removeIf(p -> !ACTS.contains(p.a) || p.age(0) > primLife(p.a, p.fx));
         SWING.values().removeIf(a -> a.clock > a.m.duration() + a.m.recover() + 4);
@@ -149,7 +246,7 @@ public final class MoveFx {
             if (f.tick() > a.clock) break;
             a.fired++;
             if (f.kind() == Move.Kind.CAMERA) camera(a, f);
-            else PRIMS.add(new Prim(a, f));
+            else { Prim p = new Prim(a, f); PRIMS.add(p); onSpawn(p); p.lastAge = 0; }
         }
     }
 
@@ -166,7 +263,8 @@ public final class MoveFx {
     /** How long a primitive stays on screen (its own build-up, hold and fade). */
     static int primLife(Act a, Move.Fx f) {
         return switch (f.kind()) {
-            case REND, REND_LINE -> 4 + (int) f.f() + 8;
+            case REND -> 17;
+            case REND_LINE -> 16;
             case RIFT_ARM -> 18;
             case SHOCK -> 22;
             case FISSURE -> 46;
@@ -174,7 +272,7 @@ public final class MoveFx {
             case STAR -> (int) Math.max(6, f.d()) + 12;
             case BEAM -> 24;
             case GIANT -> giantImpact(a, f) + 26;
-            case REND_STORM -> (int) (f.a() * 0.8f) + 14 + 10;
+            case REND_STORM -> (int) (f.a() * 0.8f) + 3 + 17;
             case VORTEX -> (int) Math.max(6, f.c()) + 8;
             case THROW -> (int) Math.ceil(f.b() / Math.max(0.1f, f.a())) * (f.c() == 1 ? 2 : 1) + 8;
             case BARRIER -> (int) Math.max(4, f.b()) + 10;
@@ -198,7 +296,7 @@ public final class MoveFx {
         for (Prim p : PRIMS) {
             float age = p.age(d.pt);
             if (age < 0) continue;
-            try { prim(d, p, age); } catch (Exception ex) { com.andy.abyss.Abyss.LOG.debug("move fx", ex); }
+            try { prim(d, p, age); } catch (Exception ex) { if (WARNED.add(p.fx.kind())) com.andy.abyss.Abyss.LOG.warn("Abyss move effect {} failed", p.fx.kind(), ex); }
         }
         for (Impact i : IMPACTS) impact(d, i);
     }
@@ -207,8 +305,8 @@ public final class MoveFx {
         Move.Fx f = p.fx; Act a = p.a;
         Random r = new Random(a.seed ^ (p.fx.hashCode() * 31L) ^ p.fx.tick());
         switch (f.kind()) {
-            case REND -> rend(d, a, f, age, r);
-            case REND_LINE -> rendLine(d, a, f, age);
+            case REND -> rend(d, p, f, age, r);
+            case REND_LINE -> rendLine(d, p, f, age, r);
             case RIFT_ARM -> riftArm(d, a, f, age);
             case SHOCK -> shock(d, a, f, age, r);
             case FISSURE -> fissure(d, a, f, age, r);
@@ -216,7 +314,7 @@ public final class MoveFx {
             case STAR -> star(d, a, f, age, r);
             case BEAM -> beam(d, a, f, age, r);
             case GIANT -> giant(d, a, f, age, r);
-            case REND_STORM -> rendStorm(d, a, f, age, r);
+            case REND_STORM -> rendStorm(d, p, f, age, r);
             case VORTEX -> vortex(d, a, f, age, r);
             case THROW -> thrown(d, a, f, age);
             case BARRIER -> barrier(d, a, f, age);
@@ -232,148 +330,169 @@ public final class MoveFx {
     }
     static float smooth(float x) { x = Mth.clamp(x, 0, 1); return x * x * (3 - 2 * x); }
 
-    // ------------------------------------------------------------------------------------------------- the rend
-    /**
-     * Phases (ticks): 0..3 the cut sweeps across with a white-hot leading edge; 3..3+linger it hangs, its lips
-     * trembling and its seam breathing; then the sever: it flares half again as wide for two ticks and snaps shut to a
-     * hairline that fades.
+    // ------------------------------------------------------------------------------------------------- the slash
+    /*
+     * One hit, one clean arc (the Wuthering Waves / Chronoweave rule): it sweeps across in ~2 ticks with a white-hot
+     * head, holds a beat, then dissolves from its tail to its head. Three additive layers on a camera-facing ribbon
+     * (a soft violet glow, the body, a white core), so it reads from any angle and never goes edge-on. Behind the light
+     * a hairline of the abyss stays open a moment longer and closes: the cut in reality.
+     * The arc is laid out in the attacker's own view frame (eyes + full look, pitch included) at the moment it fires,
+     * so in first person it crosses your screen around the crosshair, wherever you are looking.
      */
-    private static void rend(Draw d, Act a, Move.Fx f, float age, Random r) {
-        float linger = f.f();
-        Vec3 f0 = rotY(a.fwd, f.c());
-        Vec3 side0 = rotY(a.right, f.c());
-        Vec3 side = rotAbout(side0, f0, -f.d());          // tilt the cut plane around the forward axis
-        Vec3 centre = a.o.add(f0.scale(0.35));
+    private static void rend(Draw d, Prim p, Move.Fx f, float age, Random r) {
+        // yaw offset c turns the arc inside the swing plane; tilt d rolls the plane about the look axis
+        Vec3 side = rotAbout(p.right, p.fwd, -f.d());
+        Vec3 f0 = rotAbout(p.fwd, side.cross(p.fwd).normalize(), 0);
+        Vec3 dirC = f0.scale(Math.cos(Math.toRadians(f.c()))).add(side.scale(Math.sin(Math.toRadians(f.c()))));
+        Vec3 sideC = f0.scale(-Math.sin(Math.toRadians(f.c()))).add(side.scale(Math.cos(Math.toRadians(f.c()))));
         float span = Math.abs(f.b()) > 359 ? 360 : f.b();
-        sweepCut(d, centre, f0, side, f.a(), span, f.e(), linger, age, r, 0xE8DCFF);
+        // move the arc's plane off your eye line (an arc in a plane through the eye flattens to a line on screen):
+        // shift it along the plane's normal, downward-ish, so it reads as a crescent sweeping across the view
+        Vec3 n = sideC.cross(dirC).normalize();
+        if (n.y > 0 || (Math.abs(n.y) < 0.2 && n.dot(p.right) < 0)) n = n.scale(-1);
+        Vec3 centre = p.o.subtract(p.fwd.scale(0.2)).add(n.scale(0.6));
+        // the main cut of a hit is bold; the thin echo cuts around it are faint hairlines (no pile-up)
+        boolean main = f.e() >= p.a.maxThick * 0.7f;
+        slash(d, centre, dirC, sideC, Math.max(1.4f, f.a()), span, main ? Math.max(0.3f, f.e() * 1.35f) : 0.07f, age, r, false, main);
     }
 
-    /** One crescent cut with the full sweep → linger → sever arc. Shared by rends, storm cuts and scythe swings. */
-    static void sweepCut(Draw d, Vec3 centre, Vec3 f0, Vec3 side, float radius, float span, float thick, float linger, float age, Random r, int edge) {
-        float sweepT = 3.2f;
-        float reveal = smooth(age / sweepT);
-        float sever = age - sweepT - linger;
-        float widthK, alpha;
-        if (sever < 0) { widthK = 1 + 0.06f * (float) Math.sin(age * 2.7); alpha = 1; }
-        else if (sever < 2) { widthK = 1 + 0.5f * (sever / 2); alpha = 1; }
-        else { float k = Mth.clamp((sever - 2) / 6, 0, 1); widthK = 1.5f * (1 - k) * (1 - k) + 0.02f; alpha = 1 - k * k; }
-        if (alpha <= 0.01f) return;
-        double half = Math.toRadians(span) / 2;
-        double from = -half, to = half;
-        int seg = Math.max(12, (int) (Math.abs(span) / 6));
-        int shown = Math.max(1, (int) Math.ceil(seg * reveal));
-        VertexConsumer vt = d.buf.getBuffer(Rt.voidTri(Rt.FILL));
-        VertexConsumer glow = d.buf.getBuffer(Rt.addTri(Rt.WHITE));
-        Vec3 prevO = null, prevI = null, prevM = null;
-        for (int i = 0; i <= shown; i++) {
-            float k = i / (float) seg;
-            double th = from + (to - from) * Math.min(k, reveal);
-            Vec3 dir = f0.scale(Math.cos(th)).add(side.scale(Math.sin(th)));
-            Vec3 tan = f0.scale(-Math.sin(th)).add(side.scale(Math.cos(th)));
-            // thick in the middle, razor at the ends; a little ragged
-            float prof = (float) Math.pow(Math.sin(Math.PI * Mth.clamp(k, 0, 1)), 0.75);
-            if (Math.abs(span) >= 359) prof = 0.75f + 0.25f * (float) Math.sin(k * 18 + d.time * 3);
-            float jag = 1 + 0.18f * (float) Math.sin(k * 37 + r.nextFloat()) * (sever < 0 ? 1 : 0);
-            float w = thick * 1.5f * prof * widthK * jag;
-            Vec3 mid = centre.add(dir.scale(radius));
-            // the cut's width faces the camera, so it reads from any angle (never edge-on);
-            // blended with the in-plane direction so it still looks like it lies in the swing
-            Vec3 face = tan.cross(d.cam.subtract(mid));
-            Vec3 wdir = face.lengthSqr() < 1e-6 ? dir : face.normalize();
-            if (wdir.dot(dir) < 0) wdir = wdir.scale(-1);
-            wdir = wdir.scale(0.7).add(dir.scale(0.3)).normalize();
-            Vec3 outer = mid.add(wdir.scale(w * 0.5));
-            Vec3 inner = mid.subtract(wdir.scale(w * 0.5));
-            if (prevO != null) {
-                // fade a segment that passes through your eyes instead of flooding the screen
-                float sa = alpha * Mth.clamp((float) (mid.distanceTo(d.cam) - 0.6) / 2.2f, 0, 1);
-                for (int pass = 0; pass < 2; pass++) { // twice: an opaque tear, nothing shows through it
-                    d.vv(vt, prevO.x, prevO.y, prevO.z, 0xFFFFFF, sa, 0.5f, 0.5f); d.vv(vt, outer.x, outer.y, outer.z, 0xFFFFFF, sa, 0.5f, 0.5f); d.vv(vt, inner.x, inner.y, inner.z, 0xFFFFFF, sa, 0.5f, 0.5f);
-                    d.vv(vt, prevO.x, prevO.y, prevO.z, 0xFFFFFF, sa, 0.5f, 0.5f); d.vv(vt, inner.x, inner.y, inner.z, 0xFFFFFF, sa, 0.5f, 0.5f); d.vv(vt, prevI.x, prevI.y, prevI.z, 0xFFFFFF, sa, 0.5f, 0.5f);
-                }
-                // the lips: thin violet light on both edges, white at the sever
-                float lip = sever >= 0 && sever < 3 ? 1f : 0.55f;
-                int lc = sever >= 0 && sever < 3 ? 0xFFFFFF : edge;
-                lipTri(d, glow, prevO, outer, mid, prevM, 0.12f, lc, lip * alpha);
-                lipTri(d, glow, prevI, inner, mid, prevM, 0.12f, lc, lip * alpha);
-                d.beam(Rt.GLOW, true, prevM, mid, Math.max(0.15f, w * 3.2f), 0x5A2AB0, 0.22f * alpha);
-            }
-            prevO = outer; prevI = inner; prevM = mid;
-        }
-        // leading edge: a white-hot head and sparks while it sweeps
-        if (reveal < 1 && prevM != null) {
-            d.billboard(Rt.GLOW, true, prevM, 0.9f, 0xFFFFFF, 0.9f * (1 - reveal * 0.5f) * d.near(prevM, 1.2f), 0);
-            d.billboard(Rt.SPARK, true, prevM, 0.45f, 0xE8DCFF, 1, (float) d.time * 6);
-            for (int i = 0; i < 4; i++) {
-                Vec3 s = prevM.add(r.nextGaussian() * 0.3, r.nextGaussian() * 0.3, r.nextGaussian() * 0.3);
-                d.beam(Rt.STREAK, true, prevM, s, 0.05f, 0xD8C8FF, 0.8f);
-            }
-        }
-        // the sever flash
-        if (sever >= 0 && sever < 3) {
-            float k = 1 - sever / 3;
-            Vec3 c0 = centre.add(f0.scale(radius));
-            d.billboard(Rt.GLOW, true, c0, Math.min(1.2f, radius * 0.35f), 0xF4EEFF, 0.35f * k * d.near(c0, 3f), 0);
-            for (int i = 0; i < 6; i++) {
-                double th = from + (to - from) * r.nextFloat();
-                Vec3 p0 = centre.add(f0.scale(Math.cos(th) * radius)).add(side.scale(Math.sin(th) * radius));
-                Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                d.voidShard(p0.add(dir.scale((1 - k) * 0.8)), dir, 0.3f * k, 0.05f, k);
-            }
-        }
-    }
+    /** The light arc. span in degrees (sign = sweep direction). thick = width at its widest, in blocks. */
+    static void slash(Draw d, Vec3 centre, Vec3 f0, Vec3 side, float radius, float span, float thick, float age, Random r, boolean big) { slash(d, centre, f0, side, radius, span, thick, age, r, big, true); }
 
-    private static void lipTri(Draw d, VertexConsumer g, Vec3 a0, Vec3 a1, Vec3 m1, Vec3 m0, float frac, int rgb, float alpha) {
-        Vec3 b0 = a0.add(m0.subtract(a0).scale(frac * 2)), b1 = a1.add(m1.subtract(a1).scale(frac * 2));
-        d.sv(g, a0.x, a0.y, a0.z, rgb, alpha, .5f, .5f); d.sv(g, a1.x, a1.y, a1.z, rgb, alpha, .5f, .5f); d.sv(g, b1.x, b1.y, b1.z, rgb, 0, .5f, .5f);
-        d.sv(g, a0.x, a0.y, a0.z, rgb, alpha, .5f, .5f); d.sv(g, b1.x, b1.y, b1.z, rgb, 0, .5f, .5f); d.sv(g, b0.x, b0.y, b0.z, rgb, 0, .5f, .5f);
-    }
-
-    /** A straight tapered tear: thrusts, vertical severs, the line of a drill. */
-    private static void rendLine(Draw d, Act a, Move.Fx f, float age) {
-        Vec3 dir0 = rotY(a.fwd, f.d());
-        Vec3 dir = dir0.scale(Math.cos(Math.toRadians(f.c()))).add(0, Math.sin(Math.toRadians(f.c())), 0).normalize();
-        if (f.c() == 0 && Math.abs(a.p.pitch()) > 15) dir = rotY(a.aim, f.d());
-        Vec3 start = a.o.add(dir.scale(f.b()));
-        straightCut(d, start, dir, f.a(), f.e(), f.f(), age);
-    }
-
-    static void straightCut(Draw d, Vec3 start, Vec3 dir, float len, float thick, float linger, float age) {
-        float sweepT = 2.5f;
-        float reveal = smooth(age / sweepT);
-        float sever = age - sweepT - linger;
-        float widthK, alpha;
-        if (sever < 0) { widthK = 1 + 0.07f * (float) Math.sin(age * 3.1); alpha = 1; }
-        else if (sever < 2) { widthK = 1 + 0.6f * sever / 2; alpha = 1; }
-        else { float k = Mth.clamp((sever - 2) / 6, 0, 1); widthK = 1.6f * (1 - k) * (1 - k) + 0.02f; alpha = 1 - k * k; }
-        if (alpha <= 0.01f) return;
-        Vec3 end = start.add(dir.scale(len * reveal));
-        Vec3 mid = start.add(end).scale(0.5);
-        Vec3 sideV = dir.cross(d.cam.subtract(mid));
-        if (sideV.lengthSqr() < 1e-6) return;
-        sideV = sideV.normalize();
-        VertexConsumer vt = d.buf.getBuffer(Rt.voidTri(Rt.FILL));
-        int seg = 10;
-        Vec3 pl = null, pr = null, pm = null;
+    static void slash(Draw d, Vec3 centre, Vec3 f0, Vec3 side, float radius, float span, float thick, float age, Random r, boolean big, boolean full) {
+        float sweepT = big ? 3.0f : 2.2f, hold = big ? 2f : 1f, fadeT = big ? 7f : 5f;
+        float head = smooth(age / sweepT);
+        float tail = Mth.clamp((age - sweepT - hold) / fadeT, 0, 1);
+        if (tail >= 0.999f) { if (full) seam(d, centre, f0, side, radius, span, thick, age - sweepT - hold - fadeT, r); return; }
+        double half = Math.toRadians(span) / 2, from = -half, to = half;
+        int seg = Math.max(14, (int) (Math.abs(span) / 5));
+        VertexConsumer add = d.buf.getBuffer(Rt.addTri(Rt.WHITE));
+        Vec3[] prevL = null;
+        Vec3 headPos = null;
         for (int i = 0; i <= seg; i++) {
             float k = i / (float) seg;
-            Vec3 p = start.add(end.subtract(start).scale(k));
-            float w = thick * widthK * (float) Math.pow(Math.sin(Math.PI * k), 0.7) * 0.5f;
-            Vec3 l = p.add(sideV.scale(w)), rr = p.subtract(sideV.scale(w));
-            if (pl != null) {
-                float sa = alpha * Mth.clamp((float) (p.distanceTo(d.cam) - 0.6) / 2.2f, 0, 1);
-                for (int pass = 0; pass < 2; pass++) {
-                    d.vv(vt, pl.x, pl.y, pl.z, 0xFFFFFF, sa, .5f, .5f); d.vv(vt, l.x, l.y, l.z, 0xFFFFFF, sa, .5f, .5f); d.vv(vt, rr.x, rr.y, rr.z, 0xFFFFFF, sa, .5f, .5f);
-                    d.vv(vt, pl.x, pl.y, pl.z, 0xFFFFFF, sa, .5f, .5f); d.vv(vt, rr.x, rr.y, rr.z, 0xFFFFFF, sa, .5f, .5f); d.vv(vt, pr.x, pr.y, pr.z, 0xFFFFFF, sa, .5f, .5f);
-                }
-                d.beam(Rt.STREAK, true, pl, l, 0.05f, 0xD8C8FF, 0.7f * alpha);
-                d.beam(Rt.STREAK, true, pr, rr, 0.05f, 0xD8C8FF, 0.7f * alpha);
-                d.beam(Rt.GLOW, true, pm, p, Math.max(0.2f, w * 5), 0x5A2AB0, 0.2f * alpha);
+            if (k < tail || k > head) { prevL = null; continue; }
+            double th = from + (to - from) * k;
+            Vec3 dir = f0.scale(Math.cos(th)).add(side.scale(Math.sin(th)));
+            Vec3 tan = f0.scale(-Math.sin(th)).add(side.scale(Math.cos(th)));
+            Vec3 mid = centre.add(dir.scale(radius));
+            // across the ribbon: perpendicular to the arc and to the line of sight
+            Vec3 across = tan.cross(d.cam.subtract(mid));
+            if (across.lengthSqr() < 1e-8) across = dir;
+            across = across.normalize();
+            // crescent profile over the visible part: sharp tail, full near the head, sharp tip
+            float u = (k - tail) / Math.max(1e-3f, head - tail);
+            float prof = (float) (Math.pow(u, 0.55) * Math.pow(Math.max(0, 1 - u), 0.18));
+            float w = thick * prof * (big ? 1.3f : 1f);
+            // eye-safety: a segment right at the camera fades instead of filling the screen
+            float near = Mth.clamp((float) (mid.distanceTo(d.cam) - 0.3) / 1.2f, 0, 1);
+            Vec3[] L = {mid.add(across.scale(w * 1.9)), mid.add(across.scale(w * 0.5)), mid.add(across.scale(w * 0.12)), mid,
+                    mid.subtract(across.scale(w * 0.12)), mid.subtract(across.scale(w * 0.5)), mid.subtract(across.scale(w * 1.9))};
+            if (prevL != null) {
+                float a = near * (0.35f + 0.65f * u);
+                // glow (outer), body, core: colour and alpha per band
+                if (full) {
+                    band(d, add, prevL[0], prevL[1], L[1], L[0], 0x7A45E0, 0f, 0.32f * a);
+                    band(d, add, prevL[6], prevL[5], L[5], L[6], 0x7A45E0, 0f, 0.32f * a);
+                } else a *= 0.6f;
+                band(d, add, prevL[1], prevL[2], L[2], L[1], 0xB58CFF, 0.55f * a, 0.85f * a);
+                band(d, add, prevL[5], prevL[4], L[4], L[5], 0xB58CFF, 0.55f * a, 0.85f * a);
+                band(d, add, prevL[2], prevL[3], L[3], L[2], 0xFFFFFF, a, a);
+                band(d, add, prevL[4], prevL[3], L[3], L[4], 0xFFFFFF, a, a);
             }
-            pl = l; pr = rr; pm = p;
+            prevL = L;
+            headPos = mid;
         }
-        if (reveal < 1) d.billboard(Rt.GLOW, true, end, 0.8f, 0xFFFFFF, 0.9f, 0);
-        if (sever >= 0 && sever < 3) d.beam(Rt.STREAK, true, start, end, thick * 2.5f, 0xFFFFFF, (1 - sever / 3));
+        // the white-hot head and a few sparks while it sweeps
+        if (full && head < 1 && headPos != null) {
+            d.billboard(Rt.GLOW, true, headPos, thick * 4f, 0xFFFFFF, 0.8f * d.near(headPos, 1.2f), 0);
+            for (int i = 0; i < 3; i++) {
+                Vec3 s = headPos.add(r.nextGaussian() * 0.25, r.nextGaussian() * 0.25, r.nextGaussian() * 0.25);
+                d.beam(Rt.STREAK, true, headPos, s, 0.03f, 0xE8DCFF, 0.8f);
+            }
+        }
+        // the seam is already open under the light once the sweep has passed
+        if (full && age > sweepT * 0.6f) seam(d, centre, f0, side, radius, span, thick, age - sweepT - hold - fadeT, r);
+    }
+
+    /** Two triangles of a ribbon band with alpha a0 on the inner edge (b,c) and a1 on the outer (a,d). */
+    private static void band(Draw d, VertexConsumer g, Vec3 a, Vec3 b, Vec3 c, Vec3 dd, int rgb, float aOuter, float aInner) {
+        d.sv(g, a.x, a.y, a.z, rgb, aOuter, .5f, .5f); d.sv(g, b.x, b.y, b.z, rgb, aInner, .5f, .5f); d.sv(g, c.x, c.y, c.z, rgb, aInner, .5f, .5f);
+        d.sv(g, a.x, a.y, a.z, rgb, aOuter, .5f, .5f); d.sv(g, c.x, c.y, c.z, rgb, aInner, .5f, .5f); d.sv(g, dd.x, dd.y, dd.z, rgb, aOuter, .5f, .5f);
+    }
+
+    /** The hairline of the abyss left in the air: open while the light fades, then it closes over ~6 ticks. */
+    private static void seam(Draw d, Vec3 centre, Vec3 f0, Vec3 side, float radius, float span, float thick, float after, Random r) {
+        float close = Mth.clamp(after / 6f, 0, 1);
+        if (close >= 1) return;
+        float wk = (1 - close) * (1 - close);
+        double half = Math.toRadians(span) / 2;
+        int seg = Math.max(12, (int) (Math.abs(span) / 6));
+        VertexConsumer vt = d.buf.getBuffer(Rt.voidTri(Rt.FILL));
+        Vec3 pl = null, pr = null;
+        for (int i = 0; i <= seg; i++) {
+            float k = i / (float) seg;
+            double th = -half + 2 * half * k;
+            Vec3 dir = f0.scale(Math.cos(th)).add(side.scale(Math.sin(th)));
+            Vec3 tan = f0.scale(-Math.sin(th)).add(side.scale(Math.cos(th)));
+            Vec3 mid = centre.add(dir.scale(radius));
+            Vec3 across = tan.cross(d.cam.subtract(mid));
+            if (across.lengthSqr() < 1e-8) across = dir;
+            across = across.normalize();
+            float w = thick * 0.32f * wk * (float) Math.pow(Math.sin(Math.PI * k), 0.6);
+            float a = Mth.clamp((float) (mid.distanceTo(d.cam) - 0.3) / 1.2f, 0, 1);
+            Vec3 l = mid.add(across.scale(w)), rr = mid.subtract(across.scale(w));
+            if (pl != null && a > 0.01f) for (int pass = 0; pass < 2; pass++) {
+                d.vv(vt, pl.x, pl.y, pl.z, 0xFFFFFF, a, .5f, .5f); d.vv(vt, l.x, l.y, l.z, 0xFFFFFF, a, .5f, .5f); d.vv(vt, rr.x, rr.y, rr.z, 0xFFFFFF, a, .5f, .5f);
+                d.vv(vt, pl.x, pl.y, pl.z, 0xFFFFFF, a, .5f, .5f); d.vv(vt, rr.x, rr.y, rr.z, 0xFFFFFF, a, .5f, .5f); d.vv(vt, pr.x, pr.y, pr.z, 0xFFFFFF, a, .5f, .5f);
+            }
+            pl = l; pr = rr;
+        }
+    }
+
+    /** A thrust: a spear of light that shoots out along your aim in ~1.5 ticks, with a ring where it stops. */
+    private static void rendLine(Draw d, Prim p, Move.Fx f, float age, Random r) {
+        // yaw offset d and lift c relative to your look
+        Vec3 dir = rotAbout(p.fwd, p.up, -f.d());
+        dir = rotAbout(dir, p.right, f.c()).normalize();
+        Vec3 start = p.o.add(dir.scale(Math.max(0.6f, f.b())));
+        thrust(d, start, dir, Math.max(1.5f, f.a()), Math.max(0.14f, f.e()), age, r);
+    }
+
+    static void thrust(Draw d, Vec3 start, Vec3 dir, float len, float thick, float age, Random r) {
+        float shootT = 1.6f, hold = 1f, fadeT = 5f;
+        float head = smooth(age / shootT), tail = Mth.clamp((age - shootT - hold) / fadeT, 0, 1);
+        if (tail < 0.999f) {
+            Vec3 a = start.add(dir.scale(len * tail)), b = start.add(dir.scale(len * head));
+            Vec3 mid = a.add(b).scale(0.5);
+            float near = Mth.clamp((float) (mid.distanceTo(d.cam) - 0.3) / 1.2f, 0, 1);
+            d.beam(Rt.GLOW, true, a, b, thick * 3.5f, 0x7A45E0, 0.3f * near);
+            d.beam(Rt.STREAK, true, a, b, thick * 1.1f, 0xB58CFF, 0.85f * near);
+            d.beam(Rt.STREAK, true, a, b, thick * 0.35f, 0xFFFFFF, near);
+            if (head < 1) d.billboard(Rt.GLOW, true, b, thick * 5, 0xFFFFFF, 0.9f * d.near(b, 1.2f), 0);
+        }
+        float tipK = Mth.clamp((age - shootT) / 6f, 0, 1);
+        if (age >= shootT && tipK < 1) {
+            Vec3 tip = start.add(dir.scale(len));
+            d.flat(Rt.RING, true, tip, dir, 0.3f + tipK * 1.4f, 0xE8DCFF, 0.9f * (1 - tipK), 0);
+        }
+        // the seam along the line
+        float after = age - shootT - hold - fadeT;
+        float close = Mth.clamp(after / 6f, 0, 1);
+        if (age > shootT && close < 1) {
+            Vec3 end = start.add(dir.scale(len));
+            float w = thick * 0.3f * (1 - close) * (1 - close);
+            Vec3 across = dir.cross(d.cam.subtract(start.add(end).scale(0.5)));
+            if (across.lengthSqr() > 1e-8) {
+                across = across.normalize().scale(w);
+                VertexConsumer vt = d.buf.getBuffer(Rt.voidTri(Rt.FILL));
+                Vec3 m = start.add(end).scale(0.5);
+                for (int pass = 0; pass < 2; pass++) {
+                    d.vv(vt, start.x, start.y, start.z, 0xFFFFFF, 1, .5f, .5f); d.vv(vt, m.x + across.x, m.y + across.y, m.z + across.z, 0xFFFFFF, 1, .5f, .5f); d.vv(vt, end.x, end.y, end.z, 0xFFFFFF, 1, .5f, .5f);
+                    d.vv(vt, start.x, start.y, start.z, 0xFFFFFF, 1, .5f, .5f); d.vv(vt, end.x, end.y, end.z, 0xFFFFFF, 1, .5f, .5f); d.vv(vt, m.x - across.x, m.y - across.y, m.z - across.z, 0xFFFFFF, 1, .5f, .5f);
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------------------------------------- arm out of a rift
@@ -442,7 +561,7 @@ public final class MoveFx {
             float lift = (float) (t * (1.2 + r.nextDouble() * 1.5) - t * t * 1.6);
             d.voidShard(base.add(0, Math.max(0, lift), 0), new Vec3(r.nextGaussian(), 1.5, r.nextGaussian()), 0.35f * fade, 0.07f, fade);
         }
-        if (age < 3) d.billboard(Rt.GLOW, true, c.add(0, 0.4, 0), f.a() * 0.6f, 0xFFFFFF, (1 - age / 3) * d.near(c, 2), 0);
+        if (age < 3) d.billboard(Rt.GLOW, true, c.add(0, 0.4, 0), Math.min(1.6f, f.a() * 0.25f), 0xFFFFFF, (1 - age / 3) * 0.6f * d.near(c, 4), 0);
     }
 
     private static void fissure(Draw d, Act a, Move.Fx f, float age, Random r) {
@@ -496,39 +615,41 @@ public final class MoveFx {
 
     // ------------------------------------------------------------------------------------------------- stars and vortices
     /** A small black star: gathers (rings tighten, streaks fall in), holds, then bursts into crystal. */
+    /**
+     * A black star: a hard black core (no pale glow discs) that grows while space falls into it, a bright accretion
+     * ring and a thin lensing halo; at the end it bursts in one white ring and a spray of crystal.
+     */
     private static void star(Draw d, Act a, Move.Fx f, float age, Random r) {
-        Vec3 c = f.c() == 1 ? a.target(d.pt, f.b()) : f.c() == 2 ? a.groundAt(a.o).add(0, f.a() * 0.4, 0) : a.o.add(a.fwd.scale(f.b()));
+        Vec3 c = f.c() == 1 ? a.target(d.pt, f.b()) : f.c() == 2 ? a.groundAt(a.o).add(0, f.a() * 0.4, 0) : a.o.add(a.fwd.scale(Math.max(1.5f + f.a(), f.b())));
         float life = Math.max(6, f.d());
         float grow = smooth(age / Math.min(8, life * 0.4f));
         float burst = age - life;
         float rad = f.a();
-        // a star centred on you would swallow the screen: it thins to a lens as your eye nears its surface
-        float inside = Mth.clamp((float) (c.distanceTo(d.cam) - rad * 0.9f) / Math.max(0.5f, rad * 0.6f), 0.12f, 1);
+        float near = d.near(c, rad * 1.6f);
         if (burst < 0) {
-            float wob = 1 + 0.05f * (float) Math.sin(age * 1.7);
-            d.voidSphere(c, rad * grow * wob, inside, 0.12f, 0xFFFFFF);
-            d.glowShell(c, rad * grow * 1.12, 0xE8DCFF, 0.9f);
-            d.glowShell(c, rad * grow * 1.6, 0x7A45E0, 0.4f);
+            float wob = 1 + 0.04f * (float) Math.sin(age * 1.7);
+            float rr = rad * grow * wob;
+            d.billboard(Rt.CORE, false, c, rr, 0x000000, 0.97f * near, 0);
+            d.billboard(Rt.RING, true, c, rr * 1.18f, 0xF0E8FF, 0.9f * grow * near, 0);
+            d.billboard(Rt.GLOW, true, c, rr * 2.4f, 0x5A2AB0, 0.25f * grow * near, 0);
             float spin = (float) d.time * 2.4f;
-            d.flat(Rt.RING, true, c, new Vec3(0.25, 1, 0.1), rad * 2.6f * grow, 0xD0B8FF, 0.85f * grow, spin);
-            d.flat(Rt.RING, true, c, new Vec3(-0.3, 1, 0.35), rad * 2.0f * grow, 0x8C55FF, 0.6f * grow, -spin * 1.3f);
-            for (int i = 0; i < 22; i++) {
+            d.flat(Rt.RING, true, c, new Vec3(0.18, 1, 0.08), rr * 2.3f, 0xE8DCFF, 0.85f * grow, spin);
+            d.flat(Rt.RING, true, c, new Vec3(0.18, 1, 0.08), rr * 1.7f, 0x9C6BFF, 0.7f * grow, -spin * 1.4f);
+            for (int i = 0; i < 26; i++) {
                 Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                 float k = (float) ((age * 0.09 + r.nextDouble()) % 1.0);
                 Vec3 from = c.add(dir.scale(rad * (1.3 + 4.5 * (1 - k))));
-                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.7 * rad)), 0.06f, 0xB58CFF, 0.75f * grow * k);
+                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.7 * rad)), 0.05f, k > 0.7f ? 0xFFFFFF : 0xB58CFF, 0.8f * grow * k);
             }
         } else {
-            float k = Mth.clamp(burst / 12, 0, 1);
-            float out = 1 - k;
-            if (burst < 2) d.voidSphere(c, rad * (1 - burst / 2) + 0.05, inside, 0.1f, 0xFFFFFF);
-            d.glowShell(c, rad * (1 + k * 5), 0xFFFFFF, out);
-            d.flat(Rt.RING, true, c, d.fwdVec(), rad * (1.5f + k * 7), 0xF0E8FF, out, 0);
-            d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad * (1 + k * 8), 0x9C6BFF, out * 0.8f, 0);
-            if (burst < 3) d.billboard(Rt.GLOW, true, c, rad * 5, 0xFFFFFF, (1 - burst / 3) * d.near(c, rad * 2), 0);
+            float k = Mth.clamp(burst / 12, 0, 1), out = 1 - k;
+            if (burst < 2) d.billboard(Rt.CORE, false, c, rad * (1 - burst / 2) + 0.05f, 0x000000, near, 0);
+            if (burst < 3) d.billboard(Rt.GLOW, true, c, rad * 1.8f, 0xFFFFFF, (1 - burst / 3) * 0.6f * d.near(c, rad * 3f), 0);
+            d.billboard(Rt.RING, true, c, rad * (1.2f + k * 6), 0xFFFFFF, out, 0);
+            d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad * (1 + k * 8), 0xB58CFF, out * 0.8f, 0);
             for (int i = 0; i < 26; i++) {
                 Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                d.voidShard(c.add(dir.scale(rad * (0.5 + k * 4.5))), dir, rad * 0.7f * out, rad * 0.1f + 0.04f, out);
+                d.voidShard(c.add(dir.scale(rad * (0.5 + k * 4.5))), dir, rad * 0.6f * out, rad * 0.08f + 0.03f, out);
             }
         }
     }
@@ -607,7 +728,14 @@ public final class MoveFx {
         if (kind == 2) riftPos = a.o.add(0, size * 0.5 + 2, 0).subtract(a.fwd.scale(1.5));
         float open = smooth(age / 6) * (1 - smooth((age - impact - 14) / 8));
         // the rift: a horizontal void disc with lensing rings
-        voidDisc(d, riftPos, kind == 2 ? a.fwd : new Vec3(0, -1, 0), size * 0.7f * open, open);
+        // a sigil where it comes through (no flat void panels)
+        for (int i = 0; i < 6; i++) {
+            double an = i * Math.PI / 3 + d.time * 0.6;
+            Vec3[] b = Draw.basis(kind == 2 ? a.fwd : new Vec3(0, 1, 0));
+            Vec3 q0 = riftPos.add(b[0].scale(Math.cos(an) * size * 0.9 * open)).add(b[1].scale(Math.sin(an) * size * 0.9 * open));
+            Vec3 q1 = riftPos.add(b[0].scale(Math.cos(an + 2.094) * size * 0.9 * open)).add(b[1].scale(Math.sin(an + 2.094) * size * 0.9 * open));
+            d.beam(Rt.STREAK, true, q0, q1, 0.06f, 0xC8B0FF, 0.75f * open);
+        }
         d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * 0.85f * open, 0xD8C8FF, 0.8f * open, (float) d.time);
         d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * 1.15f * open, 0x7A45E0, 0.5f * open, (float) -d.time * 1.4f);
         float emerge = smooth((age - 4) / Math.max(2, impact - 6));
@@ -638,14 +766,14 @@ public final class MoveFx {
             else { ps.mulPose(Axis.XP.rotationDegrees(180)); ps.translate(0, -size * 0.2, 0); }
         }
         ps.scale(sc, sc, sc);
-        if (kind == 3) WeaponModel.renderShield(ps, d.buf, alpha, 1.4f);
-        else WeaponModel.render(ps, d.buf, w, alpha, 1.4f);
+        if (kind == 3) WeaponModel.renderEthereal(ps, d.buf, null, alpha);
+        else WeaponModel.renderEthereal(ps, d.buf, w, alpha);
         if (shatter > 0) for (int i = 0; i < 30; i++) {
             Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6 + 0.6, r.nextGaussian()).normalize();
             Vec3 p = pos.add(r.nextGaussian() * size * 0.3, r.nextDouble() * size, r.nextGaussian() * size * 0.3);
             d.voidShard(p.add(dir.scale(shatter * 3)), dir, 0.5f * (1 - shatter), 0.1f, 1 - shatter);
         }
-        if (age >= impact && age < impact + 4) d.billboard(Rt.GLOW, true, ground.add(0, 1, 0), size * 2, 0xFFFFFF, (1 - (age - impact) / 4) * d.near(ground, 3), 0);
+        if (age >= impact && age < impact + 4) d.billboard(Rt.GLOW, true, ground.add(0, 1, 0), Math.min(3f, size * 0.8f), 0xFFFFFF, (1 - (age - impact) / 4) * 0.6f * d.near(ground, 6), 0);
     }
 
     static void voidDisc(Draw d, Vec3 c, Vec3 n, float r, float alpha) {
@@ -662,26 +790,25 @@ public final class MoveFx {
         }
     }
 
-    /** Many cuts across an area, then they all sever at once (the Iaido): a storm of rends hung in the air. */
-    private static void rendStorm(Draw d, Act a, Move.Fx f, float age, Random r) {
+    /** Many cuts across an area in quick succession (the Iaido / storm moves), ending on one bright burst. */
+    private static void rendStorm(Draw d, Prim p, Move.Fx f, float age, Random r) {
         int n = Math.max(1, (int) f.a());
-        Vec3 c = a.o.add(a.fwd.scale(f.c()));
-        float allSever = n * 0.8f + 10;
+        Vec3 c = p.o.add(p.fwd.scale(Math.max(2.5f, f.c())));
+        float every = 0.8f, end = n * every + 3;
         for (int i = 0; i < n; i++) {
-            float at = i * 0.8f;
-            float local = age - at;
-            if (local < 0) continue;
-            Vec3 f0 = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.5, r.nextGaussian()).normalize();
+            float local = age - i * every;
+            Vec3 f0 = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6, r.nextGaussian()).normalize();
             Vec3 side = f0.cross(new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian())).normalize();
-            Vec3 centre = c.add(new Vec3(r.nextGaussian(), r.nextGaussian() * 0.5, r.nextGaussian()).scale(f.b() * 0.45)).subtract(f0.scale(1.6));
-            float rad = 1.2f + r.nextFloat() * 1.4f + f.b() * 0.08f;
-            float span = 70 + r.nextFloat() * 90;
-            float linger = allSever - at - 3.2f;
-            sweepCut(d, centre, f0, side, rad, span, 0.18f + r.nextFloat() * 0.18f, linger, local, r, 0xE8DCFF);
+            Vec3 off = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.5, r.nextGaussian()).scale(Math.max(1, f.b()) * 0.4);
+            float rad = 1.1f + r.nextFloat() * 1.2f;
+            float span = 70 + r.nextFloat() * 80;
+            if (local < 0) continue;
+            slash(d, c.add(off).subtract(f0.scale(rad * 0.8)), f0, side, rad, span, 0.14f + r.nextFloat() * 0.1f, local, r, false);
         }
-        if (age >= allSever && age < allSever + 3) {
-            float k = 1 - (age - allSever) / 3;
-            d.glowShell(c, f.b() * (1.2 - k * 0.3), 0xFFFFFF, 0.6f * k);
+        float k = (age - end) / 6;
+        if (k >= 0 && k < 1) {
+            d.billboard(Rt.GLOW, true, c, Math.max(2, f.b()) * 1.4f, 0xFFFFFF, (1 - k) * 0.8f * d.near(c, 2.5f), 0);
+            d.flat(Rt.RING, true, c, d.cam.subtract(c).normalize(), 1 + k * Math.max(2, f.b()) * 1.6f, 0xE8DCFF, 1 - k, 0);
         }
     }
 
@@ -750,13 +877,13 @@ public final class MoveFx {
                 double an = i * Math.PI / 3;
                 Vec3 p = cc.add(side.scale(Math.cos(an) * cr)).add(up.scale(Math.sin(an) * cr));
                 if (prev != null) {
-                    d.vv(vt, cc.x, cc.y, cc.z, 0xFFFFFF, 0.55f * appear, .5f, .5f); d.vv(vt, prev.x, prev.y, prev.z, 0xFFFFFF, 0.55f * appear, .5f, .5f); d.vv(vt, p.x, p.y, p.z, 0xFFFFFF, 0.55f * appear, .5f, .5f);
+                    VertexConsumer fl = d.buf.getBuffer(Rt.addTri(Rt.WHITE));
+                    d.sv(fl, cc.x, cc.y, cc.z, 0x5A2AB0, 0.18f * appear, .5f, .5f); d.sv(fl, prev.x, prev.y, prev.z, 0x9C6BFF, 0.3f * appear, .5f, .5f); d.sv(fl, p.x, p.y, p.z, 0x9C6BFF, 0.3f * appear, .5f, .5f);
                     d.beam(Rt.STREAK, true, prev, p, 0.035f, 0xC8B0FF, 0.8f * appear);
                 }
                 prev = p;
             }
         }
-        d.glowShell(c, rad * 0.9, 0x8C55FF, 0.35f * k);
     }
 
     /** Afterimages: void silhouettes peeling off the caster, each one a beat behind. */
@@ -770,24 +897,30 @@ public final class MoveFx {
             double an = (i - (n - 1) / 2.0) * 0.6;
             Vec3 off = rotY(a.fwd, Math.toDegrees(an) + 180).scale(0.4 + k * 1.4);
             Vec3 p = base.add(off).add(0, 0.95, 0);
-            d.voidBillboard(Rt.BODY_CORE, p, 0.32f, 0.92f, 0.75f * (1 - k), 0);
-            d.billboard(Rt.GLOW, true, p, 1.1f, 0x7A45E0, 0.35f * (1 - k), 0);
+            float nearCam = Mth.clamp((float) (p.distanceTo(d.cam) - 1.2) / 1.5f, 0, 1);
+            if (nearCam <= 0.01f) continue;
+            d.voidBillboard(Rt.BODY_CORE, p, 0.32f, 0.92f, 0.75f * (1 - k) * nearCam, 0);
+            d.billboard(Rt.GLOW, true, p, 1.1f, 0x7A45E0, 0.35f * (1 - k) * nearCam, 0);
         }
     }
 
+    /** The hit: a tight white star with thin spikes and a ring snapping outward (no big pale disc). */
     private static void impact(Draw d, Impact i) {
         float age = ClientState.ticks - i.born() + d.pt;
-        float k = Mth.clamp(age / (i.kind() >= 2 ? 10f : 6f), 0, 1);
+        float life = i.kind() >= 2 ? 9f : 6f;
+        float k = Mth.clamp(age / life, 0, 1), out = 1 - k;
         Random r = new Random(i.seed());
-        float s = i.kind() >= 2 ? 1.8f : i.kind() == 1 ? 1.3f : 1f;
-        d.billboard(Rt.GLOW, true, i.at(), 0.9f * s * (1 + k), 0xFFFFFF, (1 - k) * d.near(i.at(), 1), 0);
-        d.billboard(Rt.SPARK, true, i.at(), 0.7f * s, 0xE8DCFF, 1 - k, r.nextFloat() * 6);
-        for (int j = 0; j < 6 + i.kind() * 3; j++) {
+        float s = i.kind() >= 2 ? 1.7f : i.kind() == 1 ? 1.3f : 1f;
+        float near = d.near(i.at(), 1.2f);
+        if (age < 2.5f) d.billboard(Rt.GLOW, true, i.at(), 0.55f * s, 0xFFFFFF, (1 - age / 2.5f) * near, 0);
+        d.billboard(Rt.SPARK, true, i.at(), 0.75f * s * (0.7f + 0.6f * k), 0xFFFFFF, out * near, r.nextFloat() * 6);
+        int n = 5 + i.kind() * 3;
+        for (int j = 0; j < n; j++) {
             Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-            Vec3 a = i.at().add(dir.scale(0.2 + k * 1.2 * s));
-            d.beam(Rt.STREAK, true, a, a.add(dir.scale(0.5 * s * (1 - k))), 0.05f, 0xD8C8FF, 1 - k);
+            Vec3 a = i.at().add(dir.scale(0.15 + k * 0.9 * s));
+            d.beam(Rt.STREAK, true, a, a.add(dir.scale(0.45 * s * out)), 0.035f, j % 2 == 0 ? 0xFFFFFF : 0xC8B0FF, out * near);
         }
-        if (i.kind() >= 2) d.flat(Rt.RING, true, i.at(), d.fwdVec(), s * (0.5f + k * 2), 0xFFFFFF, 1 - k, 0);
+        d.billboard(Rt.RING, true, i.at(), s * (0.35f + k * 1.4f), 0xE8DCFF, out * 0.9f * near, 0);
     }
 
     // ------------------------------------------------------------------------------------------------- the constructs in hand

@@ -45,10 +45,22 @@ public class WheelScreen extends Screen {
     public void tick() {
         age++;
         for (int i = 0; i < N; i++) hoverAnim[i] += ((i == hovered ? 1 : 0) - hoverAnim[i]) * 0.5f;
-        if (!sticky && dragFrom < 0 && !Keys.down(Keys.WHEEL)) {
-            if (age < 4 && hovered < 0) sticky = true;
-            else selectAndClose();
+        // released = the key-up event arrived, or the raw key has read "up" for two ticks in a row
+        // (key-repeat while holding X must never count as a new press)
+        upTicks = Keys.down(Keys.WHEEL) ? 0 : upTicks + 1;
+        if (!sticky && dragFrom < 0 && (released || upTicks >= 2)) {
+            if (age < 4 && hovered < 0) sticky = true;   // a quick tap: keep it open, click to choose
+            else selectAndClose();                     // hold, point, let go: choose what you pointed at
         }
+    }
+
+    private boolean released;
+    private int upTicks;
+
+    @Override
+    public boolean keyReleased(int key, int scan, int mods) {
+        if (Keys.WHEEL.matches(key, scan)) { released = true; return true; }
+        return super.keyReleased(key, scan, mods);
     }
 
     private void selectAndClose() {
@@ -94,7 +106,17 @@ public class WheelScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
-        if (Keys.WHEEL.matches(key, scan)) { selectAndClose(); return true; }
+        if (Keys.WHEEL.matches(key, scan)) {
+            // only a fresh press after letting go closes it (holding X sends repeats; those are ignored)
+            if (sticky && released) selectAndClose();
+            return true;
+        }
+        // 1-9 pick that place on the wheel directly
+        if (key >= 49 && key <= 57) {
+            int i = key - 49;
+            if (at(i) != null) { hovered = i; selectAndClose(); }
+            return true;
+        }
         return super.keyPressed(key, scan, mods);
     }
 
@@ -175,22 +197,30 @@ public class WheelScreen extends Screen {
                     : Component.literal("READY").withStyle(ChatFormatting.LIGHT_PURPLE);
             g.drawCenteredString(font, show.title, (int) cx, (int) cy - 12, show.color);
             g.drawCenteredString(font, state, (int) cx, (int) cy, 0xFFFFFF);
-            List<FormattedCharSequence> lines = font.split(Component.literal(show.desc), 220);
-            int y = (int) (cy + (OUTER + 24) * scale);
-            for (FormattedCharSequence l : lines) { g.drawCenteredString(font, l, (int) cx, y, 0xFFC8C0D8); y += 10; }
+            // the details sit beside the wheel (never under it, where the hotbar is)
+            int px = (int) (cx + OUTER * scale + 26), pw = Math.min(230, width - px - 8);
+            boolean side = pw >= 150;
+            if (!side) { px = (int) cx - 115; pw = 230; }
+            List<FormattedCharSequence> lines = font.split(Component.literal(show.desc), pw);
+            int boxH = lines.size() * 10 + (show.sub != null ? 4 * 15 + 6 : 0) + 16;
+            int y = side ? (int) cy - boxH / 2 : (int) (cy + (OUTER + 16) * scale);
+            g.fill(px - 6, y - 6, px + pw + 6, y + boxH, 0xA0080412);
+            g.fill(px - 6, y - 6, px - 5, y + boxH, 0xFF000000 | show.color);
+            g.drawString(font, show.title, px, y, 0xFF000000 | show.color, false);
+            y += 12;
+            for (FormattedCharSequence l : lines) { g.drawString(font, l, px, y, 0xFFC8C0D8, false); y += 10; }
             if (show.sub != null) {
-                int x = (int) cx - 116;
                 y += 4;
                 for (int k = 0; k < 4; k++) {
-                    int xx = x + (k % 2) * 120, yy = y + (k / 2) * 16;
-                    Gfx.icon(g, Icons.mouse(k), xx + 6, yy + 6, 12, 1, 0xFFFFFF, 0, 1);
-                    Gfx.icon(g, Icons.sub(show, k), xx + 19, yy + 6, 14, 1, show.color, 0, 1);
-                    g.drawString(font, show.sub[k], xx + 28, yy + 2, 0xFFE0D4FF, false);
+                    int yy = y + k * 15;
+                    Gfx.icon(g, Icons.mouse(k), px + 6, yy + 6, 12, 1, 0xFFFFFF, 0, 1);
+                    Gfx.icon(g, Icons.sub(show, k), px + 20, yy + 6, 14, 1, show.color, 0, 1);
+                    g.drawString(font, show.sub[k], px + 30, yy + 2, 0xFFE0D4FF, false);
                 }
                 RenderSystem_reset();
-                y += 34;
+                y += 4 * 15 + 2;
             }
-            g.drawCenteredString(font, Component.literal(sticky ? "Click to select · drag to swap places" : "Release to select · drag to swap · [" + Keys.name(Keys.CAST) + "] casts").withStyle(ChatFormatting.DARK_GRAY), (int) cx, y + 4, 0xFFFFFF);
+            g.drawCenteredString(font, Component.literal(sticky ? "Click to select · drag to swap · 1-9 to pick" : "Release to select · drag to swap · 1-9 to pick").withStyle(ChatFormatting.DARK_GRAY), (int) cx, (int) (cy + (OUTER + 12) * scale), 0xFFFFFF);
         }
     }
 

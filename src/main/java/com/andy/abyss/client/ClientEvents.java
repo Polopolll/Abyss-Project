@@ -41,6 +41,7 @@ public final class ClientEvents {
     private static final boolean[] HOLD_SENT = new boolean[5];
     public static Entity looked;
     public static float insideDomain;
+    private static net.minecraft.client.CloudStatus savedClouds;
     public static boolean openDomainInside;
 
     private static boolean formInput() {
@@ -140,6 +141,10 @@ public final class ClientEvents {
         openDomainInside = false;
         for (S2CWorld.Dom d : ClientState.domains) if (cam.distanceTo(new Vec3(d.x(), d.y(), d.z())) < d.radius()) { target = d.mine() ? 0.75f : 1f; if (!d.closed()) openDomainInside = true; }
         insideDomain += (target - insideDomain) * 0.06f;
+        // no clouds drifting across the galaxy: hide them inside an open domain, give them back after
+        var cs = mc.options.cloudStatus();
+        if (insideDomain > 0.3f && openDomainInside && cs.get() != net.minecraft.client.CloudStatus.OFF) { savedClouds = cs.get(); cs.set(net.minecraft.client.CloudStatus.OFF); }
+        else if (insideDomain < 0.2f && savedClouds != null) { cs.set(savedClouds); savedClouds = null; }
         if (ClientState.ticks - ClientState.worldAt > 40) { ClientState.domains = List.of(); ClientState.clashes = List.of(); ClientState.CORRODED.clear(); }
     }
 
@@ -244,12 +249,9 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void render(RenderLevelStageEvent e) {
         if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && insideDomain > 0.02f && openDomainInside)
-            com.andy.abyss.client.render.AbyssSky.drawGalaxy(e.getPoseStack(), 0.9f * insideDomain);
-        // after weather: clouds are drawn by then, so they never show through a cut
-        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
-            FxManager.render(e.getPoseStack(), e.getCamera(), e.getPartialTick());
-            MoveFx.renderNumbers(e.getPoseStack(), e.getCamera(), e.getPartialTick());
-        }
+            com.andy.abyss.client.render.AbyssSky.drawGalaxy(e.getPoseStack(), Math.min(1f, insideDomain * 1.1f));
+        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) FxManager.render(e.getPoseStack(), e.getCamera(), e.getPartialTick());
+        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) MoveFx.renderNumbers(e.getPoseStack(), e.getCamera(), e.getPartialTick());
     }
 
     @SubscribeEvent

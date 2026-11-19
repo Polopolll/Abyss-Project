@@ -85,7 +85,7 @@ public final class Domains {
         d.radius = 1;
         ALL.add(d);
         Util.fx(d.level, S2CFx.DOMAIN_CAST, d.center, (float) max, 0, 0, p.getId(), -1);
-        Util.sound(d.level, d.center, ModSounds.DOMAIN.get(), 3f, 0.6f);
+        Util.sound(d.level, d.center, ModSounds.DOMAIN.get(), 4f, 1.0f);
     }
 
     public static void small(UUID owner, ServerLevel l, Vec3 c) {
@@ -117,7 +117,7 @@ public final class Domains {
         d.phase = 0;
         ALL.add(d);
         Util.fx(d.origin, S2CFx.DOMAIN_CAST, d.originCenter, (float) r, 2, 0, p.getId(), -1);
-        Util.sound(d.origin, d.originCenter, ModSounds.DOMAIN.get(), 3f, 0.45f);
+        Util.sound(d.origin, d.originCenter, ModSounds.DOMAIN.get(), 4f, 0.92f);
     }
 
     public static void tick(MinecraftServer server) {
@@ -290,10 +290,13 @@ public final class Domains {
             Util.fx(d.level, S2CFx.DOMAIN_SPEARS, e.position(), size, mult > 1 ? 1 : 0, 0, e.getId(), -1);
         }
         if (hit.isEmpty()) return;
-        Util.sound(d.level, d.center, ModSounds.IMPACT.get(), 1.5f, mult > 1 ? 0.8f : 1.3f);
+        // the sigils hum open under them, then the spears erupt (sound on the eruption, at each target)
+        Util.sound(d.level, d.center, ModSounds.SUMMON.get(), 1.2f, mult > 1 ? 0.8f : 1.1f);
         Scheduler.later(6, () -> {
+            int voiced = 0;
             for (LivingEntity e : hit) {
                 if (!e.isAlive()) continue;
+                if (voiced++ < 6) Util.sound(d.level, e.position(), ModSounds.DOMAIN_SPEARS.get(), 1.4f, 0.9f + d.level.random.nextFloat() * 0.2f);
                 double ratio = Math.max(0.5, Math.min(6, ocp / (double) Math.max(1, CombatPower.of(e))));
                 Util.hurt(d.owner, owner, e, (float) (Config.domainCrush.get() * mult * ratio), "abyss");
                 e.setDeltaMovement(e.getDeltaMovement().add(0, 0.35 * size, 0));
@@ -317,7 +320,7 @@ public final class Domains {
         if (d.collapsing) return;
         d.collapsing = true;
         Util.fx(d.level, S2CFx.DOMAIN_COLLAPSE, d.center, (float) d.radius, 0, 0);
-        Util.sound(d.level, d.center, ModSounds.DOMAIN.get(), 4f, 0.3f);
+        Util.sound(d.level, d.center, ModSounds.DOMAIN_COLLAPSE.get(), 5f, 1.0f);
         int ocp = owner != null ? CombatPower.of(owner) : 500;
         Scheduler.repeat(0, 2, 15, i -> {
             for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius), x -> x.isAlive() && d.contains(x))) {
@@ -343,7 +346,7 @@ public final class Domains {
     private static void pulse(Domain d, ServerPlayer owner) {
         Util.fx(d.level, S2CFx.DOMAIN_PULSE, d.center, (float) d.radius, 0, 0);
         Util.sound(d.level, d.center, ModSounds.HEARTBEAT.get(), 3f, 0.45f);
-        Util.sound(d.level, d.center, ModSounds.DOMAIN.get(), 2f, 0.35f);
+        Util.sound(d.level, d.center, ModSounds.DOMAIN_PULSE.get(), 3f, 1.0f);
         for (LivingEntity e : d.level.getEntitiesOfClass(LivingEntity.class, new AABB(d.center, d.center).inflate(d.radius), x -> x.isAlive() && d.contains(x))) {
             if (Util.friend(d.owner, e)) continue;
             Vec3 in = d.center.subtract(e.position()).normalize();

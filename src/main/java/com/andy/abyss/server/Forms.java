@@ -29,7 +29,7 @@ public final class Forms {
         d.form = a.ordinal();
         d.dirty = true;
         Util.fx(p.serverLevel(), S2CFx.FORM_OPEN, p.position().add(0, 1, 0), a.ordinal(), 1, d.weapon, p.getId(), -1);
-        Util.sound(p.serverLevel(), p.position(), a == Ability.AUTHORITY ? ModSounds.RIFT.get() : ModSounds.CHARGE.get(), 1f, a == Ability.BEELZEBUB ? 0.6f : 1.1f);
+        Util.sound(p.serverLevel(), p.position(), a == Ability.AUTHORITY ? ModSounds.RIFT.get() : ModSounds.FORM_OPEN.get(), 1f, a == Ability.BEELZEBUB ? 0.7f : 1f);
         Net.around(p, new S2CVisual(p.getId(), true, d.form, d.weapon));
     }
 

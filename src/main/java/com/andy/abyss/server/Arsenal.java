@@ -66,7 +66,7 @@ public final class Arsenal {
         d.comboStep = 0; d.pending = -1; d.busyUntil = 0; d.dirty = true;
         Weapon w = weapon(d);
         Util.fx(p.serverLevel(), S2CFx.FORGE, p.position().add(0, 1, 0), d.weapon, 0, 0, p.getId(), -1);
-        Util.sound(p.serverLevel(), p.position(), ModSounds.CHARGE.get(), 0.8f, 1.4f);
+        Util.sound(p.serverLevel(), p.position(), ModSounds.SUMMON.get(), 0.9f, 1.3f);
         p.displayClientMessage(Component.literal("§5Forged: §f" + w.title), true);
         Net.around(p, new S2CVisual(p.getId(), true, d.form, d.weapon));
     }
@@ -150,7 +150,6 @@ public final class Arsenal {
         d.chainUntil = now + m.duration() + 18;
         d.dirty = true;
         Actions.mastery(p, 0.01f);
-        if (kind >= SKILL) Util.sound(p.serverLevel(), p.position(), ModSounds.CHARGE.get(), 1.4f, kind == LIB ? 0.5f : 0.9f);
     }
 
     /** Aim target within range (aim, then a forward cone, then — in your domain — anything inside). */
@@ -270,7 +269,7 @@ public final class Arsenal {
         d.nextDodge = now + 12;
         d.dodgeUntil = now + 7;
         Util.fx(p.serverLevel(), S2CFx.DODGE, p.position().add(0, 1, 0), (float) dir.x, (float) dir.z, 0, p.getId(), -1);
-        Util.sound(p.serverLevel(), p.position(), ModSounds.SWAP.get(), 0.6f, 1.7f);
+        Util.sound(p.serverLevel(), p.position(), ModSounds.DODGE.get(), 1f, 1f);
     }
 
     /** Called when the vessel would be hit during the dodge window. Returns true if the hit is avoided. */
@@ -282,7 +281,7 @@ public final class Arsenal {
             d.counterUntil = now + 50;
             d.dodgeUntil = now + 12;
             Util.fx(p.serverLevel(), S2CFx.PERFECT_DODGE, p.position().add(0, 1, 0), 0, 0, 0, p.getId(), -1);
-            Util.sound(p.serverLevel(), p.position(), ModSounds.NEGATE.get(), 1.2f, 0.6f);
+            Util.sound(p.serverLevel(), p.position(), ModSounds.PERFECT.get(), 1.5f, 1f);
             d.gauge = Math.min(100, d.gauge + 10);
             d.dirty = true;
         }
@@ -306,7 +305,7 @@ public final class Arsenal {
         if (to.dot(Vec3.directionFromRotation(0, p.getYRot())) < 0.2) return false;
         d.guardStored += amount;
         Util.fx(p.serverLevel(), S2CFx.GUARD, p.position().add(0, 1, 0), 2, 0, 0, p.getId(), -1);
-        Util.sound(p.serverLevel(), p.position(), ModSounds.IMPACT.get(), 0.6f, 1.6f);
+        Util.sound(p.serverLevel(), p.position(), ModSounds.HIT.get(), 1f, 0.7f);
         return true;
     }
     private Arsenal() {}
