@@ -4,6 +4,7 @@ Ready-to-play jars for Minecraft **1.20.1** with **Forge 47.x**. Put one jar (th
 
 | Version | Highlights |
 |---|---|
+| [0.3.1](abyss-0.3.1.jar) | Working wheel, rebuilt slashes and moves with sound for every hit, domain sky fix |
 | [0.3.0](abyss-0.3.0.jar) | Ronova-style forms (LMB/RMB/M4/M5 sub-abilities), the modular Abyssal Arsenal (7 weapons, 68 moves), the Realm, world-anchored domain sky, retimed effects, 8-stage infection, settings screen, manual |
 | [0.2.1](abyss-0.2.1.jar) | Staged block infection overlay that blends with the world and recedes |
 | [0.2.0](abyss-0.2.0.jar) | Chronoweave-style wheel and HUD, combat-mode combo, domain overhaul, sovereignty, Abyssal Upgrade |
