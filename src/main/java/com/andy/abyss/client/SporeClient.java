@@ -100,9 +100,9 @@ public final class SporeClient {
             } else {
                 float a = s.mine ? 1f : 0.85f;
                 // a dark core with a violet halo: the alpha halo reads in daylight, the additive one at night
-                d.billboard(Rt.GLOW, false, p, 0.3f, 0x5A2A9A, 0.45f * a * near, 0);
-                d.billboard(Rt.CORE, false, p, 0.15f, 0x05030A, 0.95f * a * near, 0);
-                d.billboard(Rt.GLOW, true, p, 0.4f, 0x8C4BFF, 0.55f * pulse * a * near, 0);
+                // a seed of the abyss: a tiny turning black hole
+                d.blackHole(p, 0.42f, false, a * near, (float) d.time * -1.6f + s.id);
+                d.billboard(Rt.GLOW, true, p, 0.3f, 0x6A4BFF, 0.25f * pulse * a * near * d.near(p, 2.5f), 0);
                 if (dist < 48 && density > 0.3f) {
                     Vec3 prev = new Vec3(s.px, s.py, s.pz);
                     if (prev.distanceToSqr(p) > 0.04 && prev.distanceToSqr(p) < 400) d.beam(Rt.STREAK, true, prev, p, 0.07f, 0x6A3BD8, 0.45f * a);

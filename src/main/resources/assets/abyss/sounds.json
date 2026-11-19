@@ -25,7 +25,9 @@
  "domain": {
   "sounds": [
    {
-    "name": "abyss:domain_open"
+    "name": "minecraft:block/end_portal/endportal",
+    "pitch": 0.75,
+    "volume": 1.0
    }
   ]
  },
@@ -77,120 +79,399 @@
  "arsenal_swing": {
   "sounds": [
    {
-    "name": "abyss:arsenal_swing_1"
+    "name": "minecraft:entity/player/attack/sweep1",
+    "pitch": 1.15,
+    "volume": 0.9
    },
    {
-    "name": "abyss:arsenal_swing_2"
+    "name": "minecraft:entity/player/attack/sweep2",
+    "pitch": 1.15,
+    "volume": 0.9
    },
    {
-    "name": "abyss:arsenal_swing_3"
+    "name": "minecraft:entity/player/attack/sweep3",
+    "pitch": 1.15,
+    "volume": 0.9
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep4",
+    "pitch": 1.15,
+    "volume": 0.9
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep5",
+    "pitch": 1.15,
+    "volume": 0.9
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep6",
+    "pitch": 1.15,
+    "volume": 0.9
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep7",
+    "pitch": 1.15,
+    "volume": 0.9
    }
   ]
  },
  "arsenal_swing_heavy": {
   "sounds": [
    {
-    "name": "abyss:arsenal_swing_heavy"
+    "name": "minecraft:entity/player/attack/sweep1",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep2",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep3",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep4",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep5",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep6",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep7",
+    "pitch": 0.72,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:item/trident/throw1",
+    "pitch": 0.6,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:item/trident/throw2",
+    "pitch": 0.6,
+    "volume": 0.8
    }
   ]
  },
  "arsenal_tear": {
   "sounds": [
    {
-    "name": "abyss:arsenal_tear_1"
+    "name": "minecraft:mob/illusion_illager/mirror_move1",
+    "pitch": 1.35,
+    "volume": 0.55
    },
    {
-    "name": "abyss:arsenal_tear_2"
+    "name": "minecraft:mob/illusion_illager/mirror_move2",
+    "pitch": 1.35,
+    "volume": 0.55
+   },
+   {
+    "name": "minecraft:block/amethyst/resonate1",
+    "pitch": 1.7,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:block/amethyst/resonate2",
+    "pitch": 1.7,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:block/amethyst/resonate3",
+    "pitch": 1.7,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:block/amethyst/resonate4",
+    "pitch": 1.7,
+    "volume": 0.6
    }
   ]
  },
  "arsenal_hit": {
   "sounds": [
    {
-    "name": "abyss:arsenal_hit_1"
+    "name": "minecraft:entity/player/attack/strong1",
+    "pitch": 0.95,
+    "volume": 1.0
    },
    {
-    "name": "abyss:arsenal_hit_2"
+    "name": "minecraft:entity/player/attack/strong2",
+    "pitch": 0.95,
+    "volume": 1.0
    },
    {
-    "name": "abyss:arsenal_hit_3"
+    "name": "minecraft:entity/player/attack/strong3",
+    "pitch": 0.95,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/strong4",
+    "pitch": 0.95,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/strong5",
+    "pitch": 0.95,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/strong6",
+    "pitch": 0.95,
+    "volume": 1.0
    }
   ]
  },
  "arsenal_hit_heavy": {
   "sounds": [
    {
-    "name": "abyss:arsenal_hit_heavy"
+    "name": "minecraft:mob/warden/sonic_boom1",
+    "pitch": 1.55,
+    "volume": 0.55
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom2",
+    "pitch": 1.55,
+    "volume": 0.55
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom3",
+    "pitch": 1.55,
+    "volume": 0.55
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom4",
+    "pitch": 1.55,
+    "volume": 0.55
    }
   ]
  },
  "arsenal_summon": {
   "sounds": [
    {
-    "name": "abyss:arsenal_summon"
+    "name": "minecraft:block/respawn_anchor/charge1",
+    "pitch": 1.35,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:block/respawn_anchor/charge2",
+    "pitch": 1.35,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:block/respawn_anchor/charge3",
+    "pitch": 1.35,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:block/amethyst/shimmer",
+    "pitch": 0.8,
+    "volume": 1.0
    }
   ]
  },
  "arsenal_shatter": {
   "sounds": [
    {
-    "name": "abyss:arsenal_shatter"
+    "name": "minecraft:block/amethyst_cluster/break1",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/amethyst_cluster/break2",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/amethyst_cluster/break3",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/amethyst_cluster/break4",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/glass1",
+    "pitch": 0.7,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:random/glass2",
+    "pitch": 0.7,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:random/glass3",
+    "pitch": 0.7,
+    "volume": 0.6
    }
   ]
  },
  "arsenal_liberation": {
   "sounds": [
    {
-    "name": "abyss:arsenal_liberation"
+    "name": "minecraft:mob/warden/sonic_boom1",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom2",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom3",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom4",
+    "pitch": 0.8,
+    "volume": 1.0
    }
   ]
  },
  "arsenal_dodge": {
   "sounds": [
    {
-    "name": "abyss:arsenal_dodge"
+    "name": "minecraft:mob/illusion_illager/mirror_move1",
+    "pitch": 1.7,
+    "volume": 0.7
+   },
+   {
+    "name": "minecraft:mob/illusion_illager/mirror_move2",
+    "pitch": 1.7,
+    "volume": 0.7
    }
   ]
  },
  "arsenal_perfect": {
   "sounds": [
    {
-    "name": "abyss:arsenal_perfect"
+    "name": "minecraft:mob/illusion_illager/prepare_mirror",
+    "pitch": 1.4,
+    "volume": 1.0
    }
   ]
  },
  "arsenal_charge": {
   "sounds": [
    {
-    "name": "abyss:arsenal_charge"
+    "name": "minecraft:mob/warden/sonic_charge1",
+    "pitch": 1.25,
+    "volume": 0.7
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_charge2",
+    "pitch": 1.25,
+    "volume": 0.7
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_charge3",
+    "pitch": 1.25,
+    "volume": 0.7
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_charge4",
+    "pitch": 1.25,
+    "volume": 0.7
    }
   ]
  },
  "domain_spears": {
   "sounds": [
    {
-    "name": "abyss:domain_spears"
+    "name": "minecraft:item/trident/pierce1",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:item/trident/pierce2",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:item/trident/pierce3",
+    "pitch": 0.75,
+    "volume": 1.0
    }
   ]
  },
  "domain_pulse": {
   "sounds": [
    {
-    "name": "abyss:domain_pulse"
+    "name": "minecraft:block/respawn_anchor/deplete1",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/respawn_anchor/deplete2",
+    "pitch": 0.6,
+    "volume": 1.0
    }
   ]
  },
  "form_open": {
   "sounds": [
    {
-    "name": "abyss:form_open"
+    "name": "minecraft:block/enchantment_table/enchant1",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/enchantment_table/enchant2",
+    "pitch": 0.75,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/enchantment_table/enchant3",
+    "pitch": 0.75,
+    "volume": 1.0
    }
   ]
  },
  "domain_collapse": {
   "sounds": [
    {
-    "name": "abyss:domain_collapse"
+    "name": "minecraft:mob/warden/sonic_boom1",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom2",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom3",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_boom4",
+    "pitch": 0.6,
+    "volume": 1.0
+   }
+  ]
+ },
+ "domain_open": {
+  "sounds": [
+   {
+    "name": "minecraft:block/end_portal/endportal",
+    "pitch": 0.75,
+    "volume": 1.0
    }
   ]
  }

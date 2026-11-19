@@ -30,4 +30,12 @@ public final class FxBuffers implements MultiBufferSource {
     private static void end(Map.Entry<RenderType, BufferBuilder> e) {
         if (e.getValue().building()) e.getKey().end(e.getValue(), RenderSystem.getVertexSorting());
     }
+
+    /**
+     * If something throws mid-frame, builders may still be open; close them out (discarding the half-built geometry)
+     * so the next frame starts clean instead of piling vertices into the same builder.
+     */
+    public void discardOpen() {
+        for (BufferBuilder b : builders.values()) if (b.building()) { b.end().release(); }
+    }
 }

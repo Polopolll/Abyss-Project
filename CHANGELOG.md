@@ -4,6 +4,17 @@
 - The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
 - Added [`pictures/`](pictures/) (screenshots of every weapon, the domain and the icons, plus 0.2 images) and [`references/`](references/) (credits for the mods and games Abyss drew on, and what each one inspired).
 
+## 0.3.2 (in review)
+**Crash fix:** the effects renderer created new vertex buffers every frame, and that native memory was never freed, so after ~15 minutes the game ran out of memory and crashed. It now reuses one set; memory stays flat (tested: 56 moves back to back, no growth).
+
+**Sounds:** the synthesized sounds are gone. Every Arsenal and domain sound is now built from Minecraft's own recordings, pitched and layered for the Abyss: sweeps, tridents, the warden's sonic boom and charge, amethyst, illusioner mirrors, end portal, respawn anchor.
+
+**The look (from Andy's references):**
+- The domain sky is a nebula: billowing violet, magenta, blue and crimson clouds with lit edges and dark dust lanes, star clusters, and a lensed black hole (Gargantua-style) hanging in it.
+- Black holes everywhere: stars in moves, the gathering before a nuke, the domain's birth and Collapse are now real black holes, a spinning swirl (cyan-white arcs into an oval shadow) or the lensed kind (a hot disk across the shadow, its far side bent into a ring).
+- Spores are tiny turning black holes.
+- Big flashes are softer (no more white-outs). The welcome message shows your actual key bindings.
+
 ## 0.3.1
 Scope cut down to what matters most: the wheel, the movesets, and Domain Expansion.
 

@@ -47,7 +47,14 @@ public final class Awakening {
         Util.sound(p.serverLevel(), p.position(), ModSounds.DOMAIN.get(), 2f, 0.4f);
         Util.sound(p.serverLevel(), p.position(), ModSounds.HEARTBEAT.get(), 2f, 0.5f);
         Net.around(p, new S2CVisual(p.getId(), true));
-        p.displayClientMessage(Component.literal("§5The abyss opens inside you. §7Hold §f[P]§7 for the wheel, §f[O]§7 spores, hold §f[Caps Lock]§7 Spore Lens, §f[']§7 bodies."), false);
+        // keybind components show whatever key the player has actually bound, so this never goes stale
+        p.displayClientMessage(Component.literal("§5The abyss opens inside you. §7Tap ")
+                .append(Component.literal("[").append(Component.keybind("key.abyss.wheel")).append("]").withStyle(net.minecraft.ChatFormatting.WHITE))
+                .append(Component.literal("§7 for the next skill, hold it for the wheel, "))
+                .append(Component.literal("[").append(Component.keybind("key.abyss.cast")).append("]").withStyle(net.minecraft.ChatFormatting.WHITE))
+                .append(Component.literal("§7 to use it. "))
+                .append(Component.literal("[").append(Component.keybind("key.abyss.roster")).append("]").withStyle(net.minecraft.ChatFormatting.WHITE))
+                .append(Component.literal("§7 bodies.")), false);
         return null;
     }
 

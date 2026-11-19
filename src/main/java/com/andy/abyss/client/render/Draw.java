@@ -46,6 +46,8 @@ public final class Draw {
 
     /** Camera-facing sprite. */
     public void billboard(ResourceLocation tex, boolean additive, Vec3 p, float size, int rgb, float a, float rot) {
+        // big additive glows wash the screen out: the bigger the flash, the softer it is
+        if (additive && tex == Rt.GLOW && size > 1.5f) a *= (float) Math.pow(1.5f / size, 1.1);
         VertexConsumer vc = buf.getBuffer(additive ? Rt.add(tex) : Rt.alpha(tex));
         float cs = (float) Math.cos(rot) * size, sn = (float) Math.sin(rot) * size;
         float lx = left.x * cs + up.x * sn, ly = left.y * cs + up.y * sn, lz = left.z * cs + up.z * sn;
@@ -98,6 +100,8 @@ public final class Draw {
         double dc = c.distanceTo(cam);
         alpha *= (float) Math.max(0, Math.min(1, (dc - r * 1.02) / Math.max(0.4, r * 0.5)));
         if (alpha < 0.01f) return;
+        // every void sphere is drawn as a black hole (a pale translucent ball never read well against daylight)
+        if (r < 12) { blackHole(c, (float) r * 2.6f, false, alpha, (float) (time * -0.9)); return; }
         VertexConsumer vc = buf.getBuffer(Rt.voidFx(Rt.FILL));
         int lat = r > 20 ? 28 : 16, lon = r > 20 ? 48 : 24;
         for (int i = 0; i < lat; i++) {
@@ -190,5 +194,37 @@ public final class Draw {
     public float near(Vec3 p, float r) {
         double d = p.distanceTo(cam);
         return (float) Math.max(0, Math.min(1, (d - 0.3) / Math.max(0.01, r)));
+    }
+
+    /**
+     * A black hole facing the camera. lensed=false: the swirl (accretion arcs spiralling into an oval shadow, spinning);
+     * lensed=true: the Gargantua look (hot disk across the shadow, its far side bent into a ring around it).
+     * size = half-width in blocks. A hard black shadow is drawn first, the light additively on top.
+     */
+    public void blackHole(Vec3 c, float size, boolean lensed, float alpha, float spin) {
+        if (alpha <= 0.01f || size <= 0.01f) return;
+        float near = near(c, Math.max(1.2f, size * 1.5f));
+        if (near <= 0.01f) return;
+        float rx = lensed ? 0.25f : 0.257f, ry = lensed ? 0.25f : 0.157f;
+        float cs = (float) Math.cos(spin), sn = (float) Math.sin(spin);
+        Vector3f L = new Vector3f(left).mul(cs).add(new Vector3f(up).mul(sn)), U = new Vector3f(up).mul(cs).sub(new Vector3f(left).mul(sn));
+        // the shadow: a solid black ellipse
+        VertexConsumer vc = buf.getBuffer(Rt.alpha(Rt.WHITE));
+        int seg = 40;
+        for (int i = 0; i < seg; i++) {
+            double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg;
+            double x0 = Math.cos(a0) * rx * size, y0 = Math.sin(a0) * ry * size, x1 = Math.cos(a1) * rx * size, y1 = Math.sin(a1) * ry * size;
+            sv(vc, c.x, c.y, c.z, 0x000000, alpha * near, .5f, .5f);
+            sv(vc, c.x + L.x * x0 + U.x * y0, c.y + L.y * x0 + U.y * y0, c.z + L.z * x0 + U.z * y0, 0x000000, alpha * near, .5f, .5f);
+            sv(vc, c.x + L.x * x1 + U.x * y1, c.y + L.y * x1 + U.y * y1, c.z + L.z * x1 + U.z * y1, 0x000000, alpha * near, .5f, .5f);
+            sv(vc, c.x + L.x * x1 + U.x * y1, c.y + L.y * x1 + U.y * y1, c.z + L.z * x1 + U.z * y1, 0x000000, alpha * near, .5f, .5f);
+        }
+        // the light
+        VertexConsumer g = buf.getBuffer(Rt.add(lensed ? Rt.BH_LENSED : Rt.BH_SWIRL));
+        float a = alpha * near;
+        sv(g, c.x - L.x * size - U.x * size, c.y - L.y * size - U.y * size, c.z - L.z * size - U.z * size, 0xFFFFFF, a, 0, 1);
+        sv(g, c.x + L.x * size - U.x * size, c.y + L.y * size - U.y * size, c.z + L.z * size - U.z * size, 0xFFFFFF, a, 1, 1);
+        sv(g, c.x + L.x * size + U.x * size, c.y + L.y * size + U.y * size, c.z + L.z * size + U.z * size, 0xFFFFFF, a, 1, 0);
+        sv(g, c.x - L.x * size + U.x * size, c.y - L.y * size + U.y * size, c.z - L.z * size + U.z * size, 0xFFFFFF, a, 0, 0);
     }
 }

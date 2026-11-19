@@ -96,10 +96,12 @@ public final class FxManager {
     static final class Mote { Vec3 p, v; int age, life; Mote(Vec3 p, Vec3 v, int life) { this.p = p; this.v = v; this.life = life; } }
     private static final List<Mote> MOTES = new ArrayList<>();
 
+    private static final FxBuffers BUFFERS = new FxBuffers();
+
     public static void render(PoseStack ps, Camera cam, float pt) {
         var mc = Minecraft.getInstance();
         if (mc.level == null) return;
-        FxBuffers buf = new FxBuffers();
+        FxBuffers buf = BUFFERS; // one set, reused every frame (a new set per frame leaked native memory)
         double time = (mc.level.getGameTime() + pt) / 20.0;
         Draw d = new Draw(ps, cam, pt, buf, time);
         try {
@@ -260,7 +262,7 @@ public final class FxManager {
                     }
                     d.glowShell(at, Math.max(e1.getBbWidth(), e1.getBbHeight()) * 0.6, 0xFFFFFF, t);
                 }
-                d.voidSphere(at, 0.15 + t * 0.7, 1f, 0.1f, 0xFFFFFF);
+                d.blackHole(at, (float) (0.6 + t * R0 * 0.9), false, Math.min(1, t * 2.5f), (float) d.time * -1.4f);
                 if (t > 0.85f) d.billboard(Rt.GLOW, true, at, R0 * 1.5f * (t - 0.85f) / 0.15f, 0xFFFFFF, d.near(at, 1), 0);
             }
             case S2CFx.NUKE -> {
@@ -384,8 +386,7 @@ public final class FxManager {
                 float R0 = Math.min(p.a(), 80);
                 if (t < 0.22f) {
                     float k = t / 0.22f;
-                    d.voidSphere(c, 0.2 + k * 1.4, 1, 0.1f, 0xFFFFFF);
-                    d.glowShell(c, 0.4 + k * 1.6, 0xFFFFFF, 0.8f);
+                    d.blackHole(c, 1f + k * 5f, true, Math.min(1, k * 2), 0);
                     d.flat(Rt.RING, true, c, new Vec3(0.15, 1, 0.1), 5 - k * 3.4f, 0xD8C8FF, 0.9f, (float) d.time * 5);
                     for (int i = 0; i < 40; i++) {
                         Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
@@ -684,10 +685,11 @@ public final class FxManager {
                 Vec3 from = c.add(dir.scale(rad * (1 - ph)));
                 d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.08 - 0.4)), 0.09f, ph > 0.6f ? 0xFFFFFF : 0x9C6BFF, 0.85f);
             }
-            d.voidSphere(c, 0.4 + k * 2.5, 1, 0.1f, 0xFFFFFF);
+            d.blackHole(c.add(0, 6, 0).add(d.fwdVec().multiply(1, 0, 1).normalize().scale(16)), 1.5f + k * 9f, true, Math.min(1, k * 3), 0);
         } else {
             float k = Mth.clamp((age - 32) / 14, 0, 1);
-            if (k < 0.2f) d.billboard(Rt.GLOW, true, c, R0 * 1.2f, 0xFFFFFF, (1 - k / 0.2f) * d.near(c, 3), 0);
+            if (k < 0.35f) d.blackHole(c.add(0, 6, 0).add(d.fwdVec().multiply(1, 0, 1).normalize().scale(16)), 10.5f * (1 - k / 0.35f), true, 1, 0);
+            if (k < 0.2f) d.billboard(Rt.GLOW, true, c, R0 * 0.6f, 0xFFFFFF, (1 - k / 0.2f) * 0.6f * d.near(c, 6), 0);
             d.glowShell(c, 2 + k * R0 * 1.3, 0xFFFFFF, 1 - k);
             d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), 2 + k * R0 * 1.6f, 0xF0E8FF, 1 - k, 0);
             d.flat(Rt.RING, true, c, d.fwdVec(), 2 + k * R0, 0x9C6BFF, 0.8f * (1 - k), 0);

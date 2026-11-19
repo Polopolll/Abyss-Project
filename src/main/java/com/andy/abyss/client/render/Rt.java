@@ -15,7 +15,8 @@ public final class Rt extends RenderType {
             FILL = Abyss.id("textures/fx/void_fill.png"), RIFT = Abyss.id("textures/fx/rift.png"), GLOW = Abyss.id("textures/fx/glow.png"),
             CORE = Abyss.id("textures/fx/core.png"), RING = Abyss.id("textures/fx/ring.png"), SPARK = Abyss.id("textures/fx/spark.png"),
             WHITE = Abyss.id("textures/fx/white.png"), STREAK = Abyss.id("textures/fx/streak.png"), SHARD = Abyss.id("textures/fx/shard.png"),
-            TOOTH = Abyss.id("textures/fx/tooth.png"), INFECTION = Abyss.id("textures/fx/infection.png"), BODY_CORE = Abyss.id("textures/fx/core_mask.png");
+            TOOTH = Abyss.id("textures/fx/tooth.png"), INFECTION = Abyss.id("textures/fx/infection.png"), BODY_CORE = Abyss.id("textures/fx/core_mask.png"),
+            BH_SWIRL = Abyss.id("textures/fx/blackhole_swirl.png"), BH_LENSED = Abyss.id("textures/fx/blackhole_lensed.png");
 
     private static final Map<ResourceLocation, RenderType> VOID = new HashMap<>(), VOID_FX = new HashMap<>(), ADD = new HashMap<>(), ALPHA = new HashMap<>(), ADD_TRI = new HashMap<>(), VOID_TRI = new HashMap<>();
     private static final ShaderStateShard VOID_SHADER = new ShaderStateShard(() -> AbyssShaders.VOID);

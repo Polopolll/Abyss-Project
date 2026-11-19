@@ -627,23 +627,18 @@ public final class MoveFx {
         float rad = f.a();
         float near = d.near(c, rad * 1.6f);
         if (burst < 0) {
-            float wob = 1 + 0.04f * (float) Math.sin(age * 1.7);
-            float rr = rad * grow * wob;
-            d.billboard(Rt.CORE, false, c, rr, 0x000000, 0.97f * near, 0);
-            d.billboard(Rt.RING, true, c, rr * 1.18f, 0xF0E8FF, 0.9f * grow * near, 0);
-            d.billboard(Rt.GLOW, true, c, rr * 2.4f, 0x5A2AB0, 0.25f * grow * near, 0);
-            float spin = (float) d.time * 2.4f;
-            d.flat(Rt.RING, true, c, new Vec3(0.18, 1, 0.08), rr * 2.3f, 0xE8DCFF, 0.85f * grow, spin);
-            d.flat(Rt.RING, true, c, new Vec3(0.18, 1, 0.08), rr * 1.7f, 0x9C6BFF, 0.7f * grow, -spin * 1.4f);
-            for (int i = 0; i < 26; i++) {
+            float rr = rad * grow * (1 + 0.04f * (float) Math.sin(age * 1.7));
+            // the swirl: arcs of light spiralling into the shadow, turning as it feeds
+            d.blackHole(c, rr * 2.6f, false, grow, (float) d.time * -0.9f);
+            for (int i = 0; i < 18; i++) {
                 Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                 float k = (float) ((age * 0.09 + r.nextDouble()) % 1.0);
-                Vec3 from = c.add(dir.scale(rad * (1.3 + 4.5 * (1 - k))));
-                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.7 * rad)), 0.05f, k > 0.7f ? 0xFFFFFF : 0xB58CFF, 0.8f * grow * k);
+                Vec3 from = c.add(dir.scale(rad * (1.4 + 4.0 * (1 - k))));
+                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.6 * rad)), 0.04f, k > 0.7f ? 0xE8F4FF : 0x7FA8FF, 0.7f * grow * k);
             }
         } else {
             float k = Mth.clamp(burst / 12, 0, 1), out = 1 - k;
-            if (burst < 2) d.billboard(Rt.CORE, false, c, rad * (1 - burst / 2) + 0.05f, 0x000000, near, 0);
+            if (burst < 3) d.blackHole(c, rad * 2.6f * (1 - burst / 3), false, 1, (float) d.time * -0.9f);
             if (burst < 3) d.billboard(Rt.GLOW, true, c, rad * 1.8f, 0xFFFFFF, (1 - burst / 3) * 0.6f * d.near(c, rad * 3f), 0);
             d.billboard(Rt.RING, true, c, rad * (1.2f + k * 6), 0xFFFFFF, out, 0);
             d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad * (1 + k * 8), 0xB58CFF, out * 0.8f, 0);
