@@ -95,6 +95,7 @@ public final class FxManager {
         }
         MOTES.removeIf(m -> { m.age++; m.p = m.p.add(m.v); return m.age > m.life; });
         Dust.tick();
+        Debris.tick();
         com.andy.abyss.client.Disintegrate.tick();
     }
 
@@ -867,6 +868,6 @@ public final class FxManager {
         d.sv(vc, p.x - lx + ux, p.y - ly + uy, p.z - lz + uz, rgb, a, 0, 0);
     }
 
-    public static void clear() { ACTIVE.clear(); MOTES.clear(); Dust.clear(); com.andy.abyss.client.Disintegrate.clear(); com.andy.abyss.client.InfectionClient.clear(); }
+    public static void clear() { ACTIVE.clear(); MOTES.clear(); Dust.clear(); Debris.clear(); com.andy.abyss.client.Disintegrate.clear(); com.andy.abyss.client.InfectionClient.clear(); }
     private FxManager() {}
 }

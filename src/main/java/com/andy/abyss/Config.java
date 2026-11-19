@@ -17,7 +17,9 @@ public final class Config {
     public static ForgeConfigSpec.BooleanValue sovereignty, vesselImmunities, beamCarves;
     public static ForgeConfigSpec.DoubleValue vesselStrength, comboDamage;
     public static ForgeConfigSpec.IntValue reformSeconds;
-    public static ForgeConfigSpec.BooleanValue escapeIntoRealm;
+    public static ForgeConfigSpec.BooleanValue escapeIntoRealm, blockDestruction;
+    public static ForgeConfigSpec.IntValue destructionPerCall;
+    public static ForgeConfigSpec.DoubleValue destructionMaxHardness;
     public static ForgeConfigSpec.BooleanValue domainDecay, domainScarsPermanent, domainDissolveItems;
     public static ForgeConfigSpec.IntValue domainDecayPerTick;
     public static ForgeConfigSpec.IntValue blockBudgetPerTick;
@@ -69,6 +71,9 @@ public final class Config {
         vesselImmunities = put(b.comment("The vessel ignores falling, drowning, suffocation, freezing, fire and lava, starvation, poison and wither").define("vesselImmunities", true), "vesselImmunities");
         sovereignty = put(b.comment("The vessel cannot die: a lethal blow dissolves the body into the abyss and it re-forms. Raw setHealth(0), die() and removal by other mods are refused; max health cannot be lowered").define("sovereignty", true), "sovereignty");
         reformSeconds = put(b.comment("A second lethal blow within this time is simply held at 1 HP instead of re-forming again").defineInRange("reformSeconds", 4, 0, 600), "reformSeconds");
+        blockDestruction = put(b.comment("Abyss attacks tear blocks out of the world (craters, trenches); erased blocks drop nothing").define("blockDestruction", true), "blockDestruction");
+        destructionPerCall = put(b.comment("Most blocks one attack may erase").defineInRange("destructionPerCall", 1500, 0, 40000), "destructionPerCall");
+        destructionMaxHardness = put(b.comment("Hardest block attacks can erase (stone 1.5, iron block 5, obsidian 50)").defineInRange("destructionMaxHardness", 50.0, 0, 1000), "destructionMaxHardness");
         escapeIntoRealm = put(b.comment("A lethal blow pulls the vessel through a rift into the Abyss Realm as it re-forms (Ronova's escape)").define("escapeIntoRealm", true), "escapeIntoRealm");
         comboDamage = put(b.comment("Scales the abyssal combo (combat mode)").defineInRange("comboDamage", 1.0, 0, 1000), "comboDamage");
         beamCarves = put(b.comment("The heavy Abyssal Beam erases soft blocks along its path").define("beamCarves", true), "beamCarves");

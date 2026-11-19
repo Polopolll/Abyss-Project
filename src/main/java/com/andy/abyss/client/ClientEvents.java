@@ -255,6 +255,11 @@ public final class ClientEvents {
     public static void render(RenderLevelStageEvent e) {
         if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && insideDomain > 0.02f && openDomainInside)
             com.andy.abyss.client.render.AbyssSky.drawGalaxy(e.getPoseStack(), Math.min(1f, insideDomain * 1.1f));
+        if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+            var bs = Minecraft.getInstance().renderBuffers().bufferSource();
+            com.andy.abyss.client.render.Debris.render(e.getPoseStack(), bs, e.getCamera().getPosition(), e.getPartialTick());
+            bs.endBatch();
+        }
         if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) FxManager.render(e.getPoseStack(), e.getCamera(), e.getPartialTick());
         if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) MoveFx.renderNumbers(e.getPoseStack(), e.getCamera(), e.getPartialTick());
     }

@@ -30,6 +30,7 @@ public final class Net {
         CH.registerMessage(i++, S2CHit.class, S2CHit::write, S2CHit::read, S2CHit::handle);
         CH.registerMessage(i++, S2CSouls.class, S2CSouls::write, S2CSouls::read, S2CSouls::handle);
         CH.registerMessage(i++, S2CWorld.class, S2CWorld::write, S2CWorld::read, S2CWorld::handle);
+        CH.registerMessage(i++, S2CDebris.class, S2CDebris::write, S2CDebris::read, S2CDebris::handle);
     }
 
     public static void toServer(Object msg) { CH.sendToServer(msg); }
