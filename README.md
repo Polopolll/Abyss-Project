@@ -9,7 +9,7 @@ Standalone Forge 1.20.1 (Forge 47.x) mod. You become the vessel of an infinite d
 ![Abyss](pictures/0.3/first-person-horizon-cut.png)
 
 ## Getting it
-Download the newest jar from [`releases/`](releases/) (currently **[abyss-0.3.1.jar](releases/abyss-0.3.1.jar)**) and put it in your `mods` folder. Requires Minecraft 1.20.1 with Forge 47.x. Older versions are kept in the same folder.
+Download the newest jar from [`releases/`](releases/) (currently **[abyss-0.3.2.jar](releases/abyss-0.3.2.jar)**) and put it in your `mods` folder. Requires Minecraft 1.20.1 with Forge 47.x. Older versions are kept in the same folder.
 
 In game, craft an **Abyssal Core** (crying obsidian ×4, echo shard ×2, sculk catalyst ×2, nether star) and use it. There is one Abyss user per world (config `singleUser`). Admins can use `/abyss awaken <player>`.
 

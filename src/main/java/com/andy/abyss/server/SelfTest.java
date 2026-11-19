@@ -96,7 +96,7 @@ public final class SelfTest {
         p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, z3.getEyePosition());
         // clear leftovers from the earlier checks so the lock can only find the dummy
         for (LivingEntity e : l.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(24), x -> x != p && x != z3 && !(x instanceof net.minecraft.world.entity.player.Player))) e.discard();
-        Forms.toggle(p, com.andy.abyss.data.Ability.ARSENAL);
+        if (d.form != com.andy.abyss.data.Ability.ARSENAL.ordinal()) Forms.toggle(p, com.andy.abyss.data.Ability.ARSENAL); // open it (a toggle would close it if already open)
         check(out, "arsenal form opens", d.form == com.andy.abyss.data.Ability.ARSENAL.ordinal());
         for (com.andy.abyss.combat.Weapon w : com.andy.abyss.combat.Weapon.values()) {
             d.weapon = w.ordinal();
