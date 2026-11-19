@@ -36,9 +36,10 @@ public class WeaponLayer<T extends LivingEntity, M extends HumanoidModel<T>> ext
             ps.pushPose();
             m.rightArm.translateAndRotate(ps);
             ps.translate(-1 / 16f, 10 / 16f, 0);           // the fist
-            ps.mulPose(Axis.XP.rotationDegrees(-90));        // blade out of the fist, forward
+            // the weapon's angle in the fist: raised at the ready, straight out through a swing
+            ps.mulPose(Axis.XP.rotationDegrees(com.andy.abyss.client.ArsenalPose.fistAngle(e, w)));
             ps.mulPose(Axis.YP.rotationDegrees(90));         // edge leads the swing
-            float sc = switch (w) { case GREATSWORD -> 0.95f; case HAMMER, SCYTHE, SPEAR -> 1.0f; default -> 1.05f; };
+            float sc = com.andy.abyss.client.ArsenalPose.layerScale(w);
             ps.scale(sc, sc, sc);
             WeaponModel.render(ps, buf, w, forge, glow);
             ps.popPose();

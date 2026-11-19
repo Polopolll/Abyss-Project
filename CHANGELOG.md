@@ -18,6 +18,8 @@
 - Aegis & Shard: a broad shard blade, and a hex shield with a bevelled rim and a gem boss.
 - Hands of the Abyss: cuffs, armoured backs with a gem, and knuckle spikes.
 - In first person the blades now show their face instead of their edge, and the shield sits in view.
+- **You actually hold them now** (Better Combat style). First person draws your real arms: the right fist closes on the grip, and on two-handed weapons (Event Cleaver, Singularity Maul, Horizon Reaper, Rift Lance) your left hand holds the grip or shaft through every swing. The Aegis is strapped to your left forearm, and the gauntlets are worn on your hands. The scythe rests diagonally with its crescent sweeping out to the left.
+- Third person has a ready stance per weapon, and for two-handers the left hand is placed on the shaft by inverse kinematics every frame, during moves too.
 
 **The look (from Andy's references):**
 - The domain sky is a nebula: billowing violet, magenta, blue and crimson clouds with lit edges and dark dust lanes, star clusters, and a lensed black hole (Gargantua-style) hanging in it.

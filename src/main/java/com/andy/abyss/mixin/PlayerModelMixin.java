@@ -53,6 +53,14 @@ public abstract class PlayerModelMixin<T extends LivingEntity> extends HumanoidM
 
     @Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
     private void abyss$pose(T e, float limb, float limbAmt, float age, float yaw, float pitch, CallbackInfo ci) {
+        abyss$move(e);
+        // then how the weapon is actually held: ready stance, and both hands on two-handed weapons
+        com.andy.abyss.client.ArsenalPose.apply(e, rightArm, leftArm);
+        rightSleeve.copyFrom(rightArm);
+        leftSleeve.copyFrom(leftArm);
+    }
+
+    private void abyss$move(T e) {
         long[] p = ClientState.POSES.get(e.getId());
         if (p == null) return;
         float[][] k = keys((int) p[0]);
