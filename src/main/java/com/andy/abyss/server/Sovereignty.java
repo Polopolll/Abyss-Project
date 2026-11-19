@@ -55,6 +55,8 @@ public final class Sovereignty {
         Util.fx(p.serverLevel(), S2CFx.REFORM, p.position().add(0, 1, 0), 1, 0, 0, p.getId(), -1);
         Util.sound(p.serverLevel(), p.position(), ModSounds.COLLAPSE.get(), 1.5f, 0.6f);
         Util.sound(p.serverLevel(), p.position(), ModSounds.HEARTBEAT.get(), 1.5f, 0.8f);
+        // the abyss takes its vessel out of harm's way: through a rift into the Realm
+        if (Config.escapeIntoRealm.get() && !AbyssDim.is(p.level()) && !AbyssData.get(p).peeking) Realm.enter(p, true);
     }
 
     /** Nothing else may lower the vessel's max health. */

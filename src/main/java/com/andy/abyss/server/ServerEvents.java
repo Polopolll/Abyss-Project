@@ -277,7 +277,16 @@ public final class ServerEvents {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void death(LivingDeathEvent e) {
-        if (e.getEntity() instanceof ServerPlayer p && Bodies.onPlayerDeath(p)) e.setCanceled(true);
+        if (e.getEntity() instanceof ServerPlayer p && Bodies.onPlayerDeath(p)) { e.setCanceled(true); return; }
+        // killed by the abyss's own force: the body is unmade into abyssal ash (Ronova's ash, in the abyss's terms)
+        var key = e.getSource().typeHolder().unwrapKey().orElse(null);
+        if (key != null && key.location().getNamespace().equals(com.andy.abyss.Abyss.MODID) && e.getEntity().level() instanceof net.minecraft.server.level.ServerLevel l) {
+            String t = key.location().getPath();
+            if (t.equals("abyss") || t.equals("inside_out")) {
+                LivingEntity v = e.getEntity();
+                Util.fx(l, com.andy.abyss.net.S2CFx.ASH, v.position(), v.getBbWidth(), v.getBbHeight(), 0, v.getId(), -1);
+            }
+        }
     }
 
     @SubscribeEvent public static void drops(LivingDropsEvent e) { if (e.getEntity().getPersistentData().getBoolean("abyss_no_drops")) e.setCanceled(true); }

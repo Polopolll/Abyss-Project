@@ -25,7 +25,7 @@ public enum Ability {
     AUTHORITY("Authority of the Abyss", Type.FORM, 0x7FA8FF, 0,
             "A great rift tears open behind you. Through it: the Abyss Realm, where the world is reflected at the same place.",
             new String[]{"Transport", "The Realm", "Rift", "Rift-step"},
-            new String[]{"Drag what you look at through the rift into the Abyss.", "Step through the rift into the Abyss Realm (again: leave, at the same place, into the world you chose).",
+            new String[]{"Drag what you look at through the rift into the Abyss.", "Step through the rift into the Abyss Realm. In the Realm: LMB opens an eye in the world (LMB again closes it, RMB steps out through it); RMB leaves through a rift.",
                     "Open a two-way rift to any place in any dimension.", "Step to where you look. In the Realm: choose which world to exit into."}),
     BEELZEBUB("Beelzebub", Type.FORM, 0xFF4A9A, 0,
             "The abyss opens its mouth behind you.",

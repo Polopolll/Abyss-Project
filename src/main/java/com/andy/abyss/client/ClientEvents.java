@@ -46,7 +46,9 @@ public final class ClientEvents {
 
     private static boolean formInput() {
         var mc = Minecraft.getInstance();
-        return mc.screen == null && mc.player != null && ClientState.awakened() && ClientState.form() >= 0 && !mc.player.isSpectator();
+        // while peeking through the abyss's eye you are a spectator: the Authority buttons must still reach the server, or the eye is a one-way trip
+        return mc.screen == null && mc.player != null && ClientState.awakened() && ClientState.form() >= 0
+                && (!mc.player.isSpectator() || ClientState.form() == com.andy.abyss.data.Ability.AUTHORITY.ordinal());
     }
 
     private static int flags() {
@@ -63,6 +65,9 @@ public final class ClientEvents {
         var o = Minecraft.getInstance().options;
         return (o.keyUp.isDown() ? 1 : 0) | (o.keyDown.isDown() ? 2 : 0) | (o.keyLeft.isDown() ? 4 : 0) | (o.keyRight.isDown() ? 8 : 0);
     }
+
+    @SubscribeEvent
+    public static void renderLiving(net.minecraftforge.client.event.RenderLivingEvent.Pre<?, ?> e) { Disintegrate.onRender(e); }
 
     @SubscribeEvent
     public static void tick(TickEvent.ClientTickEvent e) {

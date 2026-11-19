@@ -66,7 +66,13 @@ public final class Forms {
                 // paint-select, unleash and payload choice are client side (they send C2SPayload)
             }
             case AUTHORITY -> {
-                if (!press) { if (button == C2SInput.LMB && phase == C2SInput.RELEASE && d.peeking) Realm.endPeek(p); return; }
+                if (!press) return;
+                // looking through the eye: LMB closes it (back to the Realm), RMB steps out through it, right here
+                if (d.peeking) {
+                    if (button == C2SInput.LMB) Realm.endPeek(p);
+                    else if (button == C2SInput.RMB) Realm.stepOutOfEye(p);
+                    return;
+                }
                 boolean inRealm = AbyssDim.is(p.level());
                 switch (button) {
                     case C2SInput.LMB -> {

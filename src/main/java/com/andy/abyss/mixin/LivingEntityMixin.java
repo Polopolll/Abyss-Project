@@ -23,4 +23,10 @@ public abstract class LivingEntityMixin {
         Object self = this;
         if (self instanceof ServerPlayer p && p.getHealth() > 0 && Sovereignty.active(p)) ci.cancel();
     }
+
+    /** A body unmade by the abyss leaves ash and darkness, not the white death poof. */
+    @Inject(method = "makePoofParticles", at = @At("HEAD"), cancellable = true)
+    private void abyss$noPoof(CallbackInfo ci) {
+        if (com.andy.abyss.data.Dissolving.IDS.contains(((LivingEntity) (Object) this).getId())) ci.cancel();
+    }
 }

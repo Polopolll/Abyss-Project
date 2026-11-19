@@ -48,11 +48,13 @@ public final class Realm {
         p.displayClientMessage(Component.literal("§5The Realm now reflects §f" + dim.getPath().replace('_', ' ')), true);
     }
 
-    public static void enter(ServerPlayer p) {
+    public static void enter(ServerPlayer p) { enter(p, false); }
+
+    public static void enter(ServerPlayer p, boolean free) {
         ServerLevel abyss = AbyssDim.level(p.server);
         if (abyss == null || AbyssDim.is(p.level())) return;
         AbyssData d = AbyssData.get(p);
-        if (!d.spend(25)) { Actions.noOutput(p); return; }
+        if (!free && !d.spend(25)) { Actions.noOutput(p); return; }
         ServerLevel from = p.serverLevel();
         d.realmFrom = from.dimension().location().toString();
         if (d.realmTarget.isEmpty()) d.realmTarget = d.realmFrom;
@@ -112,6 +114,24 @@ public final class Realm {
         p.getAbilities().mayfly = true; p.getAbilities().flying = true; p.onUpdateAbilities();
     }
 
+    /** RMB while peeking: the eye becomes a rift and you step out of it into the world, right where it looked from. */
+    public static void stepOutOfEye(ServerPlayer p) {
+        AbyssData d = AbyssData.get(p);
+        if (!d.peeking) return;
+        d.peeking = false;
+        p.getPersistentData().remove("abyss_peeking");
+        ServerLevel l = p.serverLevel();
+        Vec3 dest = Rifts.safe(l, p.getX(), p.getY(), p.getZ());
+        p.setGameMode(GameType.byId(d.peekMode < 0 ? 0 : d.peekMode));
+        p.teleportTo(dest.x, dest.y, dest.z);
+        Util.fx(l, S2CFx.PEEK, dest.add(0, 1.6, 0), 0, 0, 0, p.getId(), -1);
+        Util.fx(l, S2CFx.REALM_EXIT, dest.add(0, 1, 0), 1, 0, 0, p.getId(), -1);
+        Util.sound(l, dest, ModSounds.RIFT.get(), 1.5f, 0.6f);
+        if (!p.isCreative() && !d.has("flight")) { p.getAbilities().mayfly = false; p.getAbilities().flying = false; }
+        p.onUpdateAbilities();
+        d.dirty = true;
+    }
+
     /** After a crash or logout mid-peek, put the player back. */
     public static void restoreOnLogin(ServerPlayer p) {
         if (!p.getPersistentData().getBoolean("abyss_peeking")) return;
@@ -125,6 +145,8 @@ public final class Realm {
         AbyssData d = AbyssData.get(p);
         long gt = p.level().getGameTime();
         if (d.peeking) {
+            // never strand anyone: if the form was closed or the game mode changed some other way, come home
+            if (d.form != com.andy.abyss.data.Ability.AUTHORITY.ordinal() || !p.isSpectator()) { endPeek(p); return; }
             // the eye stays where it opened: you can look around, not walk away
             if (Math.abs(p.getX() - d.peekX) > 0.3 || Math.abs(p.getZ() - d.peekZ) > 0.3) p.teleportTo(d.peekX, p.getY(), d.peekZ);
             if (gt % 20 == 0) Util.fx(p.serverLevel(), S2CFx.PEEK, p.position().add(0, 1.6, 0), 2, 0, 0, p.getId(), -1);

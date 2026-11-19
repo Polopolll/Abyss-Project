@@ -29,6 +29,7 @@ public final class FxManager {
     public static int flashColor = 0xFFFFFF;
 
     public static void receive(S2CFx p) {
+        if (p.type() == S2CFx.ASH) { com.andy.abyss.client.Disintegrate.start(p.e1()); return; }
         Fx f = new Fx();
         f.p = p; f.seed = R.nextLong(); f.pos = new Vec3(p.x(), p.y(), p.z());
         f.life = switch (p.type()) {
@@ -88,9 +89,13 @@ public final class FxManager {
         if (ClientState.ticks % 3 == 0) for (Entity e : mc.level.entitiesForRendering()) {
             boolean voidBody = (e instanceof Player && ClientState.awakened(e.getId())) || e instanceof com.andy.abyss.entity.AbyssBody;
             if (!voidBody || e.distanceToSqr(mc.player) > 48 * 48) continue;
-            MOTES.add(new Mote(e.position().add((R.nextDouble() - 0.5) * 0.8, R.nextDouble() * 1.9, (R.nextDouble() - 0.5) * 0.8), new Vec3(0, 0.02 + R.nextDouble() * 0.02, 0), 30));
+            // a vessel of the abyss sheds a little ash as it moves: dark flakes lifting off, no glowing blobs
+            Dust.add(Dust.Kind.ASH, e.position().add((R.nextDouble() - 0.5) * 0.7, 0.2 + R.nextDouble() * 1.6, (R.nextDouble() - 0.5) * 0.7), new Vec3(0, 0.012 + R.nextDouble() * 0.015, 0), 34, 0.05f + R.nextFloat() * 0.04f, R.nextFloat() < 0.6f ? Dust.BLACK : Dust.CHAR)
+                    .gravity(-0.0008f).drag(0.97f).spin(R.nextFloat() * 0.1f - 0.05f).alpha(0.85f);
         }
         MOTES.removeIf(m -> { m.age++; m.p = m.p.add(m.v); return m.age > m.life; });
+        Dust.tick();
+        com.andy.abyss.client.Disintegrate.tick();
     }
 
     static final class Mote { Vec3 p, v; int age, life; Mote(Vec3 p, Vec3 v, int life) { this.p = p; this.v = v; this.life = life; } }
@@ -117,6 +122,7 @@ public final class FxManager {
             }
             for (Fx f : ACTIVE) draw(d, f, pt);
             MoveFx.render(d);
+            Dust.render(d, pt);
             auras(d);
             souls(d);
         } catch (Exception ex) {
@@ -861,6 +867,6 @@ public final class FxManager {
         d.sv(vc, p.x - lx + ux, p.y - ly + uy, p.z - lz + uz, rgb, a, 0, 0);
     }
 
-    public static void clear() { ACTIVE.clear(); MOTES.clear(); com.andy.abyss.client.InfectionClient.clear(); }
+    public static void clear() { ACTIVE.clear(); MOTES.clear(); Dust.clear(); com.andy.abyss.client.Disintegrate.clear(); com.andy.abyss.client.InfectionClient.clear(); }
     private FxManager() {}
 }

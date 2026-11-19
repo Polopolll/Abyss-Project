@@ -63,6 +63,22 @@ public final class Draw {
         sv(vc, p.x - lx + ux, p.y - ly + uy, p.z - lz + uz, rgb, a, 0, 0);
     }
 
+    /** Camera-facing sprite using part of a texture (u0..u1), w x h in size (a particle from a strip of variants). */
+    public void sprite(ResourceLocation tex, boolean additive, Vec3 p, float w, float h, int rgb, float a, float rot, float u0, float u1) {
+        double dist = Math.sqrt((p.x - cam.x) * (p.x - cam.x) + (p.y - cam.y) * (p.y - cam.y) + (p.z - cam.z) * (p.z - cam.z));
+        float size = Math.max(w, h);
+        a *= (float) Math.max(0, Math.min(1, (dist - size * 0.8) / (size * 1.6 + 0.3)));
+        if (a < 0.005f) return;
+        VertexConsumer vc = buf.getBuffer(additive ? Rt.add(tex) : Rt.alpha(tex));
+        float c = (float) Math.cos(rot), sn = (float) Math.sin(rot);
+        float lx = (left.x * c + up.x * sn) * w, ly = (left.y * c + up.y * sn) * w, lz = (left.z * c + up.z * sn) * w;
+        float ux = (-left.x * sn + up.x * c) * h, uy = (-left.y * sn + up.y * c) * h, uz = (-left.z * sn + up.z * c) * h;
+        sv(vc, p.x - lx - ux, p.y - ly - uy, p.z - lz - uz, rgb, a, u0, 1);
+        sv(vc, p.x + lx - ux, p.y + ly - uy, p.z + lz - uz, rgb, a, u1, 1);
+        sv(vc, p.x + lx + ux, p.y + ly + uy, p.z + lz + uz, rgb, a, u1, 0);
+        sv(vc, p.x - lx + ux, p.y - ly + uy, p.z - lz + uz, rgb, a, u0, 0);
+    }
+
     /** A camera-facing ribbon from a to b. */
     public void beam(ResourceLocation tex, boolean additive, Vec3 a, Vec3 b, float width, int rgb, float alpha) {
         Vec3 d = b.subtract(a);

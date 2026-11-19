@@ -43,6 +43,12 @@ public final class Hud {
         overlays(g, w, h, pt);
         clash(g, f, w, h);
         angelEyes(g, f, w, h);
+        if (ClientState.awakened() && mc.player.isSpectator() && !ClientState.inRealm() && ClientState.form() == com.andy.abyss.data.Ability.AUTHORITY.ordinal()) {
+            // looking through the eye: say how to get back, plainly
+            g.drawCenteredString(f, "§8◉ §fTHE EYE IS OPEN §8◉", w / 2, h - 62, 0xFFFFFFFF);
+            g.drawCenteredString(f, "§7LMB §fclose the eye §8·  §7RMB §fstep out here §8·  §7R §fback to the Realm", w / 2, h - 50, 0xFFFFFFFF);
+            return;
+        }
         if (!ClientState.awakened() || mc.player.isSpectator() && !ClientState.inRealm()) { if (ClientState.inRealm()) realm(g, f, w, h, time); return; }
         Matrix4f m = g.pose().last().pose();
         dock(g, f, m, w, h, time, pt);
@@ -266,7 +272,7 @@ public final class Hud {
         g.pose().scale(0.75f, 0.75f, 1);
         g.drawCenteredString(f, sub, 0, 0, 0xFFFFFFFF);
         g.pose().popPose();
-        if (Minecraft.getInstance().player.isSpectator()) g.drawCenteredString(f, "§fPEEKING §8· release to return", w / 2, h - 50, 0xFFFFFFFF);
+        if (Minecraft.getInstance().player.isSpectator()) g.drawCenteredString(f, "§fTHE EYE IS OPEN §8· LMB close · RMB step out", w / 2, h - 50, 0xFFFFFFFF);
     }
 
     private static void bodies(GuiGraphics g, Font f, Matrix4f m, int w, int h, int x0) {
