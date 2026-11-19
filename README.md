@@ -7,6 +7,8 @@ Standalone Forge 1.20.1 (Forge 47.x) mod. You become the vessel of an infinite d
 ## Getting it
 Download the newest jar from [`releases/`](releases/) (currently **[abyss-0.3.0.jar](releases/abyss-0.3.0.jar)**) and put it in your `mods` folder. Requires Minecraft 1.20.1 with Forge 47.x. Older versions are kept in the same folder.
 
+In game, craft an **Abyssal Core** (crying obsidian ×4, echo shard ×2, sculk catalyst ×2, nether star) and use it. There is one Abyss user per world (config `singleUser`). Admins can use `/abyss awaken <player>`.
+
 ## Controls (one hand on WASD; all rebindable)
 Your skills sit on a wheel. A **form** is an umbrella skill: **R** opens it, and while it is open the four mouse buttons are its sub-actions (hints for them appear next to the crosshair). **R** again closes it. Only one form is open at a time. Vanilla attack and use are blocked while a form is open.
 
