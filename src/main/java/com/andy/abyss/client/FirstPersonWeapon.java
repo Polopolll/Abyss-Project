@@ -59,8 +59,11 @@ public final class FirstPersonWeapon {
             q = new Quaternionf().rotateAxis(ang + (float) Math.PI / 2, dir).mul(q);
         }
         ps.mulPose(q);
-        // the scythe's crescent and the spear's head turn their flat face to you
-        if (w == Weapon.SCYTHE || w == Weapon.SPEAR) ps.mulPose(Axis.YP.rotationDegrees(90));
+        // turn the flat a little toward you so blades show their face, not just their edge
+        // the roll leaves the weapon's width pointing at you: turn it so blades show their face (a little of the
+        // edge too), and the scythe crescent, spear wings and maul head lie across the view
+        if (w == Weapon.SWORD || w == Weapon.GREATSWORD || w == Weapon.BULWARK) ps.mulPose(Axis.YP.rotationDegrees(62));
+        else if (w == Weapon.SCYTHE || w == Weapon.SPEAR || w == Weapon.HAMMER) ps.mulPose(Axis.YP.rotationDegrees(90));
         float sc = switch (w) { case GREATSWORD -> 0.62f; case HAMMER -> 0.8f; case SPEAR, SCYTHE -> 0.7f; case BULWARK -> 0.8f; default -> 0.75f; };
         ps.scale(sc, sc, sc);
         WeaponModel.render(ps, e.getMultiBufferSource(), w, sw[4], glow);
@@ -70,8 +73,8 @@ public final class FirstPersonWeapon {
     private static void shield(PoseStack ps, RenderHandEvent e, float forge, float glow) {
         boolean guard = ClientState.me.getBoolean("guarding");
         ps.pushPose();
-        if (guard) ps.translate(-0.1f, -0.22f, -0.75f); else ps.translate(-0.62f, -0.5f, -0.85f);
-        ps.mulPose(Axis.YP.rotationDegrees(guard ? 0 : 35));
+        if (guard) ps.translate(-0.1f, -0.22f, -0.75f); else ps.translate(-0.52f, -0.3f, -0.85f);
+        ps.mulPose(Axis.YP.rotationDegrees(guard ? 0 : 25)); // the boss faces you
         ps.mulPose(Axis.ZP.rotationDegrees((ClientState.ticks + e.getPartialTick()) * 0.5f));
         ps.scale(guard ? 0.55f : 0.38f, guard ? 0.55f : 0.38f, guard ? 0.55f : 0.38f);
         WeaponModel.renderShield(ps, e.getMultiBufferSource(), forge, glow);

@@ -9,6 +9,16 @@
 
 **Sounds:** the synthesized sounds are gone. Every Arsenal and domain sound is now built from Minecraft's own recordings, pitched and layered for the Abyss: sweeps, tridents, the warden's sonic boom and charge, amethyst, illusioner mirrors, end portal, respawn anchor.
 
+**Weapon models rebuilt:** the constructs were see-through (faces drew over each other in the wrong order) and crude. They're now solid, faceted crystal with lit faces:
+- Abyssal Edge: a slim, slightly curved blade with a clipped point, swept guard, gem and banded grip.
+- Event Cleaver: a broad blade with ricasso shoulders and a chisel point, a dark spine with a set gem, winged guard.
+- Singularity Maul: an octagonal drum head banded in dark crystal, end spikes and a top spike.
+- Horizon Reaper: a thick-backed crescent sweeping out and down to a point, with a back spike.
+- Rift Lance: a leaf head with a midrib, hooked wings and a butt spike.
+- Aegis & Shard: a broad shard blade, and a hex shield with a bevelled rim and a gem boss.
+- Hands of the Abyss: cuffs, armoured backs with a gem, and knuckle spikes.
+- In first person the blades now show their face instead of their edge, and the shield sits in view.
+
 **The look (from Andy's references):**
 - The domain sky is a nebula: billowing violet, magenta, blue and crimson clouds with lit edges and dark dust lanes, star clusters, and a lensed black hole (Gargantua-style) hanging in it.
 - Black holes everywhere: stars in moves, the gathering before a nuke, the domain's birth and Collapse are now real black holes, a spinning swirl (cyan-white arcs into an oval shadow) or the lensed kind (a hot disk across the shadow, its far side bent into a ring).

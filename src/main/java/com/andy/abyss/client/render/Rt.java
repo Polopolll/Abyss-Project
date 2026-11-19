@@ -33,6 +33,15 @@ public final class Rt extends RenderType {
 
     /** Void-shaded world effects (domain shells, rifts, black spheres): no culling, no depth write. */
     public static RenderType voidFx(ResourceLocation tex) { return voidFx(tex, VOID_FX, VertexFormat.Mode.QUADS); }
+    private static final Map<ResourceLocation, RenderType> VOID_SOLID = new HashMap<>();
+    /** Solid void-shaded triangles that write depth: the weapon constructs, so their faces hide each other properly. */
+    public static RenderType voidSolid(ResourceLocation tex) {
+        return VOID_SOLID.computeIfAbsent(tex, t -> create("abyss_void_solid_" + t.getPath(), DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.TRIANGLES, 1 << 14, false, true,
+                CompositeState.builder().setShaderState(VOID_SHADER).setTextureState(new TextureStateShard(t, false, false))
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY).setCullState(NO_CULL).setLightmapState(NO_LIGHTMAP).setOverlayState(NO_OVERLAY)
+                        .setDepthTestState(LEQUAL_DEPTH_TEST).setWriteMaskState(COLOR_DEPTH_WRITE).createCompositeState(false)));
+    }
+
     public static RenderType voidTri(ResourceLocation tex) { return voidFx(tex, VOID_TRI, VertexFormat.Mode.TRIANGLES); }
 
     private static RenderType voidFx(ResourceLocation tex, Map<ResourceLocation, RenderType> m, VertexFormat.Mode mode) {
@@ -73,5 +82,5 @@ public final class Rt extends RenderType {
     }
 
     public static boolean isAdditive(RenderType t) { return ADD.containsValue(t) || ADD_TRI.containsValue(t) || XRAY.containsValue(t); }
-    public static boolean isVoid(RenderType t) { return t == INFECT || VOID_FX.containsValue(t) || VOID_TRI.containsValue(t); }
+    public static boolean isVoid(RenderType t) { return t == INFECT || VOID_FX.containsValue(t) || VOID_TRI.containsValue(t) || VOID_SOLID.containsValue(t); }
 }
