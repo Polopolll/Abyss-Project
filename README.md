@@ -249,7 +249,7 @@ Build: `gradle build` (Java 17) → `build/libs/abyss-<version>.jar`. See CHANGE
 Requires JDK 17 and Gradle 8.x. Run `gradle build`; the jar lands in `build/libs/`. `gradle runClient` / `gradle runServer` start a dev game. In game, `/abyss selftest` checks the core systems and `/abyss demo move <weapon 0-6> <move>` plays any Arsenal move on cue.
 
 ## Open source: use it in your own projects
-Everything here is under the **[MIT License](LICENSE)**: code, shaders, textures, icons, sounds and models. You may copy, change and ship any of it in your own mods, packs or projects, commercial or not; just keep the copyright notice from `LICENSE` with it. Useful pieces to lift:
+Everything here is under the **[MIT License](LICENSE)**: the Java source, shaders, textures, icons, sounds, the procedural models, and the jars in `releases/`. You may copy, change and ship any of it in your own mods, packs or projects, commercial or not; just keep the copyright notice from `LICENSE` with it. Useful pieces to lift:
 
 - `client/render/WeaponModel.java` — procedural crystal weapon meshes (sword, greatsword, hammer, scythe, spear, shield, gauntlets) with a galaxy body and glowing edges.
 - `shaders/core/void.*` + `client/render/AbyssShaders.java` — the world-anchored galaxy ("window into space") shader.

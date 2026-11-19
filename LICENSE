@@ -20,6 +20,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This license covers everything in this repository: the Java source, the
-shaders, the textures, icons and sounds under src/main/resources, the
-procedural weapon/body models, and the jars in releases/.
