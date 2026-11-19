@@ -1,6 +1,14 @@
 # Changelog
 
+## Repository
+- The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
+
 ## 0.3.0
+**Fixes from the screenshot review**
+- Constructs are mounted on the arm bone (third person) and have their own first-person view model; the first-person swing never lifts a weapon over the camera.
+- Cuts are drawn after clouds (no white blocks through them), face the camera so they never vanish edge-on, and fade when they pass through your eyes; void spheres and self-centred spikes no longer fill the screen.
+- Holding X reads the key binding's state as well as the raw key, so the wheel opens reliably.
+
 **Controls and forms (Ronova-style)**
 - Skills are now forms: R opens one, and while it's open LMB / RMB / Mouse 4 / Mouse 5 are its four sub-actions, with hints by the crosshair that change with context (Shift, airborne, counter ready, in the Realm). R again closes it.
 - New keys: X tap = next skill, hold X = wheel, X + 1–8 = that slot, X + scroll = flip; R use/open/close; G bodies screen; H manual (unbound). The old V / C / Left Alt / Z / Shift+Z / B / combat-mode keys are gone.

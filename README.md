@@ -1,9 +1,11 @@
 # Abyss
 
+*A recreation of the concept of the "abyss" in Minecraft, built with Claude.*
+
 Standalone Forge 1.20.1 (Forge 47.x) mod. You become the vessel of an infinite dimension, the Abyss. It has an infinite reserve, but you can only push out so much per second (your **output**).
 
 ## Getting it
-Craft an **Abyssal Core** (crying obsidian ×4, echo shard ×2, sculk catalyst ×2, nether star) and use it. There is one Abyss user per world (config `singleUser`). Admins can use `/abyss awaken <player>`.
+Download the newest jar from [`releases/`](releases/) (currently **[abyss-0.3.0.jar](releases/abyss-0.3.0.jar)**) and put it in your `mods` folder. Requires Minecraft 1.20.1 with Forge 47.x. Older versions are kept in the same folder.
 
 ## Controls (one hand on WASD; all rebindable)
 Your skills sit on a wheel. A **form** is an umbrella skill: **R** opens it, and while it is open the four mouse buttons are its sub-actions (hints for them appear next to the crosshair). **R** again closes it. Only one form is open at a time. Vanilla attack and use are blocked while a form is open.
@@ -240,3 +242,18 @@ A zombie is about 90. To adjust CP:
 - `/abyss demo fx <type> <a>` plays a raw effect 4 blocks in front of you.
 
 Build: `gradle build` (Java 17) → `build/libs/abyss-<version>.jar`. See CHANGELOG.md.
+
+## Building from source
+Requires JDK 17 and Gradle 8.x. Run `gradle build`; the jar lands in `build/libs/`. `gradle runClient` / `gradle runServer` start a dev game. In game, `/abyss selftest` checks the core systems and `/abyss demo move <weapon 0-6> <move>` plays any Arsenal move on cue.
+
+## Open source: use it in your own projects
+Everything here is under the **[MIT License](LICENSE)**: code, shaders, textures, icons, sounds and models. You may copy, change and ship any of it in your own mods, packs or projects, commercial or not; just keep the copyright notice from `LICENSE` with it. Useful pieces to lift:
+
+- `client/render/WeaponModel.java` — procedural crystal weapon meshes (sword, greatsword, hammer, scythe, spear, shield, gauntlets) with a galaxy body and glowing edges.
+- `shaders/core/void.*` + `client/render/AbyssShaders.java` — the world-anchored galaxy ("window into space") shader.
+- `client/render/MoveFx.java` + `combat/Move.java` — a data-driven move timeline (hits + visual primitives on one clock): rends, rift arms, shockwaves, black stars, beams, giant constructs.
+- `client/render/FxManager.java`, `Draw.java`, `Rt.java` — the effect renderer and render types.
+- `textures/gui/` — Ronova-style medallion icons (generated; the generator scripts are described in the CHANGELOG).
+- `client/render/WeaponLayer.java`, `client/FirstPersonWeapon.java` — attaching a custom model to the arm bone in third person and a first-person view model.
+
+Pull requests and forks are welcome.
