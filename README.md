@@ -4,6 +4,10 @@
 
 Standalone Forge 1.20.1 (Forge 47.x) mod. You become the vessel of an infinite dimension, the Abyss. It has an infinite reserve, but you can only push out so much per second (your **output**).
 
+**[Pictures](pictures/)** · **[References & credits](references/)** · **[Releases](releases/)** · **[Changelog](CHANGELOG.md)**
+
+![Abyss](pictures/0.3/first-person-horizon-cut.png)
+
 ## Getting it
 Download the newest jar from [`releases/`](releases/) (currently **[abyss-0.3.0.jar](releases/abyss-0.3.0.jar)**) and put it in your `mods` folder. Requires Minecraft 1.20.1 with Forge 47.x. Older versions are kept in the same folder.
 

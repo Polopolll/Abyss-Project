@@ -2,6 +2,7 @@
 
 ## Repository
 - The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
+- Added [`pictures/`](pictures/) (screenshots of every weapon, the domain and the icons, plus 0.2 images) and [`references/`](references/) (credits for the mods and games Abyss drew on, and what each one inspired).
 
 ## 0.3.0
 **Fixes from the screenshot review**
