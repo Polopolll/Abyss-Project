@@ -96,11 +96,16 @@ public final class FirstPersonWeapon {
      * turn the fist so the knuckles wrap around the grip rather than point along it.
      */
     static void arm(PoseStack ps, MultiBufferSource buf, int light, AbstractClientPlayer p, boolean left, Vector3f hand, Vector3f weaponAxis, float alpha) {
-        if (alpha < 0.5f) return;
+        arm(ps, buf, light, p, left, hand, weaponAxis, alpha, left ? SHOULDER_L : SHOULDER_R, 0);
+    }
+
+    /** ghost > 0: a phantom arm (Asura's extra arms) — dark and translucent, from its own shoulder. */
+    static void arm(PoseStack ps, MultiBufferSource buf, int light, AbstractClientPlayer p, boolean left, Vector3f hand, Vector3f weaponAxis, float alpha, Vector3f shoulder, float ghost) {
+        if (alpha < 0.5f && ghost <= 0) return;
         if (!(Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(p) instanceof PlayerRenderer pr)) return;
         PlayerModel<AbstractClientPlayer> model = pr.getModel();
         ModelPart a = left ? model.leftArm : model.rightArm, sl = left ? model.leftSleeve : model.rightSleeve;
-        Vector3f from = new Vector3f(left ? SHOULDER_L : SHOULDER_R);
+        Vector3f from = new Vector3f(shoulder);
         Vector3f u = new Vector3f(hand).sub(from).normalize();
         // the forearm: +Y of the arm model runs from the shoulder to the fist
         Quaternionf q = new Quaternionf().rotationTo(new Vector3f(0, 1, 0), u);
@@ -126,8 +131,15 @@ public final class FirstPersonWeapon {
         ps.translate(-cx / 16f, 0, 0);
         boolean crystal = ClientState.awakened(p.getId()) && com.andy.abyss.Config.crystalSkin.get() && com.andy.abyss.client.render.AbyssShaders.VOID != null;
         RenderType skin = crystal ? com.andy.abyss.client.render.Rt.voidEntity(com.andy.abyss.client.render.Rt.BODY) : RenderType.entitySolid(p.getSkinTextureLocation());
-        a.render(ps, buf.getBuffer(skin), light, OverlayTexture.NO_OVERLAY);
-        sl.render(ps, buf.getBuffer(crystal ? skin : RenderType.entityTranslucent(p.getSkinTextureLocation())), light, OverlayTexture.NO_OVERLAY);
+        if (ghost > 0) {
+            // a phantom arm: the same arm, black and see-through
+            RenderType gt = RenderType.entityTranslucent(p.getSkinTextureLocation());
+            a.render(ps, buf.getBuffer(gt), light, OverlayTexture.NO_OVERLAY, 0.06f, 0.05f, 0.1f, ghost * 0.7f);
+            sl.render(ps, buf.getBuffer(gt), light, OverlayTexture.NO_OVERLAY, 0.06f, 0.05f, 0.1f, ghost * 0.7f);
+        } else {
+            a.render(ps, buf.getBuffer(skin), light, OverlayTexture.NO_OVERLAY);
+            sl.render(ps, buf.getBuffer(crystal ? skin : RenderType.entityTranslucent(p.getSkinTextureLocation())), light, OverlayTexture.NO_OVERLAY);
+        }
         ps.popPose();
         a.loadPose(pa); sl.loadPose(ps2); a.visible = va; sl.visible = vs;
     }
@@ -147,8 +159,41 @@ public final class FirstPersonWeapon {
         arm(ps, e.getMultiBufferSource(), e.getPackedLight(), Minecraft.getInstance().player, true, new Vector3f(c).add(0.02f, -0.02f, 0.05f), new Vector3f(1, 0.2f, 0).normalize(), forge);
     }
 
+    /** Asura's extra arms: pairs of phantom arms from higher and wider shoulders, hammering around the crosshair. */
+    private static void phantoms(PoseStack ps, RenderHandEvent e, float glow) {
+        var mc = Minecraft.getInstance();
+        float[] ph = MoveFx.phantomDrive(mc.player.getId(), e.getPartialTick());
+        if (ph == null) return;
+        float vis = ph[0];
+        int n = (int) ph[1];
+        float time = ph[2];
+        for (int i = 0; i < n; i++) {
+            boolean left = i % 2 == 0;
+            int row = i / 2;
+            float sx = left ? -1 : 1;
+            Vector3f sh = new Vector3f(sx * (0.7f + row * 0.25f), -1.0f + row * 0.55f, -0.15f);
+            float period = 3.0f + (i % 3) * 0.35f;
+            float t = ((time + i * 1.13f) % period) / period;
+            float k = t < 0.3f ? t / 0.3f : 1 - (t - 0.3f) / 0.7f;
+            k = k * k * (3 - 2 * k);
+            Vector3f guard = new Vector3f(sx * (0.45f + row * 0.18f), -0.2f + row * 0.22f, -0.8f);
+            Vector3f strike = new Vector3f(sx * (0.12f + row * 0.06f), -0.05f + (row - 0.5f) * 0.12f, -1.5f);
+            Vector3f hand = new Vector3f(guard).lerp(strike, k);
+            arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, left, hand, new Vector3f(left ? 1 : -1, 0, 0), 1, sh, vis);
+            Vector3f u = new Vector3f(hand).sub(sh).normalize();
+            ps.pushPose();
+            ps.translate(hand.x, hand.y, hand.z);
+            ps.mulPose(new Quaternionf().rotationTo(new Vector3f(0, 1, 0), u));
+            ps.mulPose(Axis.YP.rotationDegrees(left ? -90 : 90));
+            ps.scale(left ? -0.6f : 0.6f, 0.6f, 0.6f);
+            WeaponModel.renderEthereal(ps, e.getMultiBufferSource(), Weapon.GAUNTLETS, vis * 0.8f);
+            ps.popPose();
+        }
+    }
+
     private static void gauntlet(PoseStack ps, RenderHandEvent e, float[] sw, float glow, boolean left) {
         var mc = Minecraft.getInstance();
+        if (!left) phantoms(ps, e, glow);
         float[] drive = MoveFx.fistDrive(mc.player.getId(), e.getPartialTick());
         float push = left ? drive[0] : drive[1], lift = left ? drive[2] : drive[3];
         float bob = (float) Math.sin((ClientState.ticks + e.getPartialTick()) * 0.12f + (left ? 1.6f : 0)) * 0.012f;

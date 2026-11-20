@@ -60,11 +60,11 @@ public final class AnniFx {
     static Vec3 mount(Entity c, float pt) {
         Vec3 look = c.getViewVector(pt), right = look.cross(new Vec3(0, 1, 0));
         right = right.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : right.normalize();
-        return c.getEyePosition(pt).add(right.scale(0.9)).add(0, 0.35, 0).add(look.scale(0.6));
+        return c.getEyePosition(pt).add(right.scale(1.1)).add(0, 0.55, 0).add(look.scale(2.2));
     }
 
     /** Where the nuke core forms while charging: high in front of you, above the crosshair. */
-    static Vec3 coreAt(Entity c, float pt) { return c.getEyePosition(pt).add(c.getViewVector(pt).scale(4)).add(0, 1.2, 0); }
+    static Vec3 coreAt(Entity c, float pt) { return c.getEyePosition(pt).add(c.getViewVector(pt).scale(7)).add(0, 2.4, 0); }
 
     private static void shake(Vec3 at, float amount, float range) {
         var mc = Minecraft.getInstance();
@@ -177,7 +177,7 @@ public final class AnniFx {
         // a black core (the beam is darkness), a cold rim of light, and a white hairline down the middle
         d.beam(Abyssal.SEAM, false, a, b, w, 0xFFFFFF, alpha);
         d.beam(Rt.STREAK, true, a, b, w * 1.35f, Abyssal.COLD, alpha * 0.22f);
-        d.beam(Rt.STREAK, true, a, b, w * 0.12f, Dust.PALE, alpha * 0.8f);
+        d.beam(Rt.STREAK, true, a, b, w * 0.1f, Dust.PALE, alpha * 0.5f);
         // a tendril of darkness spiralling along it
         Abyssal.tendril(d, a, b, w * 0.35f, w * 0.5f, (float) time * 0.4f, 1, alpha * 0.5f);
     }
@@ -189,7 +189,7 @@ public final class AnniFx {
         float k = age / e.life, out = 1 - k;
         Vec3 b = a.add(e.pos.subtract(a).scale(Math.min(1, age / 1.5f)));
         beamBody(d, a, b, 0.26f * (1 - k * 0.7f), out, d.time);
-        Abyssal.eclipse(d, a, 0.28f, out, (float) d.time);
+        Abyssal.eclipse(d, a, 0.14f, out, (float) d.time);
         if (age > 1.5f) BrawlFx.punchMark(d, e.pos, 1.6f, (age - 1.5f) * 1.2f, e.seed);
     }
 
@@ -197,7 +197,7 @@ public final class AnniFx {
         double t = d.time;
         float w = 0.85f + 0.08f * (float) Math.sin(t * 1.7);
         beamBody(d, a, b, w, 1, t);
-        Abyssal.eclipse(d, a, 0.55f, 1, (float) t);
+        Abyssal.eclipse(d, a, 0.16f, 1, (float) t);
         d.billboard(Rt.GLOW, true, b, 1.4f, Abyssal.COLD, 0.45f, 0);
         Abyssal.fracture(d, b, null, 1.6f, 1, 0.8f, (long) (t * 3));
     }
@@ -239,7 +239,7 @@ public final class AnniFx {
     // ------------------------------------------------------------------------------------------------ nuke
     private static void charge(Draw d, Entity c, float k, float pt) {
         Vec3 core = coreAt(c, pt);
-        float r = 0.2f + 1.3f * k;
+        float r = 0.2f + 1.0f * k;
         double t = d.time;
         Abyssal.orb(d, core, r, 1);
         Abyssal.fracture(d, core, null, r * 2.4f, Math.min(1, k * 1.4f), 0.5f + 0.5f * k, (long) (t * 2.5)); // crackling

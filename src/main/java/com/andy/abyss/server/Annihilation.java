@@ -44,7 +44,7 @@ public final class Annihilation {
     public static Vec3 mount(ServerPlayer p) {
         Vec3 look = p.getLookAngle(), right = look.cross(new Vec3(0, 1, 0));
         right = right.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : right.normalize();
-        return p.getEyePosition().add(right.scale(0.9)).add(0, 0.35, 0).add(look.scale(0.6));
+        return p.getEyePosition().add(right.scale(1.1)).add(0, 0.55, 0).add(look.scale(2.2));
     }
 
     public static void input(ServerPlayer p, int button, int phase, int flags, int arg) {
@@ -66,7 +66,7 @@ public final class Annihilation {
             }
             case C2SInput.M5 -> {
                 if (press) {
-                    if (!AbyssData.get(p).spend(25)) { Actions.noOutput(p); return; }
+                    if (!AbyssData.get(p).spend(15)) { Actions.noOutput(p); return; }
                     s.nuke = now;
                     Util.fx(p.serverLevel(), S2CFx.NUKE_CHARGE, p.position(), 1, 0, 0, p.getId(), -1);
                     Util.sound(p.serverLevel(), p.position(), ModSounds.CHARGE_UP.get(), 1.4f, 0.55f);
@@ -214,7 +214,7 @@ public final class Annihilation {
     private static void launchNuke(ServerPlayer p, float k) {
         AbyssData d = AbyssData.get(p);
         ServerLevel l = p.serverLevel();
-        if (k < 0.2f || !d.spend(20 + 60 * k)) {
+        if (k < 0.2f || !d.spend(10 + 40 * k)) {
             Util.fx(l, S2CFx.NUKE_CHARGE, p.position(), 0, 0, 0, p.getId(), -1);
             if (k >= 0.2f) Actions.noOutput(p);
             return;
@@ -223,7 +223,7 @@ public final class Annihilation {
         Util.Aim aim = Util.aim(p, 72);
         Vec3 target = aim.entity() != null ? aim.entity().position() : aim.point() != null ? aim.point() : eye.add(p.getLookAngle().scale(40));
         float radius = 6 + 10 * k;
-        Vec3 from = eye.add(p.getLookAngle().scale(4)).add(0, 1.2, 0);
+        Vec3 from = eye.add(p.getLookAngle().scale(7)).add(0, 2.4, 0);
         int travel = 6 + (int) (from.distanceTo(target) / 3.5);
         Util.fx(l, S2CFx.NUKE_LAUNCH, target, travel, radius, 0, p.getId(), -1);
         Util.sound(l, p.position(), ModSounds.LIBERATION.get(), 1.6f, 0.6f);
@@ -277,7 +277,6 @@ public final class Annihilation {
             if (s.nuke >= 0) {
                 long held = now - s.nuke;
                 if (held % 20 == 0) Util.sound(p.serverLevel(), p.position(), ModSounds.HEARTBEAT.get(), 1.4f, 0.6f + held / 100f);
-                p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 5, 2, false, false, false));
             }
         }
     }

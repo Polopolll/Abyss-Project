@@ -116,7 +116,7 @@ public final class MoveFx {
         }
         if (h.kind() == 3) {
             ClientState.slowUntil = ClientState.ticks + 40;
-            FxManager.flash = 0.45f; FxManager.flashColor = 0xD8C8FF;
+            FxManager.flash = 0.45f; FxManager.flashColor = 0xD0D4EC;
         }
         if (v != null) {
             Vec3 at = v.position().add(0, v.getBbHeight() * 0.6, 0);
@@ -127,7 +127,7 @@ public final class MoveFx {
                 default -> { sfx(at, com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.2f, 1f); sfx(at, com.andy.abyss.registry.ModSounds.HIT, 0.9f, 0.7f); }
             }
             if (Config.damageNumbers.get() && h.damage() > 0) {
-                int color = switch (h.kind()) { case 1 -> 0xD8B8FF; case 2 -> 0xFFFFFF; case 3 -> 0x9AF0FF; default -> 0xB58CFF; };
+                int color = switch (h.kind()) { case 1 -> 0xD0D4EC; case 2 -> 0xFFFFFF; case 3 -> 0x9AF0FF; default -> 0x8C90C8; };
                 String txt = h.damage() >= 1e6 ? "∞" : String.valueOf(Math.round(h.damage()));
                 double a = R.nextDouble() * Math.PI * 2;
                 NUMS.add(new Num(at.add(0, 0.4, 0), txt, color, ClientState.ticks, h.kind() >= 2 ? 1.6f : h.kind() == 1 ? 1.25f : 1f, Math.cos(a) * 0.02, Math.sin(a) * 0.02));
@@ -411,11 +411,11 @@ public final class MoveFx {
                 float a = near * (0.35f + 0.65f * u);
                 // glow (outer), body, core: colour and alpha per band
                 if (full) {
-                    band(d, add, prevL[0], prevL[1], L[1], L[0], 0x7A45E0, 0f, 0.32f * a);
-                    band(d, add, prevL[6], prevL[5], L[5], L[6], 0x7A45E0, 0f, 0.32f * a);
+                    band(d, add, prevL[0], prevL[1], L[1], L[0], 0x2E3260, 0f, 0.32f * a);
+                    band(d, add, prevL[6], prevL[5], L[5], L[6], 0x2E3260, 0f, 0.32f * a);
                 } else a *= 0.6f;
-                band(d, add, prevL[1], prevL[2], L[2], L[1], 0xB58CFF, 0.55f * a, 0.85f * a);
-                band(d, add, prevL[5], prevL[4], L[4], L[5], 0xB58CFF, 0.55f * a, 0.85f * a);
+                band(d, add, prevL[1], prevL[2], L[2], L[1], 0x8C90C8, 0.55f * a, 0.85f * a);
+                band(d, add, prevL[5], prevL[4], L[4], L[5], 0x8C90C8, 0.55f * a, 0.85f * a);
                 band(d, add, prevL[2], prevL[3], L[3], L[2], 0xFFFFFF, a, a);
                 band(d, add, prevL[4], prevL[3], L[3], L[4], 0xFFFFFF, a, a);
             }
@@ -427,7 +427,7 @@ public final class MoveFx {
             d.billboard(Rt.GLOW, true, headPos, thick * 4f, 0xFFFFFF, 0.8f * d.near(headPos, 1.2f), 0);
             for (int i = 0; i < 3; i++) {
                 Vec3 s = headPos.add(r.nextGaussian() * 0.25, r.nextGaussian() * 0.25, r.nextGaussian() * 0.25);
-                d.beam(Rt.STREAK, true, headPos, s, 0.03f, 0xE8DCFF, 0.8f);
+                d.beam(Rt.STREAK, true, headPos, s, 0.03f, 0xE4E6F4, 0.8f);
             }
         }
         // the seam is already open under the light once the sweep has passed
@@ -485,15 +485,15 @@ public final class MoveFx {
             Vec3 a = start.add(dir.scale(len * tail)), b = start.add(dir.scale(len * head));
             Vec3 mid = a.add(b).scale(0.5);
             float near = Mth.clamp((float) (mid.distanceTo(d.cam) - 0.3) / 1.2f, 0, 1);
-            d.beam(Rt.GLOW, true, a, b, thick * 3.5f, 0x7A45E0, 0.3f * near);
-            d.beam(Rt.STREAK, true, a, b, thick * 1.1f, 0xB58CFF, 0.85f * near);
+            d.beam(Rt.GLOW, true, a, b, thick * 3.5f, 0x2E3260, 0.3f * near);
+            d.beam(Rt.STREAK, true, a, b, thick * 1.1f, 0x8C90C8, 0.85f * near);
             d.beam(Rt.STREAK, true, a, b, thick * 0.35f, 0xFFFFFF, near);
             if (head < 1) d.billboard(Rt.GLOW, true, b, thick * 5, 0xFFFFFF, 0.9f * d.near(b, 1.2f), 0);
         }
         float tipK = Mth.clamp((age - shootT) / 6f, 0, 1);
         if (age >= shootT && tipK < 1) {
             Vec3 tip = start.add(dir.scale(len));
-            d.flat(Rt.RING, true, tip, dir, 0.3f + tipK * 1.4f, 0xE8DCFF, 0.9f * (1 - tipK), 0);
+            d.flat(Rt.RING, true, tip, dir, 0.3f + tipK * 1.4f, 0xE4E6F4, 0.9f * (1 - tipK), 0);
         }
         // the seam along the line
         float after = age - shootT - hold - fadeT;
@@ -524,7 +524,7 @@ public final class MoveFx {
         Vec3 toward = tgt.subtract(tear);
         float rot = (float) Math.atan2(toward.y, Math.hypot(toward.x, toward.z));
         d.voidBillboard(Rt.RIFT, tear, 0.32f * tearA + 0.02f, 0.9f * tearA + 0.02f, tearA, rot);
-        d.billboard(Rt.GLOW, true, tear, 1.3f, 0x7A45E0, 0.5f * tearA, 0);
+        d.billboard(Rt.GLOW, true, tear, 1.3f, 0x2E3260, 0.5f * tearA, 0);
         if (ext <= 0.01f) return;
         Vec3 ctrl = tear.add(tgt).scale(0.5).add(a.up.scale(f.d())).add(a.right.scale(f.d() * 0.5));
         int seg = 12;
@@ -534,7 +534,7 @@ public final class MoveFx {
             Vec3 p = bez(tear, ctrl, tgt, k);
             float w = f.e() * (0.55f + 0.45f * (float) Math.sin(Math.PI * Math.min(1, k * 1.2)));
             d.voidRibbon(prev, p, w, 1);
-            d.beam(Rt.STREAK, true, prev, p, w * 0.35f, 0xB58CFF, 0.55f);
+            d.beam(Rt.STREAK, true, prev, p, w * 0.35f, 0x8C90C8, 0.55f);
             prev = p;
         }
         Vec3 dir = bez(tear, ctrl, tgt, ext).subtract(bez(tear, ctrl, tgt, Math.max(0, ext - 0.05f)));
@@ -559,8 +559,8 @@ public final class MoveFx {
         float t = Mth.clamp(age / 18f, 0, 1);
         float rad = f.a() * (float) (1 - Math.pow(1 - t, 3));
         float fade = 1 - t;
-        d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad, 0xE8DCFF, 0.95f * fade, 0);
-        d.flat(Rt.RING, true, c.add(0, 0.02, 0), new Vec3(0, 1, 0), rad * 0.82f, 0x7A45E0, 0.7f * fade, 0);
+        d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad, 0xE4E6F4, 0.95f * fade, 0);
+        d.flat(Rt.RING, true, c.add(0, 0.02, 0), new Vec3(0, 1, 0), rad * 0.82f, 0x2E3260, 0.7f * fade, 0);
         // a band of void rolling outward on the ground
         VertexConsumer vt = d.buf.getBuffer(Rt.voidTri(Rt.FILL));
         int seg = 48;
@@ -600,11 +600,11 @@ public final class MoveFx {
             if (pl != null) {
                 d.vv(vt, pl.x, pl.y, pl.z, 0xFFFFFF, alpha, .5f, .5f); d.vv(vt, l.x, l.y, l.z, 0xFFFFFF, alpha, .5f, .5f); d.vv(vt, rr.x, rr.y, rr.z, 0xFFFFFF, alpha, .5f, .5f);
                 d.vv(vt, pl.x, pl.y, pl.z, 0xFFFFFF, alpha, .5f, .5f); d.vv(vt, rr.x, rr.y, rr.z, 0xFFFFFF, alpha, .5f, .5f); d.vv(vt, pr.x, pr.y, pr.z, 0xFFFFFF, alpha, .5f, .5f);
-                d.beam(Rt.STREAK, true, pl, l, 0.06f, 0xB58CFF, 0.8f * alpha);
-                d.beam(Rt.STREAK, true, pr, rr, 0.06f, 0xB58CFF, 0.8f * alpha);
+                d.beam(Rt.STREAK, true, pl, l, 0.06f, 0x8C90C8, 0.8f * alpha);
+                d.beam(Rt.STREAK, true, pr, rr, 0.06f, 0x8C90C8, 0.8f * alpha);
                 if (i % 3 == 0) d.voidShard(p.add(0, -0.1, 0), new Vec3(r.nextGaussian() * 0.3, 1, r.nextGaussian() * 0.3), (0.5f + r.nextFloat() * 0.7f) * alpha * Math.min(1, (age - i * 0.4f) / 3), 0.09f, alpha);
                 // light bleeding up out of the crack
-                d.beam(Rt.GLOW, true, p, p.add(0, 1.2 * alpha, 0), w * 3 + 0.2f, 0x5A2AB0, 0.25f * alpha);
+                d.beam(Rt.GLOW, true, p, p.add(0, 1.2 * alpha, 0), w * 3 + 0.2f, 0x24284A, 0.25f * alpha);
             }
             pl = l; pr = rr; pm = p;
         }
@@ -626,10 +626,10 @@ public final class MoveFx {
             float h = f.c() * (i == 0 && !onSelf ? 1.4f : 0.6f + r.nextFloat() * 0.6f);
             Vec3 dir = new Vec3(-Math.cos(an) * 0.25 * rad / f.a() * -1, 1, -Math.sin(an) * 0.25 * rad / f.a() * -1);
             d.voidShard(base, dir, h * rise, (i == 0 ? 0.28f : 0.14f) * (0.6f + 0.4f * rise), rise);
-            if (age - delay < 4) d.billboard(Rt.GLOW, true, base.add(0, 0.2, 0), 0.6f, 0xD8C8FF, 0.8f, 0);
+            if (age - delay < 4) d.billboard(Rt.GLOW, true, base.add(0, 0.2, 0), 0.6f, 0xD0D4EC, 0.8f, 0);
         }
         float t = Mth.clamp(age / 10, 0, 1);
-        d.flat(Rt.RING, true, c.add(0, 0.03, 0), new Vec3(0, 1, 0), f.a() * (0.4f + t), 0xB58CFF, 0.8f * (1 - t), 0);
+        d.flat(Rt.RING, true, c.add(0, 0.03, 0), new Vec3(0, 1, 0), f.a() * (0.4f + t), 0x8C90C8, 0.8f * (1 - t), 0);
     }
 
     // ------------------------------------------------------------------------------------------------- stars and vortices
@@ -660,7 +660,7 @@ public final class MoveFx {
             if (burst < 3) d.blackHole(c, rad * 2.6f * (1 - burst / 3), false, 1, (float) d.time * -0.9f);
             if (burst < 3) d.billboard(Rt.GLOW, true, c, rad * 1.8f, 0xFFFFFF, (1 - burst / 3) * 0.6f * d.near(c, rad * 3f), 0);
             d.billboard(Rt.RING, true, c, rad * (1.2f + k * 6), 0xFFFFFF, out * out * 0.75f * d.near(c, rad * 2f), 0);
-            d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad * (1 + k * 8), 0xB58CFF, out * 0.8f, 0);
+            d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), rad * (1 + k * 8), 0x8C90C8, out * 0.8f, 0);
             for (int i = 0; i < 26; i++) {
                 Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                 d.voidShard(c.add(dir.scale(rad * (0.5 + k * 4.5))), dir, rad * 0.6f * out, rad * 0.08f + 0.03f, out);
@@ -683,11 +683,11 @@ public final class MoveFx {
             double y = (r.nextDouble() - 0.3) * rad * 0.5 * (1 - ph);
             Vec3 p = c.add(Math.cos(an) * rr, y, Math.sin(an) * rr);
             Vec3 q = c.add(Math.cos(an - 0.35) * (rr + rad * 0.08), y, Math.sin(an - 0.35) * (rr + rad * 0.08));
-            d.beam(Rt.STREAK, true, q, p, 0.08f + 0.06f * ph, ph > 0.7f ? 0xE8DCFF : 0x8C55FF, 0.75f * k * (0.3f + ph));
+            d.beam(Rt.STREAK, true, q, p, 0.08f + 0.06f * ph, ph > 0.7f ? 0xE4E6F4 : 0x5A5E9A, 0.75f * k * (0.3f + ph));
         }
         float spin = (float) d.time * 3;
-        d.flat(Rt.RING, true, c.add(0, -0.6, 0), new Vec3(0, 1, 0), rad, 0x6A35D0, 0.6f * k, spin);
-        d.flat(Rt.RING, true, c.add(0, -0.4, 0), new Vec3(0, 1, 0), rad * 0.6f, 0xB58CFF, 0.7f * k, -spin * 1.5f);
+        d.flat(Rt.RING, true, c.add(0, -0.6, 0), new Vec3(0, 1, 0), rad, 0x2A2E58, 0.6f * k, spin);
+        d.flat(Rt.RING, true, c.add(0, -0.4, 0), new Vec3(0, 1, 0), rad * 0.6f, 0x8C90C8, 0.7f * k, -spin * 1.5f);
         d.voidSphere(c, 0.25 + 0.35 * k, k, 0.2f, 0xFFFFFF);
     }
 
@@ -705,11 +705,11 @@ public final class MoveFx {
         float w = f.b();
         if (fire < 0) {
             d.voidSphere(start, w * 0.6f * charge, 1, 0.2f, 0xFFFFFF);
-            d.glowShell(start, w * (1.8 - charge), 0xE8DCFF, charge);
+            d.glowShell(start, w * (1.8 - charge), 0xE4E6F4, charge);
             for (int i = 0; i < 12; i++) {
                 Vec3 o = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                 Vec3 p = start.add(o.scale(w * 3 * (1 - charge) + 0.2));
-                d.beam(Rt.STREAK, true, p, p.add(o.scale(-0.5)), 0.05f, 0xB58CFF, charge);
+                d.beam(Rt.STREAK, true, p, p.add(o.scale(-0.5)), 0.05f, 0x8C90C8, charge);
             }
             return;
         }
@@ -719,21 +719,21 @@ public final class MoveFx {
         Vec3 end = start.add(dir.scale(len));
         d.voidRibbon(start, end, ww * 1.3f, 1 - k);
         d.beam(Rt.STREAK, true, start, end, ww * 0.45f, 0xFFFFFF, 1 - k);
-        d.beam(Rt.GLOW, true, start, end, ww * 1.7f, 0x7A45E0, 0.4f * (1 - k));
+        d.beam(Rt.GLOW, true, start, end, ww * 1.7f, 0x2E3260, 0.4f * (1 - k));
         Vec3[] b = Draw.basis(dir);
         for (int i = 0; i < 7; i++) {
             float along = (float) (((fire * 0.15f + i / 7f)) % 1.0) * len;
             Vec3 c = start.add(dir.scale(along));
-            d.flat(Rt.RING, true, c, dir, ww * (1.4f + 0.4f * (float) Math.sin(i + fire)), 0xD8C8FF, 0.7f * (1 - k), (float) d.time * 4 + i);
+            d.flat(Rt.RING, true, c, dir, ww * (1.4f + 0.4f * (float) Math.sin(i + fire)), 0xD0D4EC, 0.7f * (1 - k), (float) d.time * 4 + i);
         }
         for (int i = 0; i < 10; i++) {
             float along = r.nextFloat() * len;
             double an = r.nextDouble() * Math.PI * 2 + fire * 0.6;
             Vec3 p = start.add(dir.scale(along)).add(b[0].scale(Math.cos(an) * ww)).add(b[1].scale(Math.sin(an) * ww));
-            d.beam(Rt.STREAK, true, p, p.add(dir.scale(1.2)), 0.04f, 0xE8DCFF, 0.8f * (1 - k));
+            d.beam(Rt.STREAK, true, p, p.add(dir.scale(1.2)), 0.04f, 0xE4E6F4, 0.8f * (1 - k));
         }
         if (fire < 3) { d.billboard(Rt.GLOW, true, start, w * 2, 0xFFFFFF, (1 - fire / 3) * 0.8f, 0); d.flat(Rt.RING, true, start, dir, w * (1 + fire), 0xFFFFFF, (1 - fire / 3) * 0.8f, 0); }
-        d.billboard(Rt.GLOW, true, end, ww * 2.5f, 0xE8DCFF, 0.7f * (1 - k), 0);
+        d.billboard(Rt.GLOW, true, end, ww * 2.5f, 0xE4E6F4, 0.7f * (1 - k), 0);
     }
 
     // ------------------------------------------------------------------------------------------------- constructs
@@ -755,10 +755,10 @@ public final class MoveFx {
             Vec3[] b = Draw.basis(kind == 2 ? a.fwd : new Vec3(0, 1, 0));
             Vec3 q0 = riftPos.add(b[0].scale(Math.cos(an) * size * rs * 0.9 * open)).add(b[1].scale(Math.sin(an) * size * rs * 0.9 * open));
             Vec3 q1 = riftPos.add(b[0].scale(Math.cos(an + 2.094) * size * rs * 0.9 * open)).add(b[1].scale(Math.sin(an + 2.094) * size * rs * 0.9 * open));
-            d.beam(Rt.STREAK, true, q0, q1, 0.06f, 0xC8B0FF, 0.75f * open);
+            d.beam(Rt.STREAK, true, q0, q1, 0.06f, 0xB8BCDC, 0.75f * open);
         }
-        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * rs * 0.85f * open, 0xD8C8FF, 0.8f * open, (float) d.time);
-        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * rs * 1.15f * open, 0x7A45E0, 0.5f * open, (float) -d.time * 1.4f);
+        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * rs * 0.85f * open, 0xD0D4EC, 0.8f * open, (float) d.time);
+        d.flat(Rt.RING, true, riftPos, kind == 2 ? a.fwd : new Vec3(0, 1, 0), size * rs * 1.15f * open, 0x2E3260, 0.5f * open, (float) -d.time * 1.4f);
         float emerge = smooth((age - 4) / Math.max(2, impact - 6));
         float shatter = smooth((age - impact - 10) / 10);
         float alpha = (1 - shatter);
@@ -829,7 +829,7 @@ public final class MoveFx {
         float k = (age - end) / 6;
         if (k >= 0 && k < 1) {
             d.billboard(Rt.GLOW, true, c, Math.max(2, f.b()) * 1.4f, 0xFFFFFF, (1 - k) * 0.8f * d.near(c, 2.5f), 0);
-            d.flat(Rt.RING, true, c, d.cam.subtract(c).normalize(), 1 + k * Math.max(2, f.b()) * 1.6f, 0xE8DCFF, 1 - k, 0);
+            d.flat(Rt.RING, true, c, d.cam.subtract(c).normalize(), 1 + k * Math.max(2, f.b()) * 1.6f, 0xE4E6F4, 1 - k, 0);
         }
     }
 
@@ -860,7 +860,7 @@ public final class MoveFx {
             ps.translate(0, -0.6, 0);
             WeaponModel.render(ps, d.buf, Weapon.SCYTHE, 1, 1.3f);
             float spin = age * 48;
-            d.flat(Rt.RING, true, pos, new Vec3(0, 1, 0), 1.5f, 0xB58CFF, 0.6f, (float) Math.toRadians(spin));
+            d.flat(Rt.RING, true, pos, new Vec3(0, 1, 0), 1.5f, 0x8C90C8, 0.6f, (float) Math.toRadians(spin));
         } else {
             ps.mulPose(new Quaternionf().rotationTo(new Vector3f(0, 1, 0), new Vector3f((float) dir.x, (float) dir.y, (float) dir.z)));
             ps.mulPose(Axis.YP.rotationDegrees(age * 30));
@@ -869,7 +869,7 @@ public final class MoveFx {
         }
         Vec3 wake = pos.subtract(dir.scale(Math.min(3.5, age * speed)));
         d.voidRibbon(wake, pos, 0.25f, 0.9f);
-        d.beam(Rt.STREAK, true, wake, pos, 0.12f, 0xD8C8FF, 0.7f);
+        d.beam(Rt.STREAK, true, wake, pos, 0.12f, 0xD0D4EC, 0.7f);
     }
 
     /** A wall of hexagonal void cells in front, assembling outward from the centre. */
@@ -899,8 +899,8 @@ public final class MoveFx {
                 Vec3 p = cc.add(side.scale(Math.cos(an) * cr)).add(up.scale(Math.sin(an) * cr));
                 if (prev != null) {
                     VertexConsumer fl = d.buf.getBuffer(Rt.addTri(Rt.WHITE));
-                    d.sv(fl, cc.x, cc.y, cc.z, 0x5A2AB0, 0.18f * appear, .5f, .5f); d.sv(fl, prev.x, prev.y, prev.z, 0x9C6BFF, 0.3f * appear, .5f, .5f); d.sv(fl, p.x, p.y, p.z, 0x9C6BFF, 0.3f * appear, .5f, .5f);
-                    d.beam(Rt.STREAK, true, prev, p, 0.035f, 0xC8B0FF, 0.8f * appear);
+                    d.sv(fl, cc.x, cc.y, cc.z, 0x24284A, 0.18f * appear, .5f, .5f); d.sv(fl, prev.x, prev.y, prev.z, 0x4A5080, 0.16f * appear, .5f, .5f); d.sv(fl, p.x, p.y, p.z, 0x4A5080, 0.16f * appear, .5f, .5f);
+                    d.beam(Rt.STREAK, true, prev, p, 0.03f, 0xB8BCDC, 0.45f * appear);
                 }
                 prev = p;
             }
@@ -921,7 +921,7 @@ public final class MoveFx {
             float nearCam = Mth.clamp((float) (p.distanceTo(d.cam) - 1.2) / 1.5f, 0, 1);
             if (nearCam <= 0.01f) continue;
             d.voidBillboard(Rt.BODY_CORE, p, 0.32f, 0.92f, 0.75f * (1 - k) * nearCam, 0);
-            d.billboard(Rt.GLOW, true, p, 1.1f, 0x7A45E0, 0.35f * (1 - k) * nearCam, 0);
+            d.billboard(Rt.GLOW, true, p, 1.1f, 0x2E3260, 0.35f * (1 - k) * nearCam, 0);
         }
     }
 
@@ -933,15 +933,16 @@ public final class MoveFx {
         Random r = new Random(i.seed());
         float s = i.kind() >= 2 ? 1.7f : i.kind() == 1 ? 1.3f : 1f;
         float near = d.near(i.at(), 1.2f);
-        if (age < 2.5f) d.billboard(Rt.GLOW, true, i.at(), 0.55f * s, 0xFFFFFF, (1 - age / 2.5f) * near, 0);
-        d.billboard(Rt.SPARK, true, i.at(), 0.75f * s * (0.7f + 0.6f * k), 0xFFFFFF, out * near, r.nextFloat() * 6);
+        if (age < 2.5f) d.billboard(Rt.GLOW, true, i.at(), 0.3f * s, 0xE4E6F4, 0.7f * (1 - age / 2.5f) * near, 0);
+        d.billboard(Rt.SPARK, true, i.at(), 0.5f * s * (0.7f + 0.6f * k), 0xE4E6F4, 0.6f * out * near, r.nextFloat() * 6);
+        d.billboard(Rt.RING, false, i.at(), s * (0.3f + k * 1.1f), 0x05060A, 0.5f * out * near, 0);
         int n = 5 + i.kind() * 3;
         for (int j = 0; j < n; j++) {
             Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
             Vec3 a = i.at().add(dir.scale(0.15 + k * 0.9 * s));
-            d.beam(Rt.STREAK, true, a, a.add(dir.scale(0.45 * s * out)), 0.035f, j % 2 == 0 ? 0xFFFFFF : 0xC8B0FF, out * near);
+            d.beam(Rt.STREAK, true, a, a.add(dir.scale(0.4 * s * out)), 0.03f, j % 2 == 0 ? 0xE4E6F4 : 0x8C90C8, 0.6f * out * near);
         }
-        d.billboard(Rt.RING, true, i.at(), s * (0.35f + k * 1.4f), 0xE8DCFF, out * 0.9f * near, 0);
+        d.billboard(Rt.RING, true, i.at(), s * (0.35f + k * 1.4f), 0xE4E6F4, out * 0.35f * near, 0);
     }
 
     // ------------------------------------------------------------------------------------------------- the constructs in hand
@@ -1050,7 +1051,7 @@ public final class MoveFx {
             for (int i = 0; i < 10; i++) {
                 Vec3 o = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize().scale(1.2 * (1 - forge));
                 Vec3 along = hand.add(dir.scale(r.nextDouble() * 1.2));
-                d.beam(Rt.STREAK, true, along.add(o), along.add(o.scale(0.6)), 0.04f, 0xC8B0FF, 1 - forge);
+                d.beam(Rt.STREAK, true, along.add(o), along.add(o.scale(0.6)), 0.04f, 0xB8BCDC, 1 - forge);
             }
             d.billboard(Rt.GLOW, true, hand.add(dir.scale(0.6)), 1.2f, 0x9C6BFF, 0.6f * (1 - forge) * d.near(hand, 1.5f), 0);
         }
@@ -1111,6 +1112,21 @@ public final class MoveFx {
             }
         }
         return o;
+    }
+
+    /** Phantom arms in first person: {visibility 0..1, count, time} while a PHANTOM primitive is running, else null. */
+    public static float[] phantomDrive(int id, float pt) {
+        Act a = SWING.get(id);
+        if (a == null) return null;
+        float t = a.clock + (a.stop > 0 ? 0 : pt);
+        for (Move.Fx f : a.m.fx()) {
+            if (f.kind() != Move.Kind.PHANTOM) continue;
+            float age = t - f.tick(), dur = Math.max(4, f.b());
+            if (age < 0 || age > dur + 6) continue;
+            float vis = Math.min(1, age / 4f) * (age > dur ? 1 - (age - dur) / 6f : 1);
+            return new float[]{vis, Math.max(2, f.a()), age};
+        }
+        return null;
     }
 
     /** One punch's reach over time (0 at rest, 1 fully extended): wind back a hair, snap out, hold a beat, draw back. */

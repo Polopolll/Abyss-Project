@@ -4,6 +4,33 @@
 - The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
 - Added [`pictures/`](pictures/) (screenshots of every weapon, the domain and the icons, plus 0.2 images) and [`references/`](references/) (credits for the mods and games Abyss drew on, and what each one inspired).
 
+## 0.4.0 (in review)
+**Weapons have identities now:**
+- Hands of the Abyss: a brawler (Asura's Wrath). Real punches with your own arms: jab, straight, liver hook, a punch rush, a rising fist, a charged straight that tears a trench, a meteor fist, grab & slam. The liberation is Asura's Mantra: phantom arms join yours, a rush of thirty punches, and a final blow that blows a crater. No more summoned lances.
+- Abyssal Edge (Cartethyia): the fastest strokes, thin crisp cuts, small camera.
+- Event Cleaver (Augusta): slow, enormous cleaves that split the ground. Its liberation is Ruler's Realm: time stops around you (creatures and projectiles freeze, the world goes cold and grey), then the verdict.
+- Singularity Maul: quicker than the greatsword, and every head-strike craters the ground.
+- Horizon Reaper: reaping arcs that drag enemies in, and every cut heals you a little.
+- Black holes are kept for two liberations only.
+
+**Destruction:** craters, trenches and spheres really erase blocks, and real chunks of the blocks fly as debris. The column you stand on is spared. Config: blockDestruction, destructionPerCall, destructionMaxHardness.
+
+**Killed by the abyss:** bodies are crushed flat, go black, and dissolve into abyssal ash, flecks and embers (no tip-over, no red flash, no white poof).
+
+**New form, Annihilation:** Annihilation Beam (tap shot or sustained tunnelling beam), Abyss Orb, Sovereign Pressure, and the Abyssal Nuke (hold to charge a core, launch it; a mushroom of darkness, a crater, falling ash).
+
+**Triangle reworked:** the target is pulling against infinity. The pull wins on its own (about 2 s against a mob), your mashing speeds it up, and the target can only slow it. The sigil turns over the target, tendrils grip it, and it's dragged in and forced down.
+
+**The Realm (fixed):** peeking was a one-way trip. Now LMB opens and closes the eye, RMB steps out through it, and R or closing the form always brings you back. A lethal blow pulls you through a rift into the Realm (escapeIntoRealm). The Realm is a black abyss with distant monoliths.
+
+**The look:**
+- Real glow: a bloom pass for the light effects (config bloom / bloomStrength).
+- Darker, colder abyss, less purple: a black sky with faint mists, cold seams on the crystal.
+- Real particles (flecks, ash, embers, smoke, slivers) instead of galaxy textures.
+- New motifs: fractures, tendrils, pressure waves, eclipses.
+
+**Sounds:** every sound in the mod is now a Minecraft recording.
+
 ## 0.3.2
 **Crash fix:** the effects renderer created new vertex buffers every frame, and that native memory was never freed, so after ~15 minutes the game ran out of memory and crashed. It now reuses one set; memory stays flat (tested: 56 moves back to back, no growth).
 

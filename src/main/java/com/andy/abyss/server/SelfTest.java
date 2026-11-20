@@ -122,18 +122,20 @@ public final class SelfTest {
         boolean wasCreative = p.isCreative();
         if (wasCreative) p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         d.output = d.outputCap(); d.reformedAt = -10000;
+        boolean esc = com.andy.abyss.Config.escapeIntoRealm.get();
+        com.andy.abyss.Config.escapeIntoRealm.set(false); // the rest of the test happens here, not in the Realm
         p.setHealth(0);
         check(out, "sovereignty refuses setHealth(0)", p.isAlive() && p.getHealth() > 0);
         d.output = d.outputCap(); d.reformedAt = -10000;
-        p.hurt(l.damageSources().magic(), 10000);
+        try { p.hurt(l.damageSources().magic(), 10000); } finally { com.andy.abyss.Config.escapeIntoRealm.set(esc); }
         check(out, "sovereignty re-forms after a lethal hit", p.isAlive());
         if (wasCreative) p.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
         // domain rot and healing
         Domains.open(p, 20);
         for (int i = 0; i < 30; i++) Domains.tick(p.server);
         check(out, "domain still up after 30 ticks (alive=" + p.isAlive() + " hp=" + p.getHealth() + ")", Domains.ownedBy(p.getUUID()) != null);
-        int infected = Infection.count(l);
-        check(out, "domain infects the ground (" + infected + " blocks)", infected > 0 || !Util.griefing(l));
+        int infected = Infection.count(p.serverLevel());
+        check(out, "domain infects the ground (" + infected + " blocks in " + p.level().dimension().location() + ")", infected > 0 || !Util.griefing(p.serverLevel()));
         if (Domains.ownedBy(p.getUUID()) != null) Domains.end(Domains.ownedBy(p.getUUID()));
         for (int i = 0; i < 400; i++) Domains.tick(p.server);
         check(out, "the infection recedes afterwards (" + Infection.count(l) + " left)", Infection.count(l) == 0);

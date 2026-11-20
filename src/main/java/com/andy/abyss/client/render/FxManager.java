@@ -245,7 +245,7 @@ public final class FxManager {
         }
         // tendrils from the vertices grip the target; from the vessel a taut line of darkness hauls it in
         for (int i = 0; i < 3; i++) Abyssal.tendril(d, v[i], pb, 0.16f, 0.12f, (float) d.time * 2 + i, Math.min(1, in * 1.4f), 0.85f);
-        Abyssal.tendril(d, pa.add(pa.subtract(pb).normalize().scale(-0.8)), pb, 0.12f + 0.12f * m, 0.06f, (float) d.time * 3, in, 0.9f);
+        Abyssal.tendril(d, pa.add(pb.subtract(pa).normalize().scale(Math.min(2.6, pa.distanceTo(pb) * 0.4))), pb, 0.12f + 0.12f * m, 0.06f, (float) d.time * 3, in, 0.9f);
         // the target's ground cracks under the weight
         Vec3 feet = b.getPosition(d.pt).add(0, 0.05, 0);
         Abyssal.fracture(d, feet, up, 1.2f + 1.6f * m, Math.min(1, m * 1.6f), 0.8f, b.getId() * 31L);

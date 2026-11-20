@@ -52,14 +52,16 @@ final class BrawlFx {
     }
 
     /** One punch's mark in the air: a tight white-violet flash, a dark ring of pressure, the air cracking. */
-    static void punchMark(Draw d, Vec3 c, float s, float age, long seed) {
+    static void punchMark(Draw d, Vec3 c, float s, float age, long seed) { punchMark(d, c, s, age, seed, true); }
+
+    static void punchMark(Draw d, Vec3 c, float s, float age, long seed, boolean lit) {
         float k = age / 10f;
         if (k >= 1) return;
         float out = 1 - k;
-        if (age < 3) d.billboard(Rt.GLOW, true, c, (0.12f + 0.1f * s) * (1 - age / 3f) + 0.05f, Dust.PALE, 0.7f * (1 - age / 3f), 0);
+        if (age < 3 && lit) d.billboard(Rt.GLOW, true, c, (0.12f + 0.1f * s) * (1 - age / 3f) + 0.05f, Dust.PALE, 0.7f * (1 - age / 3f), 0);
         float ring = 0.12f + (0.25f + 0.25f * s) * (1 - (float) Math.pow(1 - Math.min(1, age / 6f), 3));
         d.billboard(Rt.RING, false, c, ring, Dust.BLACK, 0.5f * out * out, 0);
-        d.billboard(Rt.RING, true, c, ring * 1.04f, Abyssal.EDGE, 0.09f * out * out, 0);
+        if (lit) d.billboard(Rt.RING, true, c, ring * 1.04f, Abyssal.EDGE, 0.09f * out * out, 0);
         Abyssal.fracture(d, c, null, 0.35f + 0.3f * s, Math.min(1, age / 2.5f), out * 0.95f, seed);
     }
 
@@ -90,7 +92,7 @@ final class BrawlFx {
         for (int i = 0; i < n; i++) {
             float t = age - barrageTime(f, i);
             if (t < 0 || t > 7) continue;
-            punchMark(d, c0.add(barrageOffset(p, f, i)), 0.75f, t * 1.4f, p.a.seed + i);
+            punchMark(d, c0.add(barrageOffset(p, f, i)), 0.75f, t * 1.4f, p.a.seed + i, i % 4 == 0);
         }
         // the rush blurs into streaks of fists driving in from both sides
         if (age < f.d()) {
@@ -106,6 +108,9 @@ final class BrawlFx {
 
     // ------------------------------------------------------------------------------------------------ phantom arms
     static void phantom(Draw d, MoveFx.Prim p, Move.Fx f, float age) {
+        var mc = Minecraft.getInstance();
+        // the caster sees the phantom arms as extra arms on screen (FirstPersonWeapon); here only for everyone else
+        if (mc.player != null && p.a.p.caster() == mc.player.getId() && mc.options.getCameraType().isFirstPerson()) return;
         float dur = Math.max(4, f.b());
         if (age > dur + 6) return;
         float in = Math.min(1, age / 4f), out = age > dur ? 1 - (age - dur) / 6f : 1;
@@ -158,7 +163,6 @@ final class BrawlFx {
         float out = k < 0.6f ? 1 : 1 - (k - 0.6f) / 0.4f;
         Abyssal.groundWave(d, c, 0.5f + r * 1.6f * (1 - (float) Math.pow(1 - Math.min(1, age / 10f), 3)), (1 - Math.min(1, age / 14f)) * 0.9f);
         Abyssal.fracture(d, c, UP, r * 1.5f, Math.min(1, age / 5f), out * 0.95f, p.a.seed ^ 0xC4A7);
-        Abyssal.disc(d, c.add(0, 0.02, 0), r * 0.75f, out * 0.55f);
         if (age < 3) d.billboard(Rt.GLOW, true, c.add(0, 0.5, 0), 0.6f + r * 0.25f, Dust.PALE, 0.6f * (1 - age / 3f), 0);
     }
 

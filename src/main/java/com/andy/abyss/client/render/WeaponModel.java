@@ -275,11 +275,11 @@ public final class WeaponModel {
         Matrix4f mat = ps.last().pose();
         VertexConsumer fill = buf.getBuffer(Rt.addTri(Rt.WHITE));
         for (Tri t : m.tris) for (Vector3f p : new Vector3f[]{t.a(), t.b(), t.c()})
-            fill.vertex(mat, p.x, p.y, p.z).color(0.35f, 0.2f, 0.75f, 0.12f * alpha).uv(0.5f, 0.5f).endVertex();
+            fill.vertex(mat, p.x, p.y, p.z).color(0.16f, 0.15f, 0.32f, 0.14f * alpha).uv(0.5f, 0.5f).endVertex();
         // keep edge lines thin in world space when the construct is scaled up to giant size
         float sc = Math.max(1f, mat.getScale(new Vector3f()).x * 0.5f);
-        edges(mat, buf.getBuffer(Rt.add(Rt.WHITE)), m, alpha, 0.035f / sc, 0.85f, 0.72f, 1f);
-        edges(mat, buf.getBuffer(Rt.add(Rt.GLOW)), m, alpha * 0.6f, 0.12f / sc, 0.5f, 0.3f, 0.95f);
+        edges(mat, buf.getBuffer(Rt.add(Rt.WHITE)), m, alpha * 0.55f, 0.035f / sc, 0.8f, 0.78f, 0.95f);
+        edges(mat, buf.getBuffer(Rt.add(Rt.GLOW)), m, alpha * 0.25f, 0.12f / sc, 0.45f, 0.42f, 0.7f);
     }
 
     private static void edges(Matrix4f mat, VertexConsumer g, Mesh m, float a, float wdt, float r, float gg, float b) {

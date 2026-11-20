@@ -297,7 +297,7 @@ public final class Moves {
                 L(target(3, 6, 0.4f, Knock.PULL, 1.4f), target(8, 6, 0.4f, Knock.LAUNCH, 0.45f), target(14, 6, 3.4f, Knock.DOWN, 1.4f)),
                 L(fx(3, FIST, 1, 2.4f, 1, 1), fx(14, FIST, 3, 2.4f, 1, -1), fx(14, CRATER, 3.5f, 2.5f, 0, 1, 6, 0.8f), fx(14, CAMERA, 1.0f, 0.06f)));
         Move gaLib = mv("ga_lib", "Asura's Mantra", P_FLURRY, 56, 8, 40, 0, withFinal(rush(4, 36, 17, 0.35f, 6, 0), onTarget(46, 6, 5.0f, Knock.LAUNCH, 1.4f)),
-                L(fx(0, CAMERA, 0.3f, -0.04f), fx(0, PHANTOM, 6, 40), fx(4, BARRAGE, 30, 1.0f, 3.0f, 34, 1), fx(46, FIST, 3, 3.0f, 1, 1),
+                L(fx(0, CAMERA, 0.3f, -0.04f), fx(0, PHANTOM, 4, 40), fx(4, BARRAGE, 30, 1.0f, 3.0f, 34, 1), fx(46, FIST, 3, 3.0f, 1, 1),
                         fx(46, CRATER, 7, 4, 0, 1, 12, 1.0f), fx(46, CAMERA, 1.8f, 0.1f)));
         ALL.put(Weapon.GAUNTLETS, new Set(ga, gaHeavy, gaPlunge, gaCounter, gaSkill, gaLib));
     }
