@@ -182,6 +182,12 @@ public final class MoveFx {
             case THROW -> sfx(at, com.andy.abyss.registry.ModSounds.SWING_HEAVY, 1f, 1.2f);
             case BARRIER -> sfx(at, com.andy.abyss.registry.ModSounds.FORM_OPEN, 1f, 0.8f);
             case GHOSTS -> sfx(at, com.andy.abyss.registry.ModSounds.DODGE, 0.9f, 0.9f);
+            case FIST -> BrawlFx.spawnFist(p, p.fx);
+            case BARRAGE -> sfx(at, com.andy.abyss.registry.ModSounds.RAGE, 0.6f, 1.3f);
+            case PHANTOM -> sfx(at, com.andy.abyss.registry.ModSounds.RAGE, 1.1f, 0.85f);
+            case CRATER -> BrawlFx.spawnCrater(p, p.fx);
+            case TRENCH -> BrawlFx.spawnTrench(p, p.fx);
+            case FREEZE -> BrawlFx.spawnFreeze(p, p.fx);
             default -> {}
         }
     }
@@ -206,6 +212,7 @@ public final class MoveFx {
             }
             case RIFT_ARM -> { if (cross(prev, age, 6)) sfx(p.o.add(p.fwd.scale(3)), com.andy.abyss.registry.ModSounds.HIT, 0.9f, 0.8f); }
             case VORTEX -> { if (cross(prev, age, Math.max(6, f.c()))) sfx(p.o.add(p.fwd.scale(f.b())), com.andy.abyss.registry.ModSounds.HIT_HEAVY, 1.2f, 1.1f); }
+            case BARRAGE -> BrawlFx.barrageBeat(p, f, prev, age);
             default -> {}
         }
     }
@@ -278,13 +285,19 @@ public final class MoveFx {
             case BARRIER -> (int) Math.max(4, f.b()) + 10;
             case GHOSTS -> 16;
             case CAMERA -> 1;
+            case FIST -> 11;
+            case BARRAGE -> (int) Math.max(1, f.d()) + 9;
+            case PHANTOM -> (int) Math.max(4, f.b()) + 7;
+            case CRATER -> 41;
+            case TRENCH -> 35;
+            case FREEZE -> (int) f.b() + 9;
         };
     }
 
     /** A giant construct lands when the move's next shock/beam fires (so the slam and the shockwave are one frame). */
     static int giantImpact(Act a, Move.Fx g) {
         int best = Integer.MAX_VALUE;
-        for (Move.Fx f : a.m.fx()) if (f.tick() > g.tick() && (f.kind() == Move.Kind.SHOCK || f.kind() == Move.Kind.BEAM)) best = Math.min(best, f.tick() - g.tick());
+        for (Move.Fx f : a.m.fx()) if (f.tick() > g.tick() && (f.kind() == Move.Kind.SHOCK || f.kind() == Move.Kind.BEAM || f.kind() == Move.Kind.CRATER || f.kind() == Move.Kind.TRENCH)) best = Math.min(best, f.tick() - g.tick());
         return best == Integer.MAX_VALUE ? 12 : best;
     }
 
@@ -319,6 +332,12 @@ public final class MoveFx {
             case THROW -> thrown(d, a, f, age);
             case BARRIER -> barrier(d, a, f, age);
             case GHOSTS -> ghosts(d, a, f, age, r);
+            case FIST -> BrawlFx.fist(d, p, f, age);
+            case BARRAGE -> BrawlFx.barrage(d, p, f, age);
+            case PHANTOM -> BrawlFx.phantom(d, p, f, age);
+            case CRATER -> BrawlFx.crater(d, p, f, age);
+            case TRENCH -> BrawlFx.trench(d, p, f, age);
+            case FREEZE -> BrawlFx.freeze(d, p, f, age);
             default -> {}
         }
     }
@@ -1063,6 +1082,44 @@ public final class MoveFx {
         if (back > 0) for (int i = 0; i < 3; i++) sw[i] = Mth.lerp(back, sw[i], rest[i]);
         boolean hidden = act.m.pose() == Moves.P_THROW && s > 0.35f && act.w != Weapon.GAUNTLETS && back < 0.9f;
         return new float[]{sw[0], sw[1], sw[2], hidden ? 1 : 0, forge, act.m.pose()};
+    }
+
+    /**
+     * The fists of a brawler, from the move's own timeline: {left push, right push, left lift, right lift}. Every FIST
+     * lands as a real punch (snap out over 2 ticks, hold, draw back), a BARRAGE alternates fists on every impact,
+     * uppercuts lift, slams bring both fists down.
+     */
+    public static float[] fistDrive(int id, float pt) {
+        float[] o = new float[4];
+        Act a = SWING.get(id);
+        if (a == null || a.w != Weapon.GAUNTLETS) return o;
+        float t = a.clock + (a.stop > 0 ? 0 : pt);
+        for (Move.Fx f : a.m.fx()) {
+            if (f.kind() == Move.Kind.FIST) {
+                int side = f.d() < 0 ? 0 : 1;
+                float k = punch(t - f.tick());
+                o[side] = Math.max(o[side], k);
+                if (a.m.pose() == Moves.P_RISING) o[2 + side] = Math.max(o[2 + side], k);
+                if (a.m.pose() == Moves.P_SLAM) { o[0] = Math.max(o[0], k); o[1] = Math.max(o[1], k); o[2] = Math.min(o[2], -k); o[3] = Math.min(o[3], -k); }
+            } else if (f.kind() == Move.Kind.BARRAGE) {
+                int n = (int) f.a();
+                for (int i = 0; i < n; i++) {
+                    float k = punch((t - f.tick() - BrawlFx.barrageTime(f, i)) * 1.6f);
+                    int side = i % 2;
+                    o[side] = Math.max(o[side], k);
+                }
+            }
+        }
+        return o;
+    }
+
+    /** One punch's reach over time (0 at rest, 1 fully extended): wind back a hair, snap out, hold a beat, draw back. */
+    private static float punch(float dt) {
+        if (dt < -3 || dt > 7) return 0;
+        if (dt < -1) return -0.15f * (dt + 3) / 2f;            // a short wind-up: the fist draws back
+        if (dt < 0.5f) return smooth((dt + 1) / 1.5f);          // snap
+        if (dt < 2) return 1;                                   // the hit
+        return 1 - smooth((dt - 2) / 5f);                       // draw back
     }
 
     // ------------------------------------------------------------------------------------------------- numbers

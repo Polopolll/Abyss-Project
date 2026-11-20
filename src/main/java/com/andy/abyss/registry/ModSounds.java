@@ -14,7 +14,8 @@ public final class ModSounds {
             SWING = reg("arsenal_swing"), SWING_HEAVY = reg("arsenal_swing_heavy"), TEAR = reg("arsenal_tear"), HIT = reg("arsenal_hit"),
             HIT_HEAVY = reg("arsenal_hit_heavy"), SUMMON = reg("arsenal_summon"), SHATTER = reg("arsenal_shatter"), LIBERATION = reg("arsenal_liberation"),
             DODGE = reg("arsenal_dodge"), PERFECT = reg("arsenal_perfect"), CHARGE_UP = reg("arsenal_charge"),
-            DOMAIN_SPEARS = reg("domain_spears"), DOMAIN_PULSE = reg("domain_pulse"), DOMAIN_COLLAPSE = reg("domain_collapse"), FORM_OPEN = reg("form_open");
+            DOMAIN_SPEARS = reg("domain_spears"), DOMAIN_PULSE = reg("domain_pulse"), DOMAIN_COLLAPSE = reg("domain_collapse"), FORM_OPEN = reg("form_open"),
+            PUNCH = reg("punch"), PUNCH_HEAVY = reg("punch_heavy"), CRATER = reg("crater"), QUAKE = reg("quake"), FLICK = reg("flick"), FREEZE = reg("freeze"), RAGE = reg("rage");
 
     private static RegistryObject<SoundEvent> reg(String n) { return SOUNDS.register(n, () -> SoundEvent.createVariableRangeEvent(Abyss.id(n))); }
     private ModSounds() {}

@@ -2,24 +2,72 @@
  "spread": {
   "sounds": [
    {
-    "name": "abyss:whoosh",
-    "pitch": 0.6
+    "name": "minecraft:mob/phantom/flap1",
+    "pitch": 0.6,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:mob/phantom/flap2",
+    "pitch": 0.6,
+    "volume": 0.6
    }
   ]
  },
  "rift": {
   "sounds": [
-   "abyss:space_warp"
+   {
+    "name": "minecraft:mob/illusion_illager/mirror_move1",
+    "pitch": 0.7,
+    "volume": 0.9
+   },
+   {
+    "name": "minecraft:mob/illusion_illager/mirror_move2",
+    "pitch": 0.7,
+    "volume": 0.9
+   },
+   {
+    "name": "minecraft:portal/trigger",
+    "pitch": 1.6,
+    "volume": 0.3
+   }
   ]
  },
  "devour": {
   "sounds": [
-   "abyss:vacuum"
+   {
+    "name": "minecraft:mob/warden/sonic_charge1",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_charge2",
+    "pitch": 0.6,
+    "volume": 1.0
+   }
   ]
  },
  "nuke": {
   "sounds": [
-   "abyss:night_guy_impact"
+   {
+    "name": "minecraft:random/explode1",
+    "pitch": 0.45,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/explode2",
+    "pitch": 0.45,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/explode3",
+    "pitch": 0.45,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/explode4",
+    "pitch": 0.45,
+    "volume": 1.0
+   }
   ]
  },
  "domain": {
@@ -33,46 +81,109 @@
  },
  "swap": {
   "sounds": [
-   "abyss:blink"
+   {
+    "name": "minecraft:mob/endermen/portal",
+    "pitch": 0.8,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:mob/endermen/portal2",
+    "pitch": 0.8,
+    "volume": 0.8
+   }
   ]
  },
  "heartbeat": {
   "sounds": [
-   "abyss:heartbeat"
+   {
+    "name": "minecraft:mob/warden/heartbeat_1",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/heartbeat_2",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/heartbeat_3",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/warden/heartbeat_4",
+    "pitch": 0.8,
+    "volume": 1.0
+   }
   ]
  },
  "collapse": {
   "sounds": [
-   "abyss:collapse"
+   {
+    "name": "minecraft:block/respawn_anchor/deplete1",
+    "pitch": 0.5,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/respawn_anchor/deplete2",
+    "pitch": 0.5,
+    "volume": 1.0
+   }
   ]
  },
  "negate": {
   "sounds": [
    {
-    "name": "abyss:steam",
-    "pitch": 1.6,
-    "volume": 0.5
+    "name": "minecraft:block/amethyst/shimmer",
+    "pitch": 0.6,
+    "volume": 0.8
    }
   ]
  },
  "triangle": {
   "sounds": [
    {
-    "name": "abyss:tiger_charge",
-    "pitch": 0.7
+    "name": "minecraft:block/beacon/power1",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/beacon/power2",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/beacon/power3",
+    "pitch": 0.6,
+    "volume": 1.0
    }
   ]
  },
  "impact": {
   "sounds": [
-   "abyss:ground_slam"
+   {
+    "name": "minecraft:random/explode1",
+    "pitch": 0.8,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:random/explode2",
+    "pitch": 0.8,
+    "volume": 0.8
+   }
   ]
  },
  "charge": {
   "sounds": [
    {
-    "name": "abyss:air_burst",
-    "pitch": 0.5
+    "name": "minecraft:mob/warden/sonic_charge1",
+    "pitch": 0.8,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:mob/warden/sonic_charge2",
+    "pitch": 0.8,
+    "volume": 0.8
    }
   ]
  },
@@ -471,6 +582,159 @@
    {
     "name": "minecraft:block/end_portal/endportal",
     "pitch": 0.75,
+    "volume": 1.0
+   }
+  ]
+ },
+ "punch": {
+  "sounds": [
+   {
+    "name": "minecraft:entity/player/attack/strong1",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/strong2",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:entity/player/attack/strong3",
+    "pitch": 0.8,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/irongolem/hit1",
+    "pitch": 1.3,
+    "volume": 0.6
+   },
+   {
+    "name": "minecraft:mob/irongolem/hit2",
+    "pitch": 1.3,
+    "volume": 0.6
+   }
+  ]
+ },
+ "punch_heavy": {
+  "sounds": [
+   {
+    "name": "minecraft:mob/irongolem/hit1",
+    "pitch": 0.7,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/irongolem/hit2",
+    "pitch": 0.7,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/irongolem/hit3",
+    "pitch": 0.7,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/zombie/woodbreak",
+    "pitch": 0.75,
+    "volume": 0.7
+   }
+  ]
+ },
+ "crater": {
+  "sounds": [
+   {
+    "name": "minecraft:random/explode1",
+    "pitch": 0.7,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/explode2",
+    "pitch": 0.7,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/explode3",
+    "pitch": 0.7,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:random/explode4",
+    "pitch": 0.7,
+    "volume": 1.0
+   }
+  ]
+ },
+ "quake": {
+  "sounds": [
+   {
+    "name": "minecraft:block/deepslate/break1",
+    "pitch": 0.5,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/deepslate/break2",
+    "pitch": 0.5,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:block/deepslate/break3",
+    "pitch": 0.5,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/ravager/stun1",
+    "pitch": 0.6,
+    "volume": 0.8
+   },
+   {
+    "name": "minecraft:mob/ravager/stun2",
+    "pitch": 0.6,
+    "volume": 0.8
+   }
+  ]
+ },
+ "flick": {
+  "sounds": [
+   {
+    "name": "minecraft:entity/player/attack/sweep1",
+    "pitch": 1.6,
+    "volume": 0.7
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep2",
+    "pitch": 1.6,
+    "volume": 0.7
+   },
+   {
+    "name": "minecraft:entity/player/attack/sweep3",
+    "pitch": 1.6,
+    "volume": 0.7
+   }
+  ]
+ },
+ "freeze": {
+  "sounds": [
+   {
+    "name": "minecraft:block/beacon/deactivate",
+    "pitch": 0.5,
+    "volume": 1.0
+   }
+  ]
+ },
+ "rage": {
+  "sounds": [
+   {
+    "name": "minecraft:mob/ravager/roar1",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/ravager/roar2",
+    "pitch": 0.6,
+    "volume": 1.0
+   },
+   {
+    "name": "minecraft:mob/ravager/roar3",
+    "pitch": 0.6,
     "volume": 1.0
    }
   ]

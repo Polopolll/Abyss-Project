@@ -359,6 +359,19 @@ public final class Hud {
             }
         }
         if (FxManager.flash > 0.02f) g.fill(0, 0, w, h, ((int) (Math.min(1, FxManager.flash) * 200) << 24) | (FxManager.flashColor & 0xFFFFFF));
+        long frozen = ClientState.freezeUntil - ClientState.ticks;
+        if (frozen > -6) {
+            // time has stopped: the world goes cold and grey, the edges close in
+            float a = frozen > 0 ? 1 : (frozen + 6) / 6f;
+            g.fill(0, 0, w, h, ((int) (a * 92) << 24) | 0x5A6070);
+            for (int i = 0; i < 24; i++) {
+                int col = (Mth.clamp((int) (a * 140 * (24 - i) / 24), 0, 255) << 24) | 0x05060A;
+                g.fill(0, i * 2, w, i * 2 + 2, col);
+                g.fill(0, h - i * 2 - 2, w, h - i * 2, col);
+                g.fill(i * 3, 0, i * 3 + 3, h, col);
+                g.fill(w - i * 3 - 3, 0, w - i * 3, h, col);
+            }
+        }
         if (ClientEvents.insideDomain > 0.02f) {
             // the pressure: a heavy dark rim that throbs with the domain's pulse
             float throb = 1 + 0.35f * FxManager.pulse;

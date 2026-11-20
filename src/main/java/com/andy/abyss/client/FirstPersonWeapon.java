@@ -148,21 +148,26 @@ public final class FirstPersonWeapon {
     }
 
     private static void gauntlet(PoseStack ps, RenderHandEvent e, float[] sw, float glow, boolean left) {
-        int pose = (int) sw[5];
-        boolean punching = left ? pose == com.andy.abyss.combat.Moves.P_PUNCH_L : pose != com.andy.abyss.combat.Moves.P_PUNCH_L && pose != 0;
-        float push = punching ? sw[2] : 0;
-        // the fist, raised in a guard, driven at the crosshair on a punch; the gauntlet is worn on your actual hand
-        Vector3f hand = new Vector3f(left ? -0.36f : 0.36f, -0.36f + push * 0.22f, -0.6f - push * 0.75f);
+        var mc = Minecraft.getInstance();
+        float[] drive = MoveFx.fistDrive(mc.player.getId(), e.getPartialTick());
+        float push = left ? drive[0] : drive[1], lift = left ? drive[2] : drive[3];
+        float bob = (float) Math.sin((ClientState.ticks + e.getPartialTick()) * 0.12f + (left ? 1.6f : 0)) * 0.012f;
+        // a guard: fists up, a little apart; a punch drives the fist to the crosshair, an uppercut drives it up through it
+        Vector3f guard = new Vector3f(left ? -0.3f : 0.3f, -0.34f + bob, -0.55f);
+        Vector3f strike = new Vector3f(left ? -0.05f : 0.05f, -0.12f + lift * 0.18f, -1.05f);
+        float k = Math.max(-0.2f, Math.min(1.1f, push));
+        Vector3f hand = new Vector3f(guard).lerp(strike, Math.max(0, k));
+        if (k < 0) hand.add(0, 0, -k * 0.35f); // wind-up: the fist pulls back toward you
         Vector3f from = new Vector3f(left ? SHOULDER_L : SHOULDER_R);
         Vector3f u = new Vector3f(hand).sub(from).normalize();
-        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), Minecraft.getInstance().player, left, hand, new Vector3f(left ? 1 : -1, 0, 0), sw[4]);
+        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, left, hand, new Vector3f(left ? 1 : -1, 0, 0), sw[4]);
         ps.pushPose();
         Vector3f at = new Vector3f(hand).add(new Vector3f(u).mul(-0.02f));
         ps.translate(at.x, at.y, at.z);
         ps.mulPose(new Quaternionf().rotationTo(new Vector3f(0, 1, 0), u));
         ps.mulPose(Axis.YP.rotationDegrees(left ? -90 : 90)); // the gem on the back of the hand faces up/out
         ps.scale(left ? -0.95f : 0.95f, 0.95f, 0.95f);
-        WeaponModel.render(ps, e.getMultiBufferSource(), Weapon.GAUNTLETS, sw[4], glow);
+        WeaponModel.render(ps, e.getMultiBufferSource(), Weapon.GAUNTLETS, sw[4], glow + k * 0.6f);
         ps.popPose();
     }
     private FirstPersonWeapon() {}

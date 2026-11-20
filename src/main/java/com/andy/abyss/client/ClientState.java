@@ -55,6 +55,8 @@ public final class ClientState {
     public static boolean painting;
     /** Perfect dodge slow-motion until this tick. */
     public static long slowUntil;
+    /** Time is stopped around a greatsword's Ruler's Realm until this tick (screen goes cold and still). */
+    public static long freezeUntil;
     public static void cp(S2CCp c) { CP.put(c.entity(), c); CP_AT.put(c.entity(), ticks); }
 
     public static void world(S2CWorld w) {

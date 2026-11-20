@@ -146,10 +146,53 @@ public final class Arsenal {
                 if (landed > 0 && !gave[0]) { gave[0] = true; AbyssData.get(p).gauge = Math.min(100, AbyssData.get(p).gauge + m.gauge()); AbyssData.get(p).dirty = true; }
             });
         }
+        // the physical part of the move: craters, trenches, the time-stop (same ticks the clients draw them)
+        for (Move.Fx f : m.fx()) {
+            if (f.kind() != Move.Kind.CRATER && f.kind() != Move.Kind.TRENCH && f.kind() != Move.Kind.FREEZE) continue;
+            Scheduler.later(f.tick(), () -> { if (p.isAlive() && p.level() == p.serverLevel()) physical(p, f, yaw, target, groundY); });
+        }
         d.busyUntil = now + Math.max(4, m.duration() - m.recover());
         d.chainUntil = now + m.duration() + 18;
         d.dirty = true;
         Actions.mastery(p, 0.01f);
+    }
+
+    private static void physical(ServerPlayer p, Move.Fx f, float yaw, LivingEntity target, double groundY) {
+        ServerLevel l = p.serverLevel();
+        Vec3 fwd = Vec3.directionFromRotation(0, yaw);
+        Vec3 o = p.position().add(0, 1.1, 0);
+        switch (f.kind()) {
+            case CRATER -> {
+                Vec3 c;
+                if (f.d() == 1 && target != null && target.isAlive()) c = target.position();
+                else if (f.d() == 2) c = new Vec3(p.getX(), groundY, p.getZ());
+                else c = new Vec3(o.x + fwd.x * f.c(), groundY, o.z + fwd.z * f.c());
+                // the ground where it lands: drop from the point to the first solid block
+                var hit = l.clip(new ClipContext(c.add(0, 2, 0), c.subtract(0, 8, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+                if (hit.getType() != HitResult.Type.MISS) c = hit.getLocation();
+                Vec3 at = c.subtract(0, 0.5, 0);
+                keepFooting(p, () -> Destruction.crater(l, at, f.a(), f.b(), f.e() <= 0 ? 6 : f.e(), f.f() <= 0 ? 0.5f : f.f()));
+            }
+            case TRENCH -> {
+                Vec3 start = new Vec3(o.x + fwd.x * f.d(), groundY - 0.5, o.z + fwd.z * f.d());
+                keepFooting(p, () -> Destruction.trench(l, start, fwd, f.a(), f.b(), f.c(), f.e() <= 0 ? 6 : f.e(), f.f() <= 0 ? 0.4f : f.f()));
+            }
+            case FREEZE -> TimeStop.start(p, f.a(), (int) f.b());
+            default -> {}
+        }
+    }
+
+    /** Never dig the vessel into its own hole: the column it stands on survives. */
+    private static void keepFooting(ServerPlayer p, Runnable blast) {
+        ServerLevel l = p.serverLevel();
+        net.minecraft.core.BlockPos feet = p.blockPosition().below();
+        java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> keep = new java.util.HashMap<>();
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = 0; dy >= -2; dy--) {
+            var bp = feet.offset(dx, dy, dz);
+            keep.put(bp, l.getBlockState(bp));
+        }
+        blast.run();
+        keep.forEach((bp, st) -> { if (!st.isAir() && l.getBlockState(bp).isAir()) l.setBlock(bp, st, 2); });
     }
 
     /** Aim target within range (aim, then a forward cone, then — in your domain — anything inside). */
@@ -223,6 +266,8 @@ public final class Arsenal {
             if (!Util.hurt(p.getUUID(), p, e, dmg, "abyss")) continue;
             landed++;
             Corrosion.add(e, 1, 160);
+            // the Reaper harvests: a little of every cut comes back as life
+            if (w == Weapon.SCYTHE) p.heal(Math.min(4, dmg * 0.06f));
             knock(p, e, h, o, fwd);
             Net.around(e, new S2CHit(p.getId(), e.getId(), dmg, hitKind));
         }

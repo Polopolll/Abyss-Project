@@ -51,7 +51,19 @@ public record Move(String id, String name, int pose, int duration, int recover, 
         /** Afterimages of the caster. a count. */
         GHOSTS,
         /** Camera: a shake, b fov punch. */
-        CAMERA
+        CAMERA,
+        /** A punch landing: a size (1 jab, 2 heavy, 3 colossal), b forward distance (on the target if c = 1), d which fist (-1 left, 1 right). */
+        FIST,
+        /** A punch rush: a count, b spread (blocks around the aim point), c forward distance, d duration (ticks), e = 1 on the target. */
+        BARRAGE,
+        /** Phantom arms (Asura's extra arms) hammering the aim point: a count, b duration (ticks). */
+        PHANTOM,
+        /** A crater blown into the ground (blocks really go): a radius, b depth, c forward distance, d where (0 ahead, 1 under the target, 2 under you), e block power, f debris launch. */
+        CRATER,
+        /** A trench torn along the ground: a length, b half width, c depth, d start distance, e block power, f debris launch. */
+        TRENCH,
+        /** Time stops around you (Augusta's Ruler's Realm): a radius, b ticks. */
+        FREEZE
     }
 
     public record Fx(int tick, Kind kind, float a, float b, float c, float d, float e, float f) {
