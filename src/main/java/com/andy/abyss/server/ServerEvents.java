@@ -135,6 +135,7 @@ public final class ServerEvents {
         var server = e.getServer();
         Scheduler.tick();
         TimeStop.tick(server);
+        Annihilation.tick(server);
         CombatPower.tick(server.overworld().getGameTime());
         for (ServerLevel l : server.getAllLevels()) {
             SporeManager.tick(l);

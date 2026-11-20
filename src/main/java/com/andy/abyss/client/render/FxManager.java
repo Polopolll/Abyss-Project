@@ -30,6 +30,7 @@ public final class FxManager {
 
     public static void receive(S2CFx p) {
         if (p.type() == S2CFx.ASH) { com.andy.abyss.client.Disintegrate.start(p.e1()); return; }
+        if (AnniFx.handles(p.type())) { AnniFx.receive(p); return; }
         Fx f = new Fx();
         f.p = p; f.seed = R.nextLong(); f.pos = new Vec3(p.x(), p.y(), p.z());
         f.life = switch (p.type()) {
@@ -98,6 +99,7 @@ public final class FxManager {
         MOTES.removeIf(m -> { m.age++; m.p = m.p.add(m.v); return m.age > m.life; });
         Dust.tick();
         Debris.tick();
+        AnniFx.tick();
         com.andy.abyss.client.Disintegrate.tick();
     }
 
@@ -125,6 +127,7 @@ public final class FxManager {
             }
             for (Fx f : ACTIVE) draw(d, f, pt);
             MoveFx.render(d);
+            AnniFx.render(d);
             Dust.render(d, pt);
             auras(d);
             souls(d);
@@ -219,24 +222,34 @@ public final class FxManager {
         var mc = Minecraft.getInstance();
         Entity a = mc.level.getEntity(c.a()), b = mc.level.getEntity(c.b());
         if (a == null || b == null) return;
-        Vec3 pa = a.getPosition(d.pt).add(0, a.getBbHeight() * 0.6, 0), pb = b.getPosition(d.pt).add(0, b.getBbHeight() * 0.6, 0);
-        Vec3 apex = pa.add(pb).scale(0.5).add(0, Math.max(3, pa.distanceTo(pb) * 0.6), 0);
-        float in = Math.min(1f, (c.age() + d.pt) / 10f);
-        float pulse = 0.8f + 0.2f * (float) Math.sin(d.time * 12);
-        int white = 0xFFFFFF, purple = 0xB080FF;
-        d.beam(Rt.STREAK, true, pa, pa.add(apex.subtract(pa).scale(in)), 0.18f, white, 0.9f * pulse);
-        d.beam(Rt.STREAK, true, pb, pb.add(apex.subtract(pb).scale(in)), 0.18f, white, 0.9f * pulse);
-        d.beam(Rt.STREAK, true, pa, pb, 0.12f, purple, 0.7f);
-        // the knot: where the meter stands along the base
-        float m = (c.meter() + 100f) / 200f;
-        // meter +100 = the user has pushed the knot all the way to the target
-        Vec3 knot = pa.add(pb.subtract(pa).scale(m));
-        float kn = d.near(knot, 3f);
-        d.billboard(Rt.GLOW, true, knot, 0.7f, white, 0.8f * kn, 0);
-        d.billboard(Rt.RING, true, knot, 0.6f + 0.2f * pulse, purple, 0.9f * kn, (float) d.time);
-        for (Vec3 v : new Vec3[]{pa, pb, apex}) { d.billboard(Rt.GLOW, true, v, 0.6f, white, 0.6f * in * d.near(v, 3f), 0); d.billboard(Rt.RING, true, v, 0.7f, purple, 0.7f * in, -(float) d.time * 2); }
-        // inner fill: faint galaxy triangle
-        d.voidBillboard(Rt.FILL, apex.add(pa).add(pb).scale(1 / 3.0), 0.6f, 0.6f, 0.6f * in, (float) d.time);
+        Vec3 pa = a.getPosition(d.pt).add(0, a.getBbHeight() * 0.55, 0), pb = b.getPosition(d.pt).add(0, b.getBbHeight() * 0.55, 0);
+        float in = Math.min(1f, (c.age() + d.pt) / 8f);
+        float m = Math.max(0, Math.min(1, (c.meter() + 100f) / 200f)); // 0.5 at the start, 1 = the vessel has it
+        // the sigil: an equilateral triangle standing over the target, turning slowly, shrinking as the pull wins
+        Vec3 centre = pb.add(0, b.getBbHeight() * 0.15, 0);
+        Vec3 axis = pa.subtract(pb).multiply(1, 0, 1);
+        axis = axis.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : axis.normalize();
+        Vec3 side = new Vec3(-axis.z, 0, axis.x), up = new Vec3(0, 1, 0);
+        float R = (1.6f + b.getBbHeight() * 0.9f) * (1.25f - 0.45f * m) * in;
+        double spin = d.time * (0.6 + m * 2.2);
+        Vec3[] v = new Vec3[3];
+        for (int i = 0; i < 3; i++) {
+            double ang = spin + i * Math.PI * 2 / 3;
+            v[i] = centre.add(side.scale(Math.cos(ang) * R)).add(up.scale(Math.sin(ang) * R));
+        }
+        for (int i = 0; i < 3; i++) {
+            Vec3 p = v[i], q = v[(i + 1) % 3];
+            Abyssal.seam(d, p, q, 0.12f + 0.05f * m, 0.95f * in);
+            d.beam(Rt.STREAK, true, p, q, 0.05f, Abyssal.EDGE, 0.35f * in);
+            d.billboard(Rt.GLOW, true, p, 0.22f, Abyssal.EDGE, 0.5f * in * d.near(p, 2f), 0);
+        }
+        // tendrils from the vertices grip the target; from the vessel a taut line of darkness hauls it in
+        for (int i = 0; i < 3; i++) Abyssal.tendril(d, v[i], pb, 0.16f, 0.12f, (float) d.time * 2 + i, Math.min(1, in * 1.4f), 0.85f);
+        Abyssal.tendril(d, pa.add(pa.subtract(pb).normalize().scale(-0.8)), pb, 0.12f + 0.12f * m, 0.06f, (float) d.time * 3, in, 0.9f);
+        // the target's ground cracks under the weight
+        Vec3 feet = b.getPosition(d.pt).add(0, 0.05, 0);
+        Abyssal.fracture(d, feet, up, 1.2f + 1.6f * m, Math.min(1, m * 1.6f), 0.8f, b.getId() * 31L);
+        Abyssal.groundWave(d, feet, 0.6f + (float) ((d.time * 0.9) % 1.0) * (2.2f + 2 * m), 0.5f * in);
     }
 
     private static void draw(Draw d, Fx f, float pt) {
@@ -885,6 +898,6 @@ public final class FxManager {
         d.sv(vc, p.x - lx + ux, p.y - ly + uy, p.z - lz + uz, rgb, a, 0, 0);
     }
 
-    public static void clear() { ACTIVE.clear(); MOTES.clear(); Dust.clear(); Debris.clear(); com.andy.abyss.client.Disintegrate.clear(); com.andy.abyss.client.InfectionClient.clear(); }
+    public static void clear() { ACTIVE.clear(); MOTES.clear(); Dust.clear(); Debris.clear(); AnniFx.clear(); com.andy.abyss.client.Disintegrate.clear(); com.andy.abyss.client.InfectionClient.clear(); }
     private FxManager() {}
 }

@@ -332,19 +332,20 @@ public final class Hud {
     private static void clash(GuiGraphics g, Font f, int w, int h) {
         S2CWorld.Clash c = ClientState.myClash();
         if (c == null) return;
-        Matrix4f m = g.pose().last().pose();
-        float cx = w / 2f, cy = h / 2f - 52;
-        int bw = 220, x = (int) cx - bw / 2;
-        g.fill(x - 2, (int) cy - 2, x + bw + 2, (int) cy + 8, 0xD0000000);
-        float t = (c.meter() + 100) / 200f;
-        int mid = x + (int) (bw * t);
+        // a slim bar under the crosshair (never over it): how far the abyss has pulled
+        float cx = w / 2f, cy = h / 2f + 22;
+        int bw = 120, x = (int) cx - bw / 2;
         boolean owner = c.you() == 0;
-        g.fillGradient(x, (int) cy, mid, (int) cy + 6, owner ? 0xFFC8A8FF : 0xFFFF7070, owner ? 0xFF6A3AC8 : 0xFFB03030);
-        g.fillGradient(mid, (int) cy, x + bw, (int) cy + 6, owner ? 0xFFFF7070 : 0xFFC8A8FF, owner ? 0xFFB03030 : 0xFF6A3AC8);
-        Gfx.ring(m, mid, cy + 3, 0, 6, Gfx.argb(1, 0xFFFFFF));
+        float t = Math.max(0, Math.min(1, (c.meter() + 100) / 200f));
+        float mine = owner ? t : 1 - t;
+        g.fill(x - 1, (int) cy - 1, x + bw + 1, (int) cy + 4, 0xC0000000);
+        int fillTo = x + (int) (bw * mine);
+        g.fillGradient(x, (int) cy, fillTo, (int) cy + 3, owner ? 0xFFE6DEFF : 0xFFFF8080, owner ? 0xFF7D88B8 : 0xFFB03030);
+        g.fill(fillTo, (int) cy - 2, fillTo + 1, (int) cy + 5, 0xFFFFFFFF);
         String key = owner ? Keys.name(Keys.CAST) : Minecraft.getInstance().options.keyJump.getTranslatedKeyMessage().getString().toUpperCase(Locale.ROOT);
         boolean blink = (ClientState.ticks / 4) % 2 == 0;
-        g.drawCenteredString(f, "§fTRIANGLE  " + (blink ? "§e" : "§6") + "MASH [" + key + "]", (int) cx, (int) cy - 13, 0xFFFFFFFF);
+        String msg = owner ? "§fTHE TRIANGLE §8· §7mash " + (blink ? "§f" : "§7") + "[" + key + "]§7 to end it" : "§cTHE TRIANGLE §8· §7resist: mash " + (blink ? "§e" : "§6") + "[" + key + "]";
+        g.drawCenteredString(f, msg, (int) cx, (int) cy + 7, 0xFFFFFFFF);
     }
 
     private static void overlays(GuiGraphics g, int w, int h, float pt) {

@@ -42,7 +42,14 @@ public enum Ability {
     NEGATION("Negation", Type.TOGGLE, 0xE0E0FF, 0,
             "Damage and harmful effects are cancelled while your output lasts.", null, null),
     GUIDE("Guide", Type.CLIENT, 0xC8C0D8, 0,
-            "How everything works.", null, null);
+            "How everything works.", null, null),
+    ANNIHILATION("Annihilation", Type.FORM, 0xE6DEFF, 0,
+            "The abyss's raw power, aimed. Everything it kills is unmade into abyssal ash.",
+            new String[]{"Annihilation Beam", "Abyss Orb", "Sovereign Pressure", "Abyssal Nuke"},
+            new String[]{"Tap: a piercing shot. Hold: a sustained black beam that reaches 128 blocks and tunnels through the world.",
+                    "Tap: a slow, dense orb of darkness that devours what it touches and bursts. Hold: a stream of smaller orbs.",
+                    "The abyss's weight presses on everything around you: they're forced down and the ground buckles. Hold to keep pressing.",
+                    "Hold to compress a core of abyss in front of you (up to 3 s), release to launch it. The bigger the charge, the bigger the crater."});
 
     public enum Type { FORM, CHARGE, INSTANT, TOGGLE, CLIENT }
     public static final String[] BUTTONS = {"LMB", "RMB", "M4", "M5"};

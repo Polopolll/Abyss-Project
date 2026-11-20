@@ -12,7 +12,8 @@ public record S2CFx(int type, double x, double y, double z, float a, float b, fl
     public static final int SPREAD = 0, NUKE = 1, DEVOUR = 2, TRANSPORT = 3, DISINTEGRATE = 4, RIFT_OPEN = 5, SWAP = 6, NEGATE = 7,
             CLONE_SPAWN = 8, CLONE_DEATH = 9, TRIANGLE_END = 10, STEP = 11, CHARGE = 12, VOLLEY = 13, AWAKEN = 14, IMPLODE = 15, DOMAIN_CAST = 16,
             DOMAIN_PULSE = 17, COMBO = 18, BEAM = 19, PLUNGE = 20, REFORM = 21, LUNGE = 22,
-            DOMAIN_SPEARS = 23, DOMAIN_COLLAPSE = 24, INHALE = 25, DODGE = 26, PERFECT_DODGE = 27, FORGE = 28, REALM_ENTER = 29, REALM_EXIT = 30, PEEK = 31, FORM_OPEN = 32, GUARD = 33, ASH = 34;
+            DOMAIN_SPEARS = 23, DOMAIN_COLLAPSE = 24, INHALE = 25, DODGE = 26, PERFECT_DODGE = 27, FORGE = 28, REALM_ENTER = 29, REALM_EXIT = 30, PEEK = 31, FORM_OPEN = 32, GUARD = 33, ASH = 34,
+            BEAM_SHOT = 40, BEAM_SUSTAIN = 41, ORB = 42, ORB_BURST = 43, PRESSURE = 44, NUKE_CHARGE = 45, NUKE_LAUNCH = 46, NUKE_BLAST = 47;
 
     public void write(FriendlyByteBuf buf) {
         buf.writeVarInt(type); buf.writeDouble(x); buf.writeDouble(y); buf.writeDouble(z);

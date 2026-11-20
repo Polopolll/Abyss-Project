@@ -56,10 +56,10 @@ final class BrawlFx {
         float k = age / 10f;
         if (k >= 1) return;
         float out = 1 - k;
-        if (age < 3) d.billboard(Rt.GLOW, true, c, (0.18f + 0.16f * s) * (1 - age / 3f) + 0.08f, Dust.PALE, 0.9f * (1 - age / 3f), 0);
-        float ring = 0.2f + (0.45f + 0.35f * s) * (1 - (float) Math.pow(1 - Math.min(1, age / 6f), 3));
-        d.billboard(Rt.RING, false, c, ring, Dust.BLACK, 0.55f * out * out, 0);
-        d.billboard(Rt.RING, true, c, ring * 1.04f, Abyssal.EDGE, 0.22f * out * out, 0);
+        if (age < 3) d.billboard(Rt.GLOW, true, c, (0.12f + 0.1f * s) * (1 - age / 3f) + 0.05f, Dust.PALE, 0.7f * (1 - age / 3f), 0);
+        float ring = 0.12f + (0.25f + 0.25f * s) * (1 - (float) Math.pow(1 - Math.min(1, age / 6f), 3));
+        d.billboard(Rt.RING, false, c, ring, Dust.BLACK, 0.5f * out * out, 0);
+        d.billboard(Rt.RING, true, c, ring * 1.04f, Abyssal.EDGE, 0.09f * out * out, 0);
         Abyssal.fracture(d, c, null, 0.35f + 0.3f * s, Math.min(1, age / 2.5f), out * 0.95f, seed);
     }
 
@@ -116,16 +116,18 @@ final class BrawlFx {
             int side = i % 2 == 0 ? 1 : -1;
             int row = i / 2;
             // shoulders fanned out behind and beside you, like a second and third pair of arms
-            Vec3 sh = p.o.add(p.right.scale(side * (0.95 + row * 0.35))).add(p.up.scale(-0.15 + row * 0.42)).add(p.fwd.scale(0.35 - row * 0.15));
+            // extra shoulders just ahead of you, fanned around the view: the arms reach in toward the target (seen
+            // along their length, not stretched past the camera)
+            Vec3 sh = p.o.add(p.fwd.scale(1.1 + row * 0.15)).add(p.right.scale(side * (0.55 + row * 0.22))).add(p.up.scale(-0.42 + row * 0.38));
             float period = 3.2f + (i % 3) * 0.4f;
             float ph = ((age + i * 1.37f) % period) / period;
             float ext = ph < 0.35f ? ph / 0.35f : 1 - (ph - 0.35f) / 0.65f; // snap out, draw back
             ext = ext * ext * (3 - 2 * ext);
             Vec3 hit = aim.add(p.right.scale(side * 0.25 * (1 + row * 0.4))).add(p.up.scale((row - 0.5) * 0.3));
             Vec3 fist = sh.add(hit.subtract(sh).scale(0.35 + 0.6 * ext));
-            Abyssal.tendril(d, sh, fist, 0.26f, 0.05f, age * 0.5f + i, 1, a * 0.85f);
-            d.billboard(Rt.CORE, false, fist, 0.2f, Dust.BLACK, a * 0.95f, 0);
-            d.billboard(Rt.GLOW, true, fist, 0.16f, Abyssal.COLD, a * 0.35f * ext, 0);
+            Abyssal.tendril(d, sh, fist, 0.2f, 0.03f, age * 0.5f + i, 1, a * 0.8f);
+            d.billboard(Rt.CORE, false, fist, 0.13f, Dust.BLACK, a * 0.9f, 0);
+            d.billboard(Rt.GLOW, true, fist, 0.1f, Abyssal.COLD, a * 0.25f * ext, 0);
             if (ph < 0.36f && ph > 0.3f) punchMark(d, hit, 0.6f, 2, p.a.seed + i * 7 + (int) (age / period));
         }
     }

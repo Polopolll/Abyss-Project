@@ -19,7 +19,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Triangle: a tug of war of Combat Power. A three-point sigil (the user, the target, and a point of the abyss above
+ * Triangle (reworked): the target is pulling against infinity. The meter drifts toward the vessel on its own (an
+ * ordinary mob is taken in ~2 s without a single press), the vessel's mashing drives it faster, and the target can
+ * only slow it — a player only has a real chance with ten times the vessel's Combat Power, and even then barely.
+ * The target isn't frozen: it is dragged toward the vessel and forced down while the sigil turns.
+ *
+ * Original design notes: a tug of war of Combat Power. A three-point sigil (the user, the target, and a point of the abyss above
  * them) locks both in place. Each tick the meter moves toward whoever has more power; each side adds to it by mashing
  * (the user's cast key, the target's jump key) and the user also pours output in. Reaching the end wins:
  * <ul>
@@ -31,7 +36,7 @@ import java.util.List;
 public final class Triangle {
     public static final class Clash {
         public final ServerPlayer owner; public final LivingEntity target;
-        public float meter; public int age; long lastOwnerPush, lastTargetPush;
+        public float meter; public int age; long lastOwnerPush, lastTargetPush; float pulse;
         final Vec3 ownerAt, targetAt;
         Clash(ServerPlayer o, LivingEntity t) { owner = o; target = t; ownerAt = o.position(); targetAt = t.position(); }
     }
@@ -60,33 +65,47 @@ public final class Triangle {
         if (who == c.owner) {
             if (now - c.lastOwnerPush < 2) return;
             c.lastOwnerPush = now;
-            c.meter += 4f * (float) Math.pow(a / (double) Math.max(1, b), 0.15);
+            c.meter += 7f;
+            c.pulse = 1;
+            Util.sound(c.owner.serverLevel(), c.owner.position(), ModSounds.HEARTBEAT.get(), 1.2f, 1.1f);
         } else {
             if (now - c.lastTargetPush < 2) return;
             c.lastTargetPush = now;
-            c.meter -= 4f * (float) Math.pow(b / (double) Math.max(1, a), 0.15);
+            // resisting infinity: it only slows the pull unless the target is overwhelmingly stronger
+            double ratio = b / (double) Math.max(1, a);
+            c.meter -= (float) (2.0 * Math.pow(Math.max(0.05, ratio), 0.3));
         }
+    }
+
+    /** The pull of the abyss per tick: steady, weakened only by a target far stronger than you. */
+    static float drift(int a, int b) {
+        double ratio = b / (double) Math.max(1, a);
+        return (float) (2.4 / (1 + Math.max(0, Math.log10(Math.max(1e-6, ratio))) * 1.4));
     }
 
     public static void tick() {
         for (Clash c : new ArrayList<>(ALL)) {
-            if (!c.owner.isAlive() || !c.target.isAlive() || c.owner.level() != c.target.level() || c.owner.distanceTo(c.target) > 64) { ALL.remove(c); continue; }
+            // never strand anyone: any break releases both
+            if (!c.owner.isAlive() || !c.target.isAlive() || c.owner.level() != c.target.level() || c.owner.distanceTo(c.target) > 64 || c.owner.hasDisconnected()
+                    || c.target instanceof ServerPlayer tp && tp.hasDisconnected()) { ALL.remove(c); continue; }
             c.age++;
             int a = CombatPower.of(c.owner), b = CombatPower.of(c.target);
-            double adv = CombatPower.advantage(a, b);
-            c.meter += (float) (adv * 1.4);
+            c.meter += drift(a, b);
             AbyssData d = AbyssData.get(c.owner);
-            float pour = d.outputCap() * 0.012f;
-            if (d.spend(pour)) c.meter += 0.5f;
-            if (!(c.target instanceof Player) && c.age % 6 == 0) c.meter -= c.target.getRandom().nextFloat() * 6f * (float) (1 - adv) * 0.5f;
-            // pin both
-            for (LivingEntity e : new LivingEntity[]{c.owner, c.target}) {
-                Vec3 at = e == c.owner ? c.ownerAt : c.targetAt;
-                if (e.position().distanceToSqr(at) > 0.04) e.teleportTo(at.x, at.y, at.z);
-                e.setDeltaMovement(Vec3.ZERO);
-                e.hurtMarked = true;
-                e.addEffect(new MobEffectInstance(ModEffects.STUNNED.get(), 3, 0, false, false, false));
-            }
+            if (d.spend(d.outputCap() * 0.006f)) c.meter += 0.4f;
+            c.pulse *= 0.8f;
+            // the vessel stands its ground; the target is dragged in and forced down
+            if (c.owner.position().distanceToSqr(c.ownerAt) > 0.04) c.owner.teleportTo(c.ownerAt.x, c.ownerAt.y, c.ownerAt.z);
+            c.owner.setDeltaMovement(Vec3.ZERO);
+            c.owner.hurtMarked = true;
+            Vec3 toOwner = c.owner.position().subtract(c.target.position()).multiply(1, 0, 1);
+            double dist = toOwner.length();
+            Vec3 drag = dist > 2.6 ? toOwner.normalize().scale(0.035 + 0.03 * Math.max(0, c.meter) / 100) : Vec3.ZERO;
+            c.target.setDeltaMovement(drag.x, Math.min(0, c.target.getDeltaMovement().y) - 0.08, drag.z);
+            c.target.hurtMarked = true;
+            c.target.addEffect(new MobEffectInstance(ModEffects.STUNNED.get(), 3, 0, false, false, false));
+            c.target.addEffect(new MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 5, 4, false, false, false));
+            if (c.age % 10 == 0) Util.sound(c.owner.serverLevel(), c.target.position(), ModSounds.TRIANGLE.get(), 0.8f, 0.6f + Math.max(0, c.meter) / 200f);
             if (c.meter >= 100 || c.meter <= -100 || c.age >= Config.triangleTicks.get()) finish(c);
         }
     }
@@ -104,6 +123,8 @@ public final class Triangle {
             t.setAbsorptionAmount(0);
             t.addEffect(new MobEffectInstance(ModEffects.SHATTERED.get(), 15 * 20, 0));
             t.addEffect(new MobEffectInstance(ModEffects.STUNNED.get(), 60, 0));
+            t.setDeltaMovement(0, -1.4, 0); // the triangle collapses on it: crushed down
+            t.hurtMarked = true;
             if (t instanceof Player tp) AbyssData.get(tp).negationDownUntil = l.getGameTime() + 300;
             Util.sureHitInFlight = true;
             t.invulnerableTime = 0;
@@ -111,8 +132,8 @@ public final class Triangle {
             Actions.mastery(c.owner, 1f);
             c.owner.displayClientMessage(Component.literal("§fTriangle won. §7" + t.getName().getString() + " is shattered."), true);
         } else {
-            c.owner.addEffect(new MobEffectInstance(ModEffects.STUNNED.get(), 40, 0));
-            AbyssData.get(c.owner).negationDownUntil = l.getGameTime() + 200;
+            c.owner.addEffect(new MobEffectInstance(ModEffects.STUNNED.get(), 20, 0));
+            AbyssData.get(c.owner).negationDownUntil = l.getGameTime() + 100;
             c.owner.displayClientMessage(Component.literal("§cTriangle lost. Negation is down."), true);
         }
     }

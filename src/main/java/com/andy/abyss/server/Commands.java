@@ -102,6 +102,26 @@ public final class Commands {
                     Forms.toggle(c.getSource().getPlayerOrException(), a);
                     return 1;
                 })))
+                .then(literal("press").then(argument("button", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 3)).then(argument("ticks", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 400)).executes(c -> {
+                    // press a form button and hold it for some ticks (screenshots without a mouse)
+                    var pl = c.getSource().getPlayerOrException();
+                    int b = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "button"), t = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "ticks");
+                    Forms.input(pl, b, com.andy.abyss.net.C2SInput.PRESS, 0, 0);
+                    if (t >= 8) Scheduler.later(8, () -> Forms.input(pl, b, com.andy.abyss.net.C2SInput.HOLD, 0, 8));
+                    Scheduler.later(Math.max(1, t), () -> Forms.input(pl, b, com.andy.abyss.net.C2SInput.RELEASE, 0, t));
+                    return 1;
+                }))))
+                .then(literal("triangle").executes(c -> {
+                    var pl = c.getSource().getPlayerOrException();
+                    Triangle.start(pl, Util.aim(pl, 32).entity());
+                    return 1;
+                }))
+                .then(literal("crater").then(argument("radius", FloatArgumentType.floatArg(1, 30)).executes(c -> {
+                    var pl = c.getSource().getPlayerOrException();
+                    Util.Aim a = Util.aim(pl, 64);
+                    Destruction.crater(pl.serverLevel(), a.point(), FloatArgumentType.getFloat(c, "radius"), FloatArgumentType.getFloat(c, "radius") * 0.5f, 50, 0.8f);
+                    return 1;
+                })))
                 .then(literal("fx").then(argument("type", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 64)).then(argument("a", FloatArgumentType.floatArg()).executes(c -> {
                     var pl = c.getSource().getPlayerOrException();
                     Util.fx(pl.serverLevel(), com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "type"), pl.position().add(pl.getLookAngle().multiply(1, 0, 1).normalize().scale(4)).add(0, 1, 0),

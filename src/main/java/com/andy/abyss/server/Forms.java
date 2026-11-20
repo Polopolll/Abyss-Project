@@ -39,6 +39,7 @@ public final class Forms {
         Ability was = Ability.byIndex(d.form);
         if (d.peeking) Realm.endPeek(p);
         Actions.stopSpreading(p.getUUID());
+        Annihilation.stop(p);
         d.guardSince = -1; d.pending = -1;
         d.form = -1;
         d.dirty = true;
@@ -55,6 +56,7 @@ public final class Forms {
         ServerLevel l = p.serverLevel();
         switch (f) {
             case ARSENAL -> Arsenal.input(p, button, phase, flags, arg);
+            case ANNIHILATION -> Annihilation.input(p, button, phase, flags, arg);
             case SPORES -> {
                 if (button == C2SInput.LMB) {
                     if (press && shift) { if (d.spend(3)) { SporeManager.shoot(l, p.getUUID(), p.getId(), p.getEyePosition().add(p.getLookAngle().scale(0.5)), p.getLookAngle()); Util.fx(l, S2CFx.VOLLEY, p.getEyePosition().add(p.getLookAngle()), 0, 1, 0, p.getId(), -1); } }
