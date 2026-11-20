@@ -84,30 +84,29 @@ public final class SporeClient {
             float pulse = 0.8f + 0.2f * (float) Math.sin(d.time * 4 + s.id);
             if (s.host >= 0) {
                 hostCount.merge(s.host, 1, Integer::sum);
-                // a black crystal barnacle with purple veins creeping out over the host
+                // a black crystal barnacle with dark veins creeping out over the host, a faint cold light in them
                 Entity h = mc.level.getEntity(s.host);
                 Vec3 hc = h != null ? h.getPosition(d.pt).add(0, h.getBbHeight() * 0.5, 0) : p;
                 Vec3 out = p.subtract(hc).normalize();
                 d.voidShard(p, out, 0.28f, 0.09f, 0.95f * near);
-                d.billboard(Rt.GLOW, true, p, 0.22f, 0x9A55FF, 0.55f * pulse * near, 0);
+                d.billboard(Rt.GLOW, true, p, 0.14f, 0x6E6AA8, 0.3f * pulse * near, 0);
                 if (dist < 32) {
                     Random r = new Random(s.id * 31L);
                     for (int i = 0; i < 3; i++) {
                         Vec3 tip = p.add((r.nextDouble() - 0.5) * 0.5, (r.nextDouble() - 0.5) * 0.6, (r.nextDouble() - 0.5) * 0.5);
-                        d.beam(Rt.STREAK, true, p, tip, 0.035f, 0x7B3BEA, 0.6f * near);
+                        com.andy.abyss.client.render.Abyssal.seam(d, p, tip, 0.045f, 0.85f * near);
                     }
                 }
             } else {
                 float a = s.mine ? 1f : 0.85f;
-                // a dark core with a violet halo: the alpha halo reads in daylight, the additive one at night
-                // a seed of the abyss: a tiny turning black hole
-                d.blackHole(p, 0.42f, false, a * near, (float) d.time * -1.6f + s.id);
-                d.billboard(Rt.GLOW, true, p, 0.3f, 0x6A4BFF, 0.25f * pulse * a * near * d.near(p, 2.5f), 0);
+                // a seed of the abyss: a pinprick of black with a hairline cold rim and a glint (not a black hole)
+                com.andy.abyss.client.render.Abyssal.seed(d, p, 0.075f, a * near, s.id);
+                d.billboard(Rt.GLOW, true, p, 0.18f, 0x4A4C7A, 0.18f * pulse * a * near * d.near(p, 2.5f), 0);
                 if (dist < 48 && density > 0.3f) {
                     Vec3 prev = new Vec3(s.px, s.py, s.pz);
-                    if (prev.distanceToSqr(p) > 0.04 && prev.distanceToSqr(p) < 400) d.beam(Rt.STREAK, true, prev, p, 0.07f, 0x6A3BD8, 0.45f * a);
+                    if (prev.distanceToSqr(p) > 0.04 && prev.distanceToSqr(p) < 400) d.beam(Rt.STREAK, false, prev, p, 0.06f, 0x05040A, 0.5f * a);
                 }
-                if (s.planted) d.flat(Rt.RING, true, p, new Vec3(0, 1, 0), 0.45f, 0x9A70FF, 0.35f * pulse, (float) d.time);
+                if (s.planted) d.flat(Rt.RING, true, p, new Vec3(0, 1, 0), 0.45f, 0x6E6AA8, 0.25f * pulse, (float) d.time);
             }
             if (lens && s.mine) {
                 Long fl = SELECT_FLASH.get(s.host >= 0 ? -s.host - 1 : s.id);
