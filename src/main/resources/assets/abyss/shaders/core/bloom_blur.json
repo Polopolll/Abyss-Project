@@ -1,0 +1,7 @@
+{
+    "vertex": "abyss:fullscreen",
+    "fragment": "abyss:bloom_blur",
+    "attributes": ["Position", "UV0"],
+    "samplers": [{"name": "Sampler0"}],
+    "uniforms": [{"name": "Dir", "type": "float", "count": 2, "values": [0.001, 0.0]}]
+}

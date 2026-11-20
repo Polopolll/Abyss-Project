@@ -13,6 +13,8 @@ public final class AbyssShaders {
     public static void register(RegisterShadersEvent e) {
         try {
             e.registerShader(new ShaderInstance(e.getResourceProvider(), Abyss.id("void"), DefaultVertexFormat.NEW_ENTITY), s -> VOID = s);
+            e.registerShader(new ShaderInstance(e.getResourceProvider(), Abyss.id("bloom_blur"), DefaultVertexFormat.POSITION_TEX), s -> Bloom.BLUR = s);
+            e.registerShader(new ShaderInstance(e.getResourceProvider(), Abyss.id("bloom_composite"), DefaultVertexFormat.POSITION_TEX), s -> Bloom.COMPOSITE = s);
         } catch (IOException ex) {
             Abyss.LOG.error("Abyss void shader failed to load", ex);
         }

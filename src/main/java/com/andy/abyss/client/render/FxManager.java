@@ -129,7 +129,9 @@ public final class FxManager {
         } catch (Exception ex) {
             com.andy.abyss.Abyss.LOG.debug("abyss fx", ex);
         }
-        buf.endAll();
+        buf.endBase();
+        if (Bloom.begin()) { buf.endGlow(); Bloom.end(); }
+        else buf.endGlow();
     }
 
     /**

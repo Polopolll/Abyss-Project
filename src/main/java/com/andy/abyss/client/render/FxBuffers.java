@@ -19,12 +19,17 @@ public final class FxBuffers implements MultiBufferSource {
         return b;
     }
 
-    public void endAll() {
-        List<Map.Entry<RenderType, BufferBuilder>> v = new ArrayList<>(), a = new ArrayList<>(), g = new ArrayList<>();
-        for (var e : builders.entrySet()) (Rt.isVoid(e.getKey()) ? v : Rt.isAdditive(e.getKey()) ? g : a).add(e);
-        for (var e : v) end(e);
-        for (var e : a) end(e);
-        for (var e : g) end(e);
+    public void endAll() { endBase(); endGlow(); }
+
+    /** The solid part: void geometry, then alpha sprites (smoke, ash, flecks). */
+    public void endBase() {
+        for (var e : builders.entrySet()) if (Rt.isVoid(e.getKey())) end(e);
+        for (var e : builders.entrySet()) if (!Rt.isVoid(e.getKey()) && !Rt.isAdditive(e.getKey())) end(e);
+    }
+
+    /** The light: additive glows (drawn into the bloom target when glow is on). */
+    public void endGlow() {
+        for (var e : builders.entrySet()) if (Rt.isAdditive(e.getKey())) end(e);
     }
 
     private static void end(Map.Entry<RenderType, BufferBuilder> e) {
