@@ -122,7 +122,7 @@ public final class Actions {
                 d.negation = !d.negation;
                 p.displayClientMessage(Component.literal("§5Negation " + (d.negation ? "§fON" : "§7off")), true);
             }
-            case SPORES, ARSENAL, AUTHORITY, BEELZEBUB, BODIES -> { Forms.toggle(p, a); return; }
+            case SPORES, ARSENAL, AUTHORITY, BEELZEBUB, BODIES, ANNIHILATION -> { Forms.toggle(p, a); return; }
             default -> { return; }
         }
         cooldown(p, a);

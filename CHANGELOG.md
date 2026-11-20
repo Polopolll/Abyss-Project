@@ -4,6 +4,9 @@
 - The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
 - Added [`pictures/`](pictures/) (screenshots of every weapon, the domain and the icons, plus 0.2 images) and [`references/`](references/) (credits for the mods and games Abyss drew on, and what each one inspired).
 
+## 0.4.1
+- Fixed: the Annihilation form did nothing when cast from the wheel (R). It now opens like every other form.
+
 ## 0.4.0
 **Weapons have identities now:**
 - Hands of the Abyss: a brawler (Asura's Wrath). Real punches with your own arms: jab, straight, liver hook, a punch rush, a rising fist, a charged straight that tears a trench, a meteor fist, grab & slam. The liberation is Asura's Mantra: phantom arms join yours, a rush of thirty punches, and a final blow that blows a crater. No more summoned lances.
