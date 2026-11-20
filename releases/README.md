@@ -4,6 +4,7 @@ Ready-to-play jars for Minecraft **1.20.1** with **Forge 47.x**. Put one jar (th
 
 | Version | Highlights |
 |---|---|
+| [0.4.0](abyss-0.4.0.jar) | Weapon identities (Asura fists, Cartethyia sword, Augusta greatsword with time-stop), real block destruction, ash deaths, Annihilation form with the nuke, Triangle rework, Realm eye fix, bloom glow, darker abyss palette |
 | [0.3.2](abyss-0.3.2.jar) | Crash fix (memory leak), real Minecraft-recorded sounds, nebula domain sky and black holes, rebuilt solid weapon models held in your hands (first-person arms, two-handed grips), first-person clean-up |
 | [0.3.1](abyss-0.3.1.jar) | Working wheel, rebuilt slashes and moves with sound for every hit, domain sky fix |
 | [0.3.0](abyss-0.3.0.jar) | Ronova-style forms (LMB/RMB/M4/M5 sub-abilities), the modular Abyssal Arsenal (7 weapons, 68 moves), the Realm, world-anchored domain sky, retimed effects, 8-stage infection, settings screen, manual |
