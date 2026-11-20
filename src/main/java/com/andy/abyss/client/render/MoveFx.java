@@ -306,7 +306,8 @@ public final class MoveFx {
             float side = 0;
             for (Move.Fx g : a.m.fx()) if (g.tick() == f.tick() && g.kind() == Move.Kind.FIST) side = g.d();
             for (Move.Fx g : a.m.fx()) if (g.tick() <= f.tick() + 1 && g.tick() >= f.tick() - 2 && g.kind() == Move.Kind.REND) side = Math.signum(g.b()) * -0.6f;
-            kick(f.a() * 1.6f, side * f.a() * 0.9f, side * f.a() * 1.2f);
+            kick(f.a() * 2.2f, side * f.a() * 1.3f, side * f.a() * 1.8f);
+            fovTarget = Math.max(fovTarget, 0.02f + 0.02f * f.a());
             if (f.a() >= 1) FxManager.shake = Math.max(FxManager.shake, Config.screenShake.get().floatValue() * (f.a() - 0.8f) * 0.5f);
             fovTarget = Math.max(fovTarget, f.b());
             return;

@@ -192,9 +192,12 @@ public final class ViewDrive {
 
     static Vector3f guard(boolean left, float pt) {
         float t = (ClientState.ticks + pt);
+        // the reference's rest: low in the corners (left a little higher), breathing
+        float br = (float) Math.sin(t * 0.1f) * 0.025f;
+        if (true) return FistTracks.toView(left ? -FistTracks.REST_X : FistTracks.REST_X, (left ? FistTracks.REST_Y_L : FistTracks.REST_Y_R) + br + (float) Math.sin(t * 0.07f + (left ? 1.2f : 0)) * 0.01f, FistTracks.REST_D);
         float bob = (float) Math.sin(t * 0.11f + (left ? 1.7f : 0)) * 0.012f;
         float sway = (float) Math.sin(t * 0.07f + (left ? 0.4f : 2.1f)) * 0.008f;
-        return new Vector3f(left ? -0.25f : 0.25f, -0.3f + bob, -0.66f + sway);
+        return new Vector3f(left ? -0.38f : 0.38f, -0.4f + bob, -0.62f + sway);
     }
 
     /** Where a FIST lands (MoveFx/BrawlFx.fist): on the target's near face, or ahead of the eye, a touch low. */
@@ -261,20 +264,85 @@ public final class ViewDrive {
             float k = Math.max(0, f[i].ext());
             // relaxed in the guard (fingers just loose), clenched hard as the punch lands
             WeaponModel.Grip g = WeaponModel.Grip.of(0.12f * (1 - Math.min(1, k * 3)), Math.min(1, k * 1.4f), 0);
-            f[i] = new Fist(f[i].hand(), f[i].ext(), f[i].roll(), g, null, null, 0);
+            f[i] = new Fist(f[i].hand(), f[i].ext(), f[i].roll(), g, f[i].knuckles(), f[i].back(), f[i].hold());
         }
         return FistIdle.apply(f, busy, pt);
     }
 
-    static Fist[] punches(int id, float pt) {
+    /**
+     * The body behind a punch: as one fist goes out the other comes back to the chin, and both shift the way the
+     * torso turns (a right cross turns you left), so a punch has a whole body behind it, not just an arm.
+     */
+    static Fist[] body(Fist[] f) {
+        float kl = Math.max(0, f[0].ext()), kr = Math.max(0, f[1].ext());
+        Vector3f[] h = {new Vector3f(f[0].hand()), new Vector3f(f[1].hand())};
+        // the other hand chambers: back toward the chin
+        h[0].add(new Vector3f(0.07f, 0.05f, 0.12f).mul(kr * (1 - kl)));
+        h[1].add(new Vector3f(-0.07f, 0.05f, 0.12f).mul(kl * (1 - kr)));
+        // the torso turns away from the punching side and dips a little
+        float turn = 0.05f * (kl - kr);
+        for (Vector3f v : h) v.add(turn, -0.025f * Math.max(kl, kr), 0);
+        return new Fist[]{new Fist(h[0], f[0].ext(), f[0].roll()), new Fist(h[1], f[1].ext(), f[1].roll())};
+    }
+
+    static Fist[] punches(int id, float pt) { return punchesRaw(id, pt); } // the reference's off-hand tracks carry the body
+
+    /**
+     * A fist held the way the reference holds it: at rest upright in the corner with the fingers toward you; thrown,
+     * the forearm runs from where the elbow is for that punch (behind and below for a jab, out to the side for a hook,
+     * low for an uppercut) to the fist, and the back of the hand faces up (jab, hook) or away from you (uppercut).
+     * path -1 = a hand at rest / off hand.
+     */
+    static Fist held(Vector3f hand, float e, boolean left, int path) {
+        float sd = left ? -1 : 1;
+        Vector3f restK = new Vector3f(-sd * 0.25f, 0.9f, -0.35f).normalize();
+        Vector3f restB = new Vector3f(sd * 0.3f, 0.1f, -1).normalize();
+        Vector3f elbow = switch (path) {
+            case 1 -> new Vector3f(sd * 0.75f, -0.15f, -0.5f);
+            case 2 -> new Vector3f(sd * 0.3f, -0.85f, -0.55f);
+            default -> new Vector3f(sd * 0.42f, -0.62f, -0.25f);
+        };
+        Vector3f thrownK = new Vector3f(hand).sub(elbow).normalize();
+        Vector3f thrownB = path == 2 ? new Vector3f(0, 0.1f, -1) : new Vector3f(0, 1, 0.2f);
+        Vector3f k = new Vector3f(restK).lerp(thrownK, e).normalize();
+        Vector3f b = new Vector3f(restB).lerp(thrownB, e);
+        if (b.lengthSquared() < 1e-4f) b.set(restB);
+        b.normalize();
+        // the tracked point is the front of the fist (the knuckles), the hand is drawn from the wrist: step back
+        Vector3f wrist = new Vector3f(hand).sub(new Vector3f(k).mul(0.1f + 0.14f * e));
+        return new Fist(wrist, e, 0, null, k, b, 1);
+    }
+
+    static Fist[] punchesRaw(int id, float pt) {
         Vector3f gl = guard(true, pt), gr = guard(false, pt);
-        Fist[] out = {new Fist(gl, 0, 0), new Fist(gr, 0, 0)};
+        Fist[] out = {held(gl, 0, true, -1), held(gr, 0, false, -1)};
         MoveFx.Act a = MoveFx.SWING.get(id);
         if (a == null || a.w != Weapon.GAUNTLETS) return out;
         float t = a.time(pt);
         float[] best = {0, 0};
         for (Move.Fx f : a.m.fx()) {
-            if (f.kind() == Move.Kind.FIST) {
+            if (f.kind() == Move.Kind.FIST && f.e() != 3) {
+                // jabs, hooks and uppercuts play the reference's own motion (FistTracks), frame for frame
+                boolean left = f.d() < 0;
+                int i = left ? 0 : 1, o = 1 - i;
+                float sd = left ? -1 : 1;
+                float fr = (t - f.tick()) * FistTracks.FRAMES_PER_TICK;
+                FistTracks.K[] tr = FistTracks.track((int) f.e(), false), off = FistTracks.track((int) f.e(), true);
+                if (fr >= FistTracks.start(tr) && fr <= FistTracks.end(tr)) {
+                    float[] v = FistTracks.eval(tr, fr, sd * FistTracks.REST_X, left ? FistTracks.REST_Y_L : FistTracks.REST_Y_R);
+                    if (v[3] >= Math.abs(best[i]) || best[i] == 0) {
+                        best[i] = Math.max(0.001f, v[3]);
+                        Vector3f hand = FistTracks.toView(left ? -v[0] : v[0], v[1], v[2]);
+                        out[i] = held(hand, v[3], left, (int) f.e());
+                    }
+                }
+                if (fr >= FistTracks.start(off) && fr <= FistTracks.end(off) && best[o] == 0) {
+                    boolean oLeft = !left;
+                    float[] v = FistTracks.eval(off, fr, (oLeft ? -1 : 1) * FistTracks.REST_X, oLeft ? FistTracks.REST_Y_L : FistTracks.REST_Y_R);
+                    // the off hand's track is written for the left (the right hand punches): mirror it for a left punch
+                    out[o] = held(FistTracks.toView(left ? -v[0] : v[0], v[1], v[2]), 0, oLeft, -1);
+                }
+            } else if (f.kind() == Move.Kind.FIST) {
                 boolean left = f.d() < 0;
                 int i = left ? 0 : 1;
                 float size = Math.max(0.6f, f.a());
@@ -283,12 +351,12 @@ public final class ViewDrive {
                 if (k == 0 || Math.abs(k) < Math.abs(best[i])) continue;
                 best[i] = k;
                 Vector3f g = left ? gl : gr;
-                Vector3f s = strike(toView(mark(a, f, pt)), 0.95f + 0.1f * size);
+                float sd = left ? -1 : 1, depth = 0.86f + 0.05f * size;
+                Vector3f s = new Vector3f(sd * 0.06f, -0.3f, -depth + 0.08f);   // hammer: finishes low
                 Vector3f hand;
                 if (k >= 0) hand = bez(g, control(g, s, left, f.e()), s, k);
-                else hand = new Vector3f(g).add(new Vector3f(g).sub(s).normalize().mul(-k * 0.5f)).add(0, k * 0.1f, 0);
-                float roll = f.e() == 1 ? (left ? -1 : 1) * 70 * Math.max(0, k) : f.e() == 2 ? -25 * Math.max(0, k) : 0;
-                out[i] = new Fist(hand, k, roll);
+                else hand = new Vector3f(g).add(0, 0.02f * k, -0.35f * k).add(sd * 0.04f * -k, 0, 0);
+                out[i] = new Fist(hand, k, 0);
             } else if (f.kind() == Move.Kind.BARRAGE) {
                 float tau = t - f.tick(), dur = Math.max(1, f.d());
                 if (tau < -2 || tau > dur + 5) continue;

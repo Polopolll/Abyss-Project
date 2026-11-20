@@ -80,6 +80,10 @@ public final class FirstPersonWeapon {
 
     /** How much the next arm may stretch to reach its shoulder (0 = never: a guard; 1 = fully: a punch thrown out). */
     private static float stretchK;
+    /** How thick the next arm is drawn (the brawler's forearms are heavier than a plain arm). */
+    private static float thickK = 1;
+    /** Recent fist poses per hand (wrist, knuckles, back): the smear a fast punch leaves behind. */
+    private static final java.util.ArrayDeque<float[]>[] TRAIL = new java.util.ArrayDeque[]{new java.util.ArrayDeque<float[]>(), new java.util.ArrayDeque<float[]>()};
 
     /** Shoulders, off the bottom corners of the screen. */
     private static final Vector3f SHOULDER_R = new Vector3f(0.62f, -1.45f, -0.2f), SHOULDER_L = new Vector3f(-0.62f, -1.45f, -0.2f);
@@ -126,7 +130,7 @@ public final class FirstPersonWeapon {
         Vector3f pivot = new Vector3f(hand).sub(new Vector3f(u).mul(8.5f / 16f * ARM * stretch)); // the fist (the arm's last 3 px) closes on the grip
         ps.translate(pivot.x, pivot.y, pivot.z);
         ps.mulPose(q);
-        ps.scale(ARM, ARM * stretch, ARM);
+        ps.scale(ARM * thickK, ARM * stretch, ARM * thickK);
         ps.translate(-cx / 16f, 0, 0);
         boolean crystal = ClientState.awakened(p.getId()) && com.andy.abyss.Config.crystalSkin.get() && com.andy.abyss.client.render.AbyssShaders.VOID != null;
         RenderType skin = crystal ? com.andy.abyss.client.render.Rt.voidEntity(com.andy.abyss.client.render.Rt.BODY) : RenderType.entitySolid(p.getSkinTextureLocation());
@@ -189,9 +193,9 @@ public final class FirstPersonWeapon {
         // arm extends (so a punch is the whole arm driving out from the bottom corner along the line of sight)
         Vector3f from = new Vector3f(left ? SHOULDER_L : SHOULDER_R).lerp(new Vector3f(left ? -0.3f : 0.3f, -0.6f, 0.2f), MoveFx.smoothPublic(ext));
         // knuckles: up and a touch forward in the guard, at the target as the punch lands
-        Vector3f guardK = new Vector3f(left ? 0.08f : -0.08f, 1, -0.35f).normalize();
+        Vector3f guardK = new Vector3f(left ? 0.12f : -0.12f, 0.8f, -0.6f).normalize();
         // (a touch up, so you see the back of your hand and the knuckles over it, not just the cuff end-on)
-        Vector3f aimK = new Vector3f(wrist).normalize().add(left ? 0.1f : -0.1f, 0.38f, 0).normalize();
+        Vector3f aimK = new Vector3f(left ? 0.06f : -0.06f, 0.16f, -1).normalize();
         Vector3f y = new Vector3f(guardK).lerp(aimK, ext).normalize();
         // back of the hand: toward you in the guard, up when the arm is out
         Vector3f back = new Vector3f(left ? 0.3f : -0.3f, 0.15f, 1).lerp(new Vector3f(0, 1, 0.25f), ext);
@@ -208,16 +212,48 @@ public final class FirstPersonWeapon {
             back.normalize();
         }
         Vector3f x = new Vector3f(y).cross(back).normalize();
-        stretchK = MoveFx.smoothPublic(ext);
-        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, left, wrist, x, forge, from, 0);
-        stretchK = 0;
+        // the gauntlet carries its own heavy forearm (wrist to elbow); your upper arm runs from the elbow back to
+        // the shoulder off-screen
+        float sc = 0.7f;
+        Vector3f elbow = new Vector3f(wrist).sub(new Vector3f(y).mul(0.84f * sc));
+        stretchK = 1;
+        thickK = 1.5f;
+        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, left, elbow, x, forge, from, 0);
+        stretchK = 0; thickK = 1;
+        smear(ps, e, left, wrist, y, back, ext);
         ps.pushPose();
         ps.translate(wrist.x, wrist.y, wrist.z);
         ps.mulPose(new Quaternionf().setFromNormalized(new org.joml.Matrix3f(x, y, back)));
-        float sc = 0.52f;
         ps.scale(left ? -sc : sc, sc, sc);
         WeaponModel.renderFist(ps, e.getMultiBufferSource(), forge, glow + ext * 0.6f, f.grip() != null ? f.grip() : WeaponModel.Grip.of(0, 0, 0));
         ps.popPose();
     }
+    /**
+     * The smear of a fast punch: ghost fists strung out along the last few frames' path, fading toward the oldest
+     * (the afterimages hand-drawn fights use). Only while the fist is actually travelling fast.
+     */
+    private static void smear(PoseStack ps, RenderHandEvent e, boolean left, Vector3f wrist, Vector3f y, Vector3f back, float ext) {
+        var q = TRAIL[left ? 0 : 1];
+        float[] now = {wrist.x, wrist.y, wrist.z, y.x, y.y, y.z, back.x, back.y, back.z};
+        float speed = q.isEmpty() ? 0 : new Vector3f(q.peekFirst()[0], q.peekFirst()[1], q.peekFirst()[2]).distance(wrist);
+        q.addFirst(now);
+        while (q.size() > 5) q.removeLast();
+        if (speed < 0.035f || ext < 0.1f) return;
+        int i = 0;
+        for (float[] g : q) {
+            if (i++ == 0) continue;
+            float a = Math.min(1, speed * 8) * (1 - i / 6f) * 0.8f;
+            Vector3f gy = new Vector3f(g[3], g[4], g[5]), gb = new Vector3f(g[6], g[7], g[8]);
+            Vector3f gx = new Vector3f(gy).cross(gb).normalize();
+            ps.pushPose();
+            ps.translate(g[0], g[1], g[2]);
+            ps.mulPose(new Quaternionf().setFromNormalized(new org.joml.Matrix3f(gx, gy, gb)));
+            float sc = 0.7f * (1 + 0.06f * i);
+            ps.scale(left ? -sc : sc, sc, sc);
+            WeaponModel.renderEthereal(ps, e.getMultiBufferSource(), Weapon.GAUNTLETS, a);
+            ps.popPose();
+        }
+    }
+
     private FirstPersonWeapon() {}
 }

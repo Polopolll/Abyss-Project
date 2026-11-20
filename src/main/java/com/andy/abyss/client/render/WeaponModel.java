@@ -276,7 +276,48 @@ public final class WeaponModel {
         float th = Math.max(0, Math.min(1, g.thumb()));
         xf[9] = new Matrix4f().translate(-0.13f, 0.08f, -0.06f).rotateZ((float) Math.toRadians(25 * th)).translate(0.13f, -0.08f, 0.06f);
         xf[10] = new Matrix4f(xf[9]).translate(-0.13f, 0.14f, -0.13f).rotateZ((float) Math.toRadians(55 * th)).rotateX((float) Math.toRadians(-20 * th)).translate(0.13f, -0.14f, 0.13f);
-        render(ps, buf, mesh(Weapon.GAUNTLETS), alpha, glow, xf);
+        renderSolid(ps, buf, mesh(Weapon.GAUNTLETS), alpha, glow, xf);
+    }
+
+    /**
+     * The fist as a solid, lit object (not a window into the galaxy): dark armour plates over violet-grey crystal
+     * fingers, shaded by Minecraft's own light so every finger and knuckle reads, with the glowing creases on top.
+     */
+    private static void renderSolid(PoseStack ps, MultiBufferSource buf, Mesh m, float alpha, float glow, Matrix4f[] xf) {
+        if (alpha <= 0.01f) return;
+        Matrix4f mat = ps.last().pose();
+        Matrix3f nm = ps.last().normal();
+        VertexConsumer vc = buf.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(Rt.WHITE));
+        for (Tri t0 : m.tris) {
+            Tri t = xf == null || t0.group() == 0 ? t0 : new Tri(px(t0.a(), t0.group(), xf), px(t0.b(), t0.group(), xf), px(t0.c(), t0.group(), xf), t0.galaxy(), t0.group());
+            Vector3f n = new Vector3f(t.b()).sub(t.a()).cross(new Vector3f(t.c()).sub(t.a()));
+            if (n.lengthSquared() < 1e-12f) continue;
+            n.normalize();
+            boolean armour = t.galaxy() < 0.9f;
+            // armour: near-black indigo; the hand under it: a cold violet-grey crystal (fingers a shade lighter than the palm)
+            float r, g, b;
+            if (armour) { r = 0.13f; g = 0.12f; b = 0.2f; }
+            else if (t.group() >= 1) { r = 0.5f; g = 0.45f; b = 0.68f; }
+            else { r = 0.4f; g = 0.36f; b = 0.56f; }
+            Vector3f[] vs = {t.a(), t.b(), t.c(), t.c()};
+            for (Vector3f p : vs)
+                vc.vertex(mat, p.x, p.y, p.z).color(r, g, b, alpha).uv(0.5f, 0.5f).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(0xF000F0).normal(nm, n.x, n.y, n.z).endVertex();
+        }
+        VertexConsumer gl = buf.getBuffer(Rt.add(Rt.WHITE));
+        float a = alpha * glow * 0.8f;
+        for (Edge e0 : m.edges) {
+            Edge e = xf == null || e0.group() == 0 ? e0 : new Edge(px(e0.a(), e0.group(), xf), px(e0.b(), e0.group(), xf), e0.group());
+            Vector3f d = new Vector3f(e.b()).sub(e.a());
+            for (Vector3f ax : new Vector3f[]{new Vector3f(0, 0, 1), new Vector3f(1, 0, 0)}) {
+                Vector3f sd = new Vector3f(d).cross(ax);
+                if (sd.lengthSquared() < 1e-6f) continue;
+                sd.normalize(0.006f);
+                gl.vertex(mat, e.a().x - sd.x, e.a().y - sd.y, e.a().z - sd.z).color(0.62f, 0.4f, 1f, a).uv(0.5f, 0.5f).endVertex();
+                gl.vertex(mat, e.a().x + sd.x, e.a().y + sd.y, e.a().z + sd.z).color(0.62f, 0.4f, 1f, a).uv(0.5f, 0.5f).endVertex();
+                gl.vertex(mat, e.b().x + sd.x, e.b().y + sd.y, e.b().z + sd.z).color(0.8f, 0.65f, 1f, a).uv(0.5f, 0.5f).endVertex();
+                gl.vertex(mat, e.b().x - sd.x, e.b().y - sd.y, e.b().z - sd.z).color(0.8f, 0.65f, 1f, a).uv(0.5f, 0.5f).endVertex();
+            }
+        }
     }
 
     /** Draw a weapon with the pose stack's current transform. alpha fades it in and out (forging). */

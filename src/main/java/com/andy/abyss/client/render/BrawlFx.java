@@ -42,6 +42,9 @@ final class BrawlFx {
         float s = Math.max(0.6f, f.a());
         Dust.burst(c, (int) (8 + 9 * s), 0.08 + 0.06 * s, 0.05f + 0.02f * s, true);
         if (s >= 2.5f) Dust.smoke(c, 6, 0.6, 0.9f, 22);
+        // your own big blows land with an impact frame
+        var mc = Minecraft.getInstance();
+        if (s >= 2 && mc.player != null && p.a.p.caster() == mc.player.getId() && mc.options.getCameraType().isFirstPerson()) ImpactFrame.trigger(Math.min(1.5f, s / 2f));
         // the pack's punch on top, Minecraft's impact underneath (the weight and the crunch of the world)
         MoveFx.sfx(c, s >= 2 ? ModSounds.PUNCH_HEAVY : ModSounds.PUNCH, 1f, s >= 2 ? 0.95f : 1.0f + Dust.R.nextFloat() * 0.12f);
         MoveFx.sfx(c, s >= 2 ? ModSounds.PUNCH_HEAVY_LAYER : ModSounds.PUNCH_LAYER, s >= 2 ? 0.7f : 0.45f, 1f);
@@ -282,6 +285,9 @@ final class BrawlFx {
     // ------------------------------------------------------------------------------------------------ the lunge
     static void spawnLunge(MoveFx.Prim p, Move.Fx f) {
         MoveFx.sfx(p.a.o, ModSounds.DODGE, 0.8f, 1.25f);
+        // the ground kicks up behind you as you push off
+        Vec3 feet = p.a.groundAt(p.a.o).add(0, 0.15, 0);
+        for (int i = 0; i < 6; i++) Dust.smoke(feet.subtract(p.a.fwd.scale(0.3 + i * 0.25)).add(p.a.right.scale((i % 2 == 0 ? 1 : -1) * 0.3)), 1, 0.25, 0.6f, 18);
         var mc = Minecraft.getInstance();
         if (mc.player != null && p.a.p.caster() == mc.player.getId()) MoveFx.fovPunch(0.035f);
     }

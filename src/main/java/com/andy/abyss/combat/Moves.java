@@ -98,20 +98,20 @@ public final class Moves {
         // Every FIST is one real punch: the fist is fully out on the exact tick its flash appears. Paths: 0 straight,
         // 1 hook (swings in from the side), 2 uppercut (comes up from below), 3 hammer (comes down from above).
         List<Move> ga = new ArrayList<>();
-        ga.add(mv("ga_1", "Jab", P_PUNCH_L, 7, 2, 0, 3,
-                L(target(3, 4.5f, 0.7f, Knock.PUSH, 0.15f)),
-                L(fx(3, FIST, 1, 2.6f, 1, -1, 0), fx(3, CAMERA, 0.25f, 0.008f))));
-        ga.add(mv("ga_2", "Cross", P_PUNCH_R, 8, 2, 0, 3,
+        ga.add(mv("ga_1", "Jab", P_PUNCH_L, 9, 3, 0, 3,
+                L(target(4, 4.5f, 0.7f, Knock.PUSH, 0.15f)),
+                L(fx(4, FIST, 1, 2.6f, 1, -1, 0), fx(4, CAMERA, 0.25f, 0.008f))));
+        ga.add(mv("ga_2", "Cross", P_PUNCH_R, 9, 3, 0, 3,
                 L(target(4, 4.5f, 0.9f, Knock.PUSH, 0.25f)),
                 L(fx(4, FIST, 1.3f, 2.6f, 1, 1, 0), fx(4, CAMERA, 0.35f, 0.01f))));
-        ga.add(mv("ga_3", "Hook", P_PUNCH_L, 10, 3, 0, 4,
-                L(target(5, 4.5f, 1.1f, Knock.SPIN, 0.45f)),
-                L(fx(5, FIST, 1.6f, 2.6f, 1, -1, 1), fx(5, CAMERA, 0.5f, 0.012f))));
+        ga.add(mv("ga_3", "Hook", P_PUNCH_L, 13, 5, 0, 4,
+                L(target(7, 4.5f, 1.1f, Knock.SPIN, 0.45f)),
+                L(fx(7, FIST, 1.6f, 2.6f, 1, -1, 1), fx(7, CAMERA, 0.5f, 0.012f))));
         ga.add(mv("ga_4", "Rush", P_FLURRY, 16, 4, 0, 7, rush(2, 13, 8, 0.38f, 4.5f, 1.0f),
                 L(fx(1, LUNGE, 2.5f, 1.8f, 3), fx(2, BARRAGE, 8, 0.45f, 2.6f, 12, 1), fx(14, FIST, 2, 2.6f, 1, 1, 0), fx(14, CAMERA, 0.6f, 0.03f))));
-        ga.add(mv("ga_5", "Uppercut", P_RISING, 13, 4, 0, 6,
-                L(target(6, 4.5f, 1.6f, Knock.LAUNCH, 0.9f)),
-                L(fx(6, FIST, 2, 2.4f, 1, 1, 2), fx(6, CAMERA, 0.7f, 0.03f))));
+        ga.add(mv("ga_5", "Uppercut", P_RISING, 14, 6, 0, 6,
+                L(target(5, 4.5f, 1.6f, Knock.LAUNCH, 0.9f)),
+                L(fx(5, FIST, 2, 2.4f, 1, 1, 2), fx(5, CAMERA, 0.7f, 0.03f))));
         Move gaHeavy = mv("ga_heavy", "Wrath Straight", P_PUNCH_R, 20, 6, 0, 12,
                 L(line(10, 9, 2.6f, 2.6f, Knock.PUSH, 1.4f)),
                 L(fx(2, LUNGE, 4, 1.6f, 5), fx(10, FIST, 3, 2.6f, 1, 1, 0), fx(10, TRENCH, 9, 1.4f, 2, 1.5f, 3, 0.5f), fx(10, CAMERA, 1.2f, 0.07f)));

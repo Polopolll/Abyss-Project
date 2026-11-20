@@ -75,7 +75,10 @@ final class FistIdle {
     private static ViewDrive.Fist hold(ViewDrive.Fist base, Vector3f pos, Vector3f knuckles, Vector3f back, WeaponModel.Grip grip, float w) {
         Vector3f hand = new Vector3f(base.hand()).lerp(pos, w);
         WeaponModel.Grip g = (base.grip() == null ? WeaponModel.Grip.of(0, 0, 0) : base.grip()).mix(grip, w);
-        return new ViewDrive.Fist(hand, base.ext(), base.roll(), g, knuckles == null ? null : new Vector3f(knuckles).normalize(), back == null ? null : new Vector3f(back).normalize(), knuckles == null ? 0 : w);
+        if (knuckles == null) return new ViewDrive.Fist(hand, base.ext(), base.roll(), g, base.knuckles(), base.back(), base.hold());
+        Vector3f k = new Vector3f(knuckles).normalize(), b = new Vector3f(back).normalize();
+        if (base.knuckles() != null) { k = new Vector3f(base.knuckles()).lerp(k, w).normalize(); b = new Vector3f(base.back()).lerp(b, w).normalize(); }
+        return new ViewDrive.Fist(hand, base.ext(), base.roll(), g, k, b, base.knuckles() != null ? 1 : w);
     }
 
     private static void sound(SoundEvent e, float vol, float pitch) {
