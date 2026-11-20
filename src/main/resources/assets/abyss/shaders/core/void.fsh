@@ -60,13 +60,13 @@ vec3 galaxy(vec3 d, float t) {
     // far layer: enormous blue-black banks, barely there, turning slowest
     vec3 d0 = rotY(d, t * 0.0004);
     float far = fbm3(d0 * 1.3 + vec3(4.0, 1.0, 7.0));
-    col += vec3(0.010, 0.014, 0.034) * smoothstep(0.38, 0.8, far) * 1.4;
+    col += vec3(0.010, 0.014, 0.034) * smoothstep(0.38, 0.8, far) * 2.6;
     // middle layer: cold indigo mists, domain-warped so they curl
     vec3 d1 = rotY(d, t * 0.0011);
     vec3 q = vec3(fbm3(d1 * 1.8 + vec3(0.0, 0.0, t * 0.0015)), fbm3(d1 * 1.8 + vec3(5.2, 1.3, 2.8)), 0.0);
     float mid = fbm3(d1 * 2.6 + 2.2 * vec3(q.xy, q.x * q.y));
     float mist = pow(smoothstep(0.45, 0.85, mid), 1.6);
-    col += mix(vec3(0.022, 0.026, 0.07), vec3(0.03, 0.022, 0.07), smoothstep(0.4, 0.7, q.y)) * mist * 1.9 * breath;
+    col += mix(vec3(0.022, 0.026, 0.07), vec3(0.03, 0.022, 0.07), smoothstep(0.4, 0.7, q.y)) * mist * 3.4 * breath;
     // the old colour survives only in thin filaments along the edges of the mist
     float ridge = 1.0 - abs(mid - 0.6) * 9.0;
     col += vec3(0.20, 0.12, 0.38) * pow(clamp(ridge, 0.0, 1.0), 6.0) * smoothstep(0.55, 0.8, q.x) * 0.22;

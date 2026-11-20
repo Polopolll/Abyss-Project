@@ -125,7 +125,7 @@ public final class Config {
         fxDensity = putC(c.defineInRange("fxDensity", 1.0, 0.1, 3.0), "fxDensity");
         screenShake = putC(c.defineInRange("screenShake", 1.0, 0.0, 3.0), "screenShake");
         bloom = putC(c.comment("Real glow: abyss light bleeds a soft halo past its shape").define("bloom", true), "bloom");
-        bloomStrength = putC(c.defineInRange("bloomStrength", 1.0, 0.0, 3.0), "bloomStrength");
+        bloomStrength = putC(c.defineInRange("bloomStrength", 0.75, 0.0, 3.0), "bloomStrength");
         crystalSkin = putC(c.comment("Show Abyss users as the crystalline void body").define("crystalSkin", true), "crystalSkin");
         angelEyesHud = putC(c.comment("Show Combat Power and stats of what you look at").define("angelEyesHud", true), "angelEyesHud");
         domainFog = putC(c.define("domainFog", true), "domainFog");
