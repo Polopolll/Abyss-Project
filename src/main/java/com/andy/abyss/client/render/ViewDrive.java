@@ -295,15 +295,19 @@ public final class ViewDrive {
      */
     static Fist held(Vector3f hand, float e, boolean left, int path) {
         float sd = left ? -1 : 1;
-        Vector3f restK = new Vector3f(-sd * 0.25f, 0.9f, -0.35f).normalize();
-        Vector3f restB = new Vector3f(sd * 0.3f, 0.1f, -1).normalize();
+        // at rest (the reference's idle): the fist lies forward and in, knuckles toward the middle and a little up,
+        // the curled fingers toward you, thumb on top
+        Vector3f restK = new Vector3f(-sd * 0.75f, 0.28f, -0.6f).normalize();
+        Vector3f restB = new Vector3f(sd * 0.5f, 0.1f, -0.86f).normalize();
         Vector3f elbow = switch (path) {
             case 1 -> new Vector3f(sd * 0.75f, -0.15f, -0.5f);
             case 2 -> new Vector3f(sd * 0.3f, -0.85f, -0.55f);
             default -> new Vector3f(sd * 0.42f, -0.62f, -0.25f);
         };
         Vector3f thrownK = new Vector3f(hand).sub(elbow).normalize();
-        Vector3f thrownB = path == 2 ? new Vector3f(0, 0.1f, -1) : new Vector3f(0, 1, 0.2f);
+        // thrown: a jab lands back of the hand up; a hook and an uppercut land with the back of the hand away from
+        // you (you see the curled fingers, thumb up)
+        Vector3f thrownB = path == 0 || path == -1 ? new Vector3f(0, 1, 0.2f) : new Vector3f(0, 0.1f, -1);
         Vector3f k = new Vector3f(restK).lerp(thrownK, e).normalize();
         Vector3f b = new Vector3f(restB).lerp(thrownB, e);
         if (b.lengthSquared() < 1e-4f) b.set(restB);

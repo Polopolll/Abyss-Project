@@ -4,6 +4,14 @@
 - The project is now public at https://github.com/Polopolll/Abyss-Project under the MIT License (code and all assets). Every released jar is kept in [`releases/`](releases/).
 - Added [`pictures/`](pictures/) (screenshots of every weapon, the domain and the icons, plus 0.2 images) and [`references/`](references/) (credits for the mods and games Abyss drew on, and what each one inspired).
 
+## 0.5.0-pre1 (test build)
+**Rebuilt from the ground up around two weapons.** The greatsword, hammer, scythe, spear and bulwark are gone, and every ability except the Arsenal is cut (for now) while the fists and the sword are polished.
+- Fists: a clenched gauntlet with a heavy forearm modelled in Blender, with posable fingers. Jabs, hooks and uppercuts copy the "First Person combat fists UE4" reference frame by frame (where the hands are and how they turn).
+- Idles: a shake-out after a combo; then knuckle cracking, shaking a fist, flexing, and looking a fist over.
+- Feel: impact frames on heavy blows, smear trails, One Punch Man style punch blasts and speed lines, lunges, recoil instead of screen rattle, and no more twitching through hit-stops.
+- Sound: the punch pack layered over Minecraft's own impacts.
+- Debug: `!slowmo 0.1` in chat plays your moves in slow motion; `!slowmo 1` puts it back.
+
 ## 0.4.1
 - Fixed: the Annihilation form did nothing when cast from the wheel (R). It now opens like every other form.
 

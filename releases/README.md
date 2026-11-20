@@ -4,6 +4,7 @@ Ready-to-play jars for Minecraft **1.20.1** with **Forge 47.x**. Put one jar (th
 
 | Version | Highlights |
 |---|---|
+| [0.5.0-pre1](abyss-0.5.0-pre1.jar) | Test build: the Arsenal rebuilt around the fists (Blender gauntlets, punches copied from the UE4 reference, idles, impact frames, the punch pack sounds) and the sword. Every other ability is cut for now |
 | [0.4.1](abyss-0.4.1.jar) | Fix: Annihilation form now opens from the wheel |
 | [0.4.0](abyss-0.4.0.jar) | Weapon identities (Asura fists, Cartethyia sword, Augusta greatsword with time-stop), real block destruction, ash deaths, Annihilation form with the nuke, Triangle rework, Realm eye fix, bloom glow, darker abyss palette |
 | [0.3.2](abyss-0.3.2.jar) | Crash fix (memory leak), real Minecraft-recorded sounds, nebula domain sky and black holes, rebuilt solid weapon models held in your hands (first-person arms, two-handed grips), first-person clean-up |

@@ -19,7 +19,7 @@ final class FistTracks {
     record K(float f, float x, float y, float d, float e) {}
 
     /** Rest, from the idle: left (-0.43, -0.70), right (0.49, -0.87). */
-    static final float REST_X = 0.46f, REST_Y_R = -0.87f, REST_Y_L = -0.70f, REST_D = 0.62f;
+    static final float REST_X = 0.5f, REST_Y_R = -0.92f, REST_Y_L = -0.8f, REST_D = 0.62f;
 
     // ---------------------------------------------------------------------------------------- jab / straight
     // video frames 152-178: out to the right edge, one frame to the crosshair, hold, back down below rest, settle
