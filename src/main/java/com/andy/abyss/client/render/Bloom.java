@@ -75,9 +75,10 @@ public final class Bloom {
             main.bindWrite(true);
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE);
-            COMPOSITE.setSampler("Sampler0", src.getColorTextureId());
-            COMPOSITE.setSampler("Sampler1", v1.getColorTextureId());
-            COMPOSITE.setSampler("Sampler2", v2.getColorTextureId());
+            // drawWithShader copies RenderSystem's texture slots into Sampler0..n, so bind through those
+            RenderSystem.setShaderTexture(0, src.getColorTextureId());
+            RenderSystem.setShaderTexture(1, v1.getColorTextureId());
+            RenderSystem.setShaderTexture(2, v2.getColorTextureId());
             COMPOSITE.safeGetUniform("Intensity").set(com.andy.abyss.Config.bloomStrength.get().floatValue());
             RenderSystem.setShader(() -> COMPOSITE);
             quad();
@@ -85,6 +86,7 @@ public final class Bloom {
             broken = true;
             com.andy.abyss.Abyss.LOG.warn("Abyss glow disabled: {}", t.toString());
         } finally {
+            RenderSystem.setShaderTexture(1, 0); RenderSystem.setShaderTexture(2, 0);
             RenderSystem.defaultBlendFunc();
             RenderSystem.disableBlend();
             RenderSystem.enableDepthTest();
@@ -96,7 +98,7 @@ public final class Bloom {
     private static void pass(RenderTarget from, TextureTarget to, float dx, float dy) {
         to.clear(Minecraft.ON_OSX);
         to.bindWrite(true);
-        BLUR.setSampler("Sampler0", from.getColorTextureId());
+        RenderSystem.setShaderTexture(0, from.getColorTextureId());
         BLUR.safeGetUniform("Dir").set(dx, dy);
         RenderSystem.setShader(() -> BLUR);
         quad();
