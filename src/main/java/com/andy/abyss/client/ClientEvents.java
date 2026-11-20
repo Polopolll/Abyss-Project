@@ -283,15 +283,29 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void fogColor(ViewportEvent.ComputeFogColor e) {
+        // the Realm: everything far off sinks into black-indigo
+        if (inAbyssDim()) { e.setRed(0.004f); e.setGreen(0.005f); e.setBlue(0.011f); return; }
         if (insideDomain < 0.02f || !Config.domainFog.get()) return;
-        float k = insideDomain * 0.7f;
-        e.setRed(e.getRed() * (1 - k) + 0.04f * k);
-        e.setGreen(e.getGreen() * (1 - k) + 0.02f * k);
-        e.setBlue(e.getBlue() * (1 - k) + 0.08f * k);
+        float k = insideDomain * 0.8f;
+        e.setRed(e.getRed() * (1 - k) + 0.008f * k);
+        e.setGreen(e.getGreen() * (1 - k) + 0.009f * k);
+        e.setBlue(e.getBlue() * (1 - k) + 0.02f * k);
+    }
+
+    private static boolean inAbyssDim() {
+        var l = Minecraft.getInstance().level;
+        return l != null && l.dimension().location().equals(com.andy.abyss.Abyss.id("the_abyss"));
     }
 
     @SubscribeEvent
     public static void fog(ViewportEvent.RenderFog e) {
+        if (inAbyssDim() && e.getMode() == net.minecraft.client.renderer.FogRenderer.FogMode.FOG_TERRAIN) {
+            // vast emptiness: the thrones and prisons fade into the dark well before the render distance ends
+            e.setNearPlaneDistance(Math.min(24f, e.getFarPlaneDistance() * 0.2f));
+            e.setFarPlaneDistance(Math.min(e.getFarPlaneDistance(), 112f));
+            e.setCanceled(true);
+            return;
+        }
         if (insideDomain < 0.02f || !Config.domainFog.get()) return;
         e.setFarPlaneDistance(e.getFarPlaneDistance() * (1 - insideDomain * 0.35f));
         e.setCanceled(true);

@@ -129,8 +129,8 @@ public final class Draw {
         double dc = c.distanceTo(cam);
         alpha *= (float) Math.max(0, Math.min(1, (dc - r * 1.02) / Math.max(0.4, r * 0.5)));
         if (alpha < 0.01f) return;
-        // every void sphere is drawn as a black hole (a pale translucent ball never read well against daylight)
-        if (r < 12) { blackHole(c, (float) r * 2.6f, false, alpha, (float) (time * -0.9)); return; }
+        // a small void sphere is a dark orb with a faint cold rim (black holes are kept for the true singularities)
+        if (r < 12) { Abyssal.orb(this, c, (float) r, alpha); return; }
         VertexConsumer vc = buf.getBuffer(Rt.voidFx(Rt.FILL));
         int lat = r > 20 ? 28 : 16, lon = r > 20 ? 48 : 24;
         for (int i = 0; i < lat; i++) {

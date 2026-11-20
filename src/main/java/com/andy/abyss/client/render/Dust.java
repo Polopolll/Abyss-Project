@@ -9,12 +9,12 @@ import java.util.Random;
 /**
  * Real particles for the abyss: small flecks of black crystal, flakes of abyssal ash, dim embers, slivers and smoke
  * of darkness. They look like particles (not little galaxies): mostly black and charcoal, deep indigo, with only rare
- * violet-white sparks. Simple physics (gravity, drag, an optional point that pulls them in), drawn as sprites.
+ * cold white-blue sparks. Simple physics (gravity, drag, an optional point that pulls them in), drawn as sprites.
  */
 public final class Dust {
     public enum Kind { FLECK, ASH, EMBER, WISP, SLIVER }
 
-    public static final int BLACK = 0x050307, CHAR = 0x18121F, INDIGO = 0x2A1C47, DUSK = 0x4B3577, VIOLET = 0x8C6CD8, PALE = 0xE6DEFF;
+    public static final int BLACK = 0x040306, CHAR = 0x15141C, INDIGO = 0x1E1F3A, DUSK = 0x3A3A60, VIOLET = 0x8C6CD8, PALE = 0xE6E8FF, COLD = 0xAAB6E6;
 
     public static final class P {
         public double x, y, z, vx, vy, vz;
@@ -51,7 +51,7 @@ public final class Dust {
             float r = R.nextFloat();
             if (r < 0.45f) add(Kind.FLECK, c, dir, 14 + R.nextInt(16), size * (0.5f + R.nextFloat()), R.nextFloat() < 0.8f ? BLACK : INDIGO).gravity(-0.02f).drag(0.9f).spin(R.nextFloat() * 0.6f - 0.3f);
             else if (r < 0.8f) add(Kind.ASH, c, dir.scale(0.7), 24 + R.nextInt(24), size * (0.8f + R.nextFloat()), R.nextFloat() < 0.7f ? CHAR : BLACK).gravity(0.004f).drag(0.9f).spin(R.nextFloat() * 0.3f - 0.15f);
-            else if (embers) add(Kind.EMBER, c, dir.scale(1.2), 8 + R.nextInt(10), size * 0.6f, R.nextFloat() < 0.75f ? VIOLET : PALE).drag(0.88f).streak();
+            else if (embers) { if (R.nextFloat() < 0.5f) add(Kind.EMBER, c, dir.scale(1.2), 8 + R.nextInt(10), size * 0.45f, R.nextFloat() < 0.8f ? COLD : PALE).drag(0.88f).streak(); else add(Kind.FLECK, c, dir, 14 + R.nextInt(16), size * (0.5f + R.nextFloat()), BLACK).gravity(-0.02f).drag(0.9f).spin(R.nextFloat() * 0.6f - 0.3f); }
             else add(Kind.SLIVER, c, dir, 12 + R.nextInt(10), size * 1.4f, INDIGO).gravity(-0.025f).drag(0.92f).spin(R.nextFloat() * 0.5f - 0.25f);
         }
     }
@@ -95,7 +95,7 @@ public final class Dust {
             switch (q.kind) {
                 case FLECK -> {
                     d.sprite(Rt.P_FLECK, false, p, q.size * 0.6f, q.size, q.rgb, a, q.rot, 0, 1);
-                    d.sprite(Rt.P_EMBER, true, p, q.size * 0.5f, q.size * 0.5f, 0x3A2766, a * 0.35f, 0, 0, 1); // a faint rim of light so black reads on black
+                    d.sprite(Rt.P_EMBER, true, p, q.size * 0.5f, q.size * 0.5f, 0x262A40, a * 0.3f, 0, 0, 1); // a faint rim of light so black reads on black
                 }
                 case ASH -> d.sprite(Rt.P_ASH, false, p, q.size, q.size * 0.9f, q.rgb, a, q.rot, q.variant * 0.25f, q.variant * 0.25f + 0.25f);
                 case EMBER -> {

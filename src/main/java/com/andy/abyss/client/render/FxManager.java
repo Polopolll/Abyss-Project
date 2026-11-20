@@ -79,6 +79,8 @@ public final class FxManager {
 
     public static void tick() {
         ACTIVE.removeIf(f -> ++f.age > f.life);
+        for (Fx f : ACTIVE) FxEmit.tick(f);
+        FxEmit.ambient();
         com.andy.abyss.client.InfectionClient.tick();
         shake *= 0.86f;
         pulse *= 0.9f;
@@ -118,8 +120,8 @@ public final class FxManager {
             for (Mote m : MOTES) {
                 float a = (1 - m.age / (float) m.life) * d.near(m.p, 1.5f); // motes drifting past the eye would fill the screen
                 if (a < 0.02f) continue;
-                d.billboard(Rt.CORE, false, m.p, 0.05f, 0x07040C, 0.8f * a, 0);
-                d.billboard(Rt.GLOW, true, m.p, 0.12f, 0x7A45E0, 0.35f * a, 0);
+                d.billboard(Rt.CORE, false, m.p, 0.05f, 0x040306, 0.8f * a, 0);
+                d.billboard(Rt.GLOW, true, m.p, 0.08f, Abyssal.COLD, 0.18f * a, 0);
             }
             for (Fx f : ACTIVE) draw(d, f, pt);
             MoveFx.render(d);
@@ -147,30 +149,29 @@ public final class FxManager {
         boolean growing = r < dom.max() - 0.5f;
         if (inside) {
             d.voidSphere(c, r, fade, 0f, 0xFFFFFF);
-            d.glowShell(c, r * 0.995, 0xB48CFF, 0.9f * fade);
+            d.glowShell(c, r * 0.995, Abyssal.COLD, 0.45f * fade);
         } else {
+            // a hole of abyss in the world: black, its silhouette traced by a thin cold edge, a slow dark ring at its waist
             d.voidSphere(c, r, 0.97f * fade, 0.12f, 0xFFFFFF);
-            d.glowShell(c, r * 1.01, 0xE8DCFF, 1f * fade);
-            d.glowShell(c, r * 1.06, 0x7A40E0, 0.6f * fade);
-            // accretion ring around the equator
-            d.flat(Rt.RING, true, c, new Vec3(0.08, 1, 0.05), r * 1.35f, 0xC8B0FF, 0.7f * fade, (float) d.time * 0.3f);
-            d.flat(Rt.RING, true, c, new Vec3(0.08, 1, 0.05), r * 1.6f, 0x6A40C0, 0.4f * fade, -(float) d.time * 0.2f);
+            d.glowShell(c, r * 1.01, Abyssal.EDGE, 0.55f * fade);
+            d.glowShell(c, r * 1.06, Abyssal.DEEP, 0.4f * fade);
+            d.flat(Abyssal.WAVE, false, c, new Vec3(0.08, 1, 0.05), r * 1.45f, 0x000000, 0.45f * fade, (float) d.time * 0.3f);
+            d.flat(Rt.RING, true, c, new Vec3(0.08, 1, 0.05), r * 1.38f, Abyssal.EDGE, 0.22f * fade, (float) d.time * 0.3f);
         }
-        // the expansion front: a bright shock rolling over the ground
+        // the expansion front: darkness rolling over the ground with a hairline of light at its edge
         if (growing) {
             float y = (float) (c.y - Math.min(r, 3) + 0.1);
-            d.flat(Rt.RING, true, new Vec3(c.x, y, c.z), new Vec3(0, 1, 0), r * 1.05f, 0xFFFFFF, 0.95f * fade, 0);
-            d.flat(Rt.RING, true, new Vec3(c.x, y + 0.6, c.z), new Vec3(0, 1, 0), r * 1.1f, 0x9B6BFF, 0.7f * fade, 0);
-            d.glowShell(c, r * 1.03, 0xFFFFFF, 0.6f * fade);
+            Abyssal.groundWave(d, new Vec3(c.x, y, c.z), r * 1.08f, 0.9f * fade);
+            d.glowShell(c, r * 1.03, Abyssal.EDGE, 0.3f * fade);
         }
-        // pulse rings racing outward
+        // pulse: a pressure wave racing outward
         float pk = 1 - pulse;
-        if (pulse > 0.05f) d.flat(Rt.RING, true, c.add(0, -Math.min(r, 3) + 0.2, 0), new Vec3(0, 1, 0), r * pk, 0xFFFFFF, pulse * fade, 0);
+        if (pulse > 0.05f) Abyssal.groundWave(d, c.add(0, -Math.min(r, 3) + 0.2, 0), Math.max(0.5f, r * pk), pulse * fade);
         if (!inside && r > 40) return;
         // inside: stars hanging in the air, nebula, rising debris, falling weight
         Random rr = new Random(dom.id() * 7919L);
         float dens = Config.fxDensity.get().floatValue();
-        int stars = (int) (260 * dens);
+        int stars = (int) (90 * dens);
         double cell = 34;
         Vec3 base = new Vec3(Math.floor(d.cam.x / cell) * cell, Math.floor(d.cam.y / cell) * cell, Math.floor(d.cam.z / cell) * cell);
         for (int gx = -1; gx <= 1; gx++) for (int gy = -1; gy <= 1; gy++) for (int gz = -1; gz <= 1; gz++) {
@@ -179,15 +180,17 @@ public final class FxManager {
             for (int i = 0; i < stars / 27; i++) {
                 Vec3 p = o.add(cr.nextDouble() * cell, cr.nextDouble() * cell, cr.nextDouble() * cell);
                 if (p.distanceTo(c) > r) continue;
-                float tw = 0.5f + 0.5f * (float) Math.sin(d.time * (1.5 + cr.nextDouble() * 3) + i);
-                float sz = 0.05f + cr.nextFloat() * 0.09f;
-                d.billboard(Rt.SPARK, true, p, sz * (1 + tw), cr.nextFloat() < 0.2f ? 0xD8B8FF : 0xF0F0FF, (0.5f + 0.5f * tw) * fade * d.near(p, 2), 0);
+                // cold starlight hanging in the air: sparse, small, slowly breathing
+                float tw = 0.5f + 0.5f * (float) Math.sin(d.time * (0.6 + cr.nextDouble() * 1.4) + i);
+                float sz = 0.035f + cr.nextFloat() * 0.05f;
+                d.billboard(Rt.SPARK, true, p, sz * (1 + 0.6f * tw), cr.nextFloat() < 0.12f ? Abyssal.EDGE : Abyssal.STAR, (0.35f + 0.45f * tw) * fade * d.near(p, 2), 0);
             }
         }
-        for (int i = 0; i < 6 * dens; i++) {
+        // banks of darkness drifting slowly through the air, like ink in water
+        for (int i = 0; i < 5 * dens; i++) {
             double a = rr.nextDouble() * Math.PI * 2, rad = Math.sqrt(rr.nextDouble()) * r * 0.8;
             Vec3 p = c.add(Math.cos(a + d.time * 0.02) * rad, (rr.nextDouble() - 0.3) * Math.min(r, 14), Math.sin(a + d.time * 0.02) * rad);
-            d.voidBillboard(Rt.FILL, p, 3 + rr.nextFloat() * 4, 2 + rr.nextFloat() * 2, 0.35f * fade * d.near(p, 4), (float) (d.time * 0.05 + i));
+            Abyssal.ink(d, p, 3 + rr.nextFloat() * 3, 0.8f + 0.2f * (float) Math.sin(d.time * 0.3 + i), 0.45f * fade, dom.id() * 31L + i);
         }
         int debris = (int) (70 * dens);
         for (int i = 0; i < debris; i++) {
@@ -197,15 +200,18 @@ public final class FxManager {
             double gy = c.y - Math.min(r, 3);
             Vec3 p = new Vec3(gx + Math.sin(life * 6 + i) * 0.4, gy + life * 9, gz);
             if (p.distanceTo(d.cam) > 48) continue;
-            float al = (float) (life < 0.15 ? life / 0.15 : 1 - (life - 0.15) / 0.85) * fade;
-            d.voidShard(p, new Vec3(Math.sin(i + d.time), 1, Math.cos(i * 1.3)), 0.25f + (i % 4) * 0.1f, 0.08f, al);
+            float al = (float) (life < 0.15 ? life / 0.15 : 1 - (life - 0.15) / 0.85) * fade * d.near(p, 1);
+            // flakes of the rotting ground lifting off: ash and black slivers, not little galaxies
+            float sz = 0.08f + (i % 4) * 0.035f;
+            if (i % 3 == 0) d.sprite(Rt.P_SLIVER, false, p, sz * 0.3f, sz * 1.4f, Dust.INDIGO, al, (float) (d.time * 0.8 + i), 0, 1);
+            else d.sprite(Rt.P_ASH, false, p, sz, sz * 0.9f, i % 2 == 0 ? Dust.BLACK : Dust.CHAR, al, (float) (d.time * 0.5 + i), (i % 4) * 0.25f, (i % 4) * 0.25f + 0.25f);
         }
         int n = (int) Math.min(160, r * 3 * dens);
         for (int i = 0; i < n; i++) {
             double a = rr.nextDouble() * Math.PI * 2, rad = Math.sqrt(rr.nextDouble()) * r * 0.95;
             double fall = (d.time * (0.8 + rr.nextDouble()) + rr.nextDouble() * 10) % 1.0;
             Vec3 p = c.add(Math.cos(a) * rad, (1 - fall * 2) * Math.min(r, 12), Math.sin(a) * rad);
-            d.beam(Rt.STREAK, false, p, p.add(0, -0.7, 0), 0.05f, 0x0A0612, 0.65f * fade);
+            d.beam(Rt.STREAK, false, p, p.add(0, -0.7, 0), 0.045f, 0x040306, 0.6f * fade);
         }
     }
 
@@ -244,9 +250,10 @@ public final class FxManager {
             case S2CFx.SPREAD -> {
                 Vec3 at = e1 != null ? e1.getPosition(pt).add(0, e1.getBbHeight() * 0.6, 0) : c;
                 float rad = (float) (2 + t * 26 * Math.max(0.5, p.a()));
-                d.glowShell(at, rad, 0x8C55FF, 0.6f * (1 - t));
-                d.flat(Rt.RING, true, at.subtract(0, 1, 0), new Vec3(0, 1, 0), rad * 0.8f, 0xB89CFF, 0.6f * (1 - t), 0);
-                if (t < 0.3f) d.voidSphere(at, 0.6 + t * 2, 0.9f * (1 - t / 0.3f), 0.2f, 0xFFFFFF);
+                // the spores go out on a pressure wave: dark ring on the ground, a faint cold shell, a seed that winks out
+                d.glowShell(at, rad, Abyssal.DEEP, 0.35f * (1 - t));
+                Abyssal.groundWave(d, at.subtract(0, 1, 0), rad * 0.8f, 0.8f * (1 - t));
+                if (t < 0.3f) Abyssal.eclipse(d, at, 0.25f + t, 0.9f * (1 - t / 0.3f), (float) d.time);
             }
             case S2CFx.IMPLODE -> {
                 // the gathering: space is drawn in, rings tighten, light bends round a growing seed
@@ -254,26 +261,27 @@ public final class FxManager {
                 Vec3 at = inside && e1 != null ? e1.getPosition(pt).add(0, e1.getBbHeight() * 0.5, 0) : c;
                 float R0 = Math.max(1.5f, p.a());
                 float k = t * t;
-                d.glowShell(at, Math.max(0.2, R0 * 1.3 * (1 - k)), 0xC0A0FF, 0.5f + 0.4f * t);
-                d.flat(Rt.RING, true, at, new Vec3(0.2, 1, 0.1), R0 * 1.6f * (1 - k) + 0.3f, 0xE8DCFF, 0.9f, (float) d.time * 3);
-                d.flat(Rt.RING, true, at, new Vec3(-0.3, 1, 0.4), R0 * 1.2f * (1 - k) + 0.3f, 0x8C55FF, 0.7f, (float) -d.time * 4);
-                for (int i = 0; i < 48; i++) {
+                d.glowShell(at, Math.max(0.2, R0 * 1.3 * (1 - k)), Abyssal.COLD, 0.25f + 0.3f * t);
+                Abyssal.pressure(d, at, new Vec3(0.2, 1, 0.1), R0 * 1.7f * (1 - k) + 0.3f, 0.8f);
+                d.flat(Rt.RING, true, at, new Vec3(-0.3, 1, 0.4), R0 * 1.2f * (1 - k) + 0.3f, Abyssal.DEEP, 0.5f, (float) -d.time * 4);
+                // light itself is drawn in: few thin cold streaks
+                for (int i = 0; i < 20; i++) {
                     Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                     float ph = (float) ((t * 2 + r.nextDouble()) % 1.0);
                     Vec3 from = at.add(dir.scale(R0 * 2 * (1 - ph)));
-                    d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.25)), 0.07f, ph > 0.7f ? 0xFFFFFF : 0x9C6BFF, 0.85f * ph);
+                    d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.25)), 0.04f, ph > 0.7f ? Abyssal.STAR : Abyssal.COLD, 0.6f * ph);
                 }
                 if (inside && e1 != null) {
                     // the host's body cracks with light from within
                     for (int i = 0; i < 10; i++) {
                         Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                         Vec3 q = at.add(dir.multiply(e1.getBbWidth() * 0.55, e1.getBbHeight() * 0.5, e1.getBbWidth() * 0.55));
-                        d.beam(Rt.STREAK, true, at, q.add(dir.scale(0.3 * t)), 0.06f + 0.1f * t, 0xE8DCFF, 0.4f + 0.6f * t);
+                        Abyssal.seam(d, at, q.add(dir.scale(0.3 * t)), 0.05f + 0.08f * t, 0.4f + 0.6f * t);
                     }
-                    d.glowShell(at, Math.max(e1.getBbWidth(), e1.getBbHeight()) * 0.6, 0xFFFFFF, t);
+                    d.glowShell(at, Math.max(e1.getBbWidth(), e1.getBbHeight()) * 0.6, Abyssal.EDGE, 0.6f * t);
                 }
                 d.blackHole(at, (float) (0.6 + t * R0 * 0.9), false, Math.min(1, t * 2.5f), (float) d.time * -1.4f);
-                if (t > 0.85f) d.billboard(Rt.GLOW, true, at, R0 * 1.5f * (t - 0.85f) / 0.15f, 0xFFFFFF, d.near(at, 1), 0);
+                if (t > 0.85f) d.billboard(Rt.GLOW, true, at, R0 * 0.8f * (t - 0.85f) / 0.15f, Abyssal.STAR, 0.7f * d.near(at, 1), 0);
             }
             case S2CFx.NUKE -> {
                 boolean inside = p.b() == 1;
@@ -281,85 +289,86 @@ public final class FxManager {
                 float grow = 1 - (float) Math.pow(1 - Math.min(1f, t / 0.1f), 3), shrink = t < 0.5f ? 1 : (float) Math.pow(1 - (t - 0.5f) / 0.5f, 1.6);
                 Vec3 at = inside && e1 != null ? e1.getPosition(pt).add(0, e1.getBbHeight() * 0.5, 0) : c;
                 d.voidSphere(at, R0 * grow * shrink * (inside ? 0.7 : 1), 1f, 0.15f, 0xFFFFFF);
-                d.glowShell(at, R0 * grow * 1.05, 0xD8C8FF, 0.9f * shrink);
+                d.glowShell(at, R0 * grow * 1.05, Abyssal.EDGE, 0.5f * shrink);
                 float ring = R0 * (0.5f + t * 2.5f);
-                d.flat(Rt.RING, true, at.subtract(0, Math.min(R0 * 0.5, 2), 0), new Vec3(0, 1, 0), ring, 0xF0E8FF, 0.9f * (1 - t), 0);
-                d.flat(Rt.RING, true, at, d.fwdVec(), ring * 0.8f, 0xB080FF, 0.6f * (1 - t), 0);
-                if (t < 0.12f) d.billboard(Rt.GLOW, true, at, R0 * 3, 0xFFFFFF, (1 - t / 0.12f) * d.near(at, R0), 0);
-                if (t > 0.08f && t < 0.6f) { float k2 = (t - 0.08f) / 0.52f; d.flat(Rt.RING, true, at.subtract(0, Math.min(R0 * 0.5, 2) - 0.05, 0), new Vec3(0, 1, 0), R0 * (1 + k2 * 4), 0x8C55FF, 0.7f * (1 - k2), 0); }
-                // the surface churns: violet seams crawl over the sphere while it holds
-                if (t > 0.1f && t < 0.5f) for (int i = 0; i < 12; i++) {
-                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                    Vec3 tan = dir.cross(new Vec3(0, 1, 0)).normalize();
-                    Vec3 q = at.add(dir.scale(R0 * grow * shrink * (inside ? 0.7 : 1) * 1.01));
-                    d.beam(Rt.STREAK, true, q, q.add(tan.scale(R0 * 0.3 * Math.sin(d.time * 3 + i))), 0.08f, 0xC8B0FF, 0.6f);
-                }
-                int shards = inside ? 16 + (int) p.c() * 2 : 28;
+                Vec3 ground = at.subtract(0, Math.min(R0 * 0.5, 2), 0);
+                // the blast is pressure, not light: dark waves roll over the ground and through the air
+                Abyssal.groundWave(d, ground, ring, 0.95f * (1 - t));
+                Abyssal.pressure(d, at, d.fwdVec(), ring * 0.8f, 0.6f * (1 - t));
+                if (t < 0.1f) d.billboard(Rt.GLOW, true, at, R0 * 1.2f, Abyssal.STAR, 0.8f * (1 - t / 0.1f) * d.near(at, R0), 0);
+                if (t > 0.08f && t < 0.6f) { float k2 = (t - 0.08f) / 0.52f; Abyssal.groundWave(d, ground.add(0, 0.05, 0), R0 * (1 + k2 * 4), 0.7f * (1 - k2)); }
+                // reality cracks where the sphere meets the ground, and stays cracked a while
+                Abyssal.fracture(d, ground, new Vec3(0, 1, 0), R0 * 1.6f, Math.min(1, t * 4), (1 - t) * 0.9f, f.seed);
+                // a few great black spikes thrown out (the rest is real debris)
+                int shards = inside ? 4 + (int) p.c() : 8;
                 for (int i = 0; i < shards; i++) {
                     Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.7 + 0.3, r.nextGaussian()).normalize();
                     float k = (float) Math.min(1, t * 2.2);
                     Vec3 base = at.add(dir.scale(R0 * (inside ? 0.2 : 0.5) + k * R0 * 1.2));
-                    d.voidShard(base, dir, (0.6f + r.nextFloat()) * (1 - t) * (inside ? 0.8f : 1.4f), 0.12f + r.nextFloat() * 0.1f, 1 - t);
+                    d.voidShard(base, dir, (0.8f + r.nextFloat()) * (1 - t), 0.14f + r.nextFloat() * 0.1f, 1 - t);
                 }
             }
             case S2CFx.DEVOUR -> devour(d, f, pt, t, r);
             case S2CFx.TRANSPORT -> {
                 Vec3 at = e1 != null && t < 0.5f ? e1.getPosition(pt).add(0, e1.getBbHeight() / 2, 0) : c;
                 float rad = p.a() * (t < 0.4f ? t / 0.4f : 1 - (t - 0.4f) / 0.6f) * 1.2f;
-                d.voidSphere(at, Math.max(0.05, rad), 1f, 0.15f, 0xFFFFFF);
-                d.glowShell(at, rad * 1.08, 0x9A60FF, 0.8f);
+                // tendrils of darkness rise and close over it, then an eclipse swallows it whole
+                float k = t < 0.4f ? t / 0.4f : 1 - (t - 0.4f) / 0.6f;
+                for (int i = 0; i < 5; i++) {
+                    double a = i * Math.PI * 2 / 5 + f.seed % 7;
+                    Vec3 base = at.add(Math.cos(a) * (p.a() + 0.6), -p.a() * 0.9, Math.sin(a) * (p.a() + 0.6));
+                    Abyssal.tendril(d, base, at.add(0, p.a() * 0.4, 0), 0.22f, 0.35f, (float) d.time * 3 + i, Math.min(1, t * 3), 0.9f * k);
+                }
+                Abyssal.ink(d, at, p.a() * 1.4f, k, 0.6f * k, f.seed);
+                Abyssal.eclipse(d, at, (float) Math.max(0.05, rad), 1f, (float) d.time * 0.5f);
             }
             case S2CFx.DISINTEGRATE -> {
-                for (int i = 0; i < 36; i++) {
-                    Vec3 o = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).scale(p.a() * 0.35);
-                    Vec3 at = c.add(o).add(0, t * (1 + r.nextFloat() * 2), 0);
-                    d.voidShard(at, new Vec3(r.nextGaussian(), 1, r.nextGaussian()), 0.25f * (1 - t), 0.06f, 1 - t);
-                    d.billboard(Rt.GLOW, true, at, 0.2f, 0x8050E0, 0.5f * (1 - t), 0);
-                }
-                d.glowShell(c, p.a() * (0.6 + t), 0xC8B0FF, 0.6f * (1 - t));
+                // it comes apart into ash (the ash itself is real dust); only a few cold sparks go with it
+                Abyssal.glints(d, c.add(0, t * 1.5, 0), p.a() * 0.8f, 6, 0.7f * (1 - t), f.seed);
+                d.glowShell(c, p.a() * (0.6 + t), Abyssal.DEEP, 0.3f * (1 - t));
             }
             case S2CFx.RIFT_OPEN, S2CFx.STEP -> {
-                float rad = (p.type() == S2CFx.STEP ? 1.5f : 2.5f) * (0.3f + t);
-                d.glowShell(c, rad, 0x9A70FF, 0.7f * (1 - t));
-                d.billboard(Rt.GLOW, true, c, rad * 1.4f, 0x6A40C0, 0.6f * (1 - t) * d.near(c, 2), 0);
-                if (t < 0.5f) d.voidSphere(c, 0.8 * (1 - t * 2), 1, 0.2f, 0xFFFFFF);
+                // space cracks open where the rift tears through, then heals
+                float size = p.type() == S2CFx.STEP ? 1.0f : 1.8f;
+                float open = t < 0.25f ? t / 0.25f : 1 - (t - 0.25f) / 0.75f;
+                Abyssal.fracture(d, c, null, size, Math.min(1, t * 4), open, f.seed);
+                d.glowShell(c, size * (0.4f + t), Abyssal.DEEP, 0.35f * (1 - t));
+                Abyssal.glints(d, c, size, 3, open * 0.7f, f.seed + 1);
             }
             case S2CFx.SWAP -> {
-                float h = 2.2f;
-                for (int i = 0; i < 10; i++) {
-                    double a = i * Math.PI * 2 / 10 + t * 2;
-                    Vec3 base = c.add(Math.cos(a) * 0.7 * (1 - t), -1 + t * 0.3, Math.sin(a) * 0.7 * (1 - t));
-                    d.voidShard(base, new Vec3(0, 1, 0), h * (1 - t), 0.12f, 1 - t);
+                // dark tendrils coil up around the place, wind tight, and let go
+                float h = 2.4f;
+                for (int i = 0; i < 6; i++) {
+                    double a = i * Math.PI * 2 / 6 + t * 3;
+                    Vec3 base = c.add(Math.cos(a) * 1.1 * (1 - t * 0.6), -1, Math.sin(a) * 1.1 * (1 - t * 0.6));
+                    Vec3 tip = c.add(Math.cos(a + 1.4) * 0.25, -1 + h * (1 - t * 0.4), Math.sin(a + 1.4) * 0.25);
+                    Abyssal.tendril(d, base, tip, 0.2f, 0.25f, (float) d.time * 4 + i * 1.3f, Math.min(1, t * 3.5f), 1 - t);
                 }
-                d.glowShell(c, 1.2 + t * 1.5, 0xA070FF, 0.8f * (1 - t));
+                Abyssal.groundWave(d, c.add(0, -0.95, 0), 0.8f + t * 2.2f, 0.8f * (1 - t));
+                d.glowShell(c, 1.2 + t * 1.5, Abyssal.DEEP, 0.4f * (1 - t));
             }
             case S2CFx.NEGATE -> {
                 Vec3 at = e1 != null ? e1.getPosition(pt).add(0, e1.getBbHeight() * 0.55, 0) : c;
                 float rad = (e1 != null ? Math.max(e1.getBbWidth(), e1.getBbHeight()) * 0.75f : 1.2f) * (1 + t * 0.15f);
-                d.glowShell(at, rad, 0xE8E0FF, 0.9f * (1 - t));
-                for (int i = 0; i < 10; i++) {
-                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                    d.billboard(Rt.SHARD, true, at.add(dir.scale(rad)), 0.25f, 0xD8C8FF, 0.8f * (1 - t), r.nextFloat() * 6);
-                }
+                // whatever it was is cancelled: the space around it cracks like glass and goes still
+                d.glowShell(at, rad, Abyssal.EDGE, 0.55f * (1 - t));
+                Abyssal.fracture(d, at, null, rad * 1.1f, Math.min(1, t * 5), 1 - t, f.seed);
             }
             case S2CFx.CLONE_SPAWN -> {
                 float h = Math.max(2, p.a() * 2);
-                for (int i = 0; i < 22; i++) {
-                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6, r.nextGaussian()).normalize();
-                    Vec3 tgt = c.add(r.nextGaussian() * 0.25, r.nextGaussian() * h * 0.3, r.nextGaussian() * 0.25);
-                    Vec3 at = tgt.add(dir.scale(3 * (1 - t)));
-                    d.voidShard(at, tgt.subtract(at).lengthSqr() > 1e-4 ? tgt.subtract(at) : dir, 0.35f, 0.08f, Math.min(1, t * 3) * (1 - t * 0.5f));
+                // the body is pulled up out of a pool of darkness by tendrils (the flecks streaming in are real dust)
+                Vec3 feet = c.subtract(0, h * 0.45, 0);
+                Abyssal.ink(d, feet, 1.6f, t, 0.7f * (1 - t), f.seed);
+                for (int i = 0; i < 4; i++) {
+                    double a = i * Math.PI / 2 + 0.4;
+                    Abyssal.tendril(d, feet.add(Math.cos(a) * 1.2, 0, Math.sin(a) * 1.2), c.add(0, h * 0.1, 0), 0.18f, 0.3f, (float) d.time * 3 + i, Math.min(1, t * 2.5f), Math.min(1, t * 3) * (1 - t));
                 }
-                d.voidSphere(c.subtract(0, h * 0.4, 0), 1.4 * (1 - t), 0.9f * (1 - t), 0.6f, 0xFFFFFF);
-                d.glowShell(c, 0.6 + t * 2, 0x9A70FF, 0.7f * (1 - t));
+                Abyssal.groundWave(d, feet.add(0, 0.05, 0), 0.6f + t * 2, 0.7f * (1 - t));
             }
             case S2CFx.CLONE_DEATH -> {
-                for (int i = 0; i < 26; i++) {
-                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.5 + 0.4, r.nextGaussian()).normalize();
-                    Vec3 at = c.add(dir.scale(t * 2.5)).add(0, -t * t * 2, 0);
-                    d.voidShard(at, dir, 0.3f * (1 - t), 0.07f, 1 - t);
-                }
-                d.voidSphere(c, Math.max(0.05, 0.9 * (1 - t * 1.6)), 1, 0.2f, 0xFFFFFF);
+                // it shatters (the pieces are real dust): a crack through the air where it stood, a core that winks out
+                Abyssal.fracture(d, c, null, 1.4f, Math.min(1, t * 6), 1 - t, f.seed);
+                Abyssal.orb(d, c, (float) Math.max(0.0, 0.5 * (1 - t * 2)), 1);
             }
             case S2CFx.TRIANGLE_END -> {
                 Entity a = mc.level.getEntity(p.e1()), b = mc.level.getEntity(p.e2());
@@ -372,24 +381,36 @@ public final class FxManager {
                 float k = Math.min(1, p.a() / 300f);
                 Ability ab = Ability.byIndex((int) p.b());
                 int col = ab != null ? ab.color : 0x9B6BFF;
-                for (int i = 0; i < 14; i++) {
+                int mc2 = Abyssal.mute(col, 0.55f);
+                for (int i = 0; i < 7; i++) {
                     Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6, r.nextGaussian()).normalize();
                     Vec3 from = at.add(dir.scale((2 + k * 6) * (1 - t)));
-                    d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.8)), 0.06f, col, 0.7f);
+                    d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.6)), 0.035f, mc2, 0.5f);
                 }
-                d.flat(Rt.RING, true, at.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 1.2f + k * 4, col, 0.7f, (float) d.time);
+                // the ground under you darkens as the power gathers
+                d.flat(Abyssal.WAVE, false, at.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 1.2f + k * 4, 0x000000, 0.35f + 0.3f * k, 0);
+                d.flat(Rt.RING, true, at.subtract(0, 0.94, 0), new Vec3(0, 1, 0), 1.2f + k * 4, mc2, 0.35f, (float) d.time);
             }
-            case S2CFx.VOLLEY -> d.billboard(Rt.GLOW, true, c, 0.7f + p.a() * 0.05f, 0xA070FF, 0.8f * (1 - t) * d.near(c, 1), 0);
+            case S2CFx.VOLLEY -> { Abyssal.glint(d, c, 0.25f + p.a() * 0.02f, 0.8f * (1 - t)); Abyssal.disc(d, c, 0.12f * (1 - t), 0.9f * (1 - t)); }
             case S2CFx.AWAKEN -> {
                 Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1, 0) : c;
                 float k = t < 0.3f ? t / 0.3f : 1 - (t - 0.3f) / 0.7f;
-                for (int i = 0; i < 18; i++) {
-                    double a = i * Math.PI * 2 / 18 + t * 3;
-                    d.voidShard(at.add(Math.cos(a) * 1.4, -1, Math.sin(a) * 1.4), new Vec3(Math.cos(a) * 0.2, 1, Math.sin(a) * 0.2), 3.5f * k, 0.16f, k);
+                // the abyss wakes in you: tendrils of darkness rise out of the ground and writhe around you, the ground
+                // cracks open, the pressure rolls outward, and over your heart an eclipse opens
+                Vec3 ground = at.subtract(0, 0.95, 0);
+                for (int i = 0; i < 7; i++) {
+                    double a = i * Math.PI * 2 / 7 + r.nextDouble() * 0.5;
+                    double rad = 1.6 + r.nextDouble() * 1.2;
+                    Vec3 base = ground.add(Math.cos(a) * rad, 0, Math.sin(a) * rad);
+                    Vec3 tip = base.add(-Math.cos(a) * 0.8, 3.2 + r.nextDouble() * 2.5, -Math.sin(a) * 0.8);
+                    Abyssal.tendril(d, base, tip, 0.35f, 0.6f, (float) d.time * 2.2f + i * 2, Math.min(1, t * 4), k);
                 }
-                d.voidSphere(at, 1.4 * k, 0.9f, 0.6f, 0xFFFFFF);
-                d.glowShell(at, 2 + t * 18, 0x9A60FF, 0.7f * (1 - t));
-                d.flat(Rt.RING, true, at.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 2 + t * 22, 0xC0B0E0, 0.8f * (1 - t), 0);
+                Abyssal.fracture(d, ground, new Vec3(0, 1, 0), 6, Math.min(1, t * 3), Math.min(1, (1 - t) * 1.6f), f.seed);
+                Abyssal.groundWave(d, ground, 2 + t * 22, 0.9f * (1 - t));
+                if (t > 0.15f) Abyssal.groundWave(d, ground.add(0, 0.02, 0), 2 + (t - 0.15f) * 18, 0.6f * (1 - t));
+                Abyssal.eclipse(d, at, 0.55f * k, 1, (float) d.time * 0.4f);
+                d.glowShell(at, 2 + t * 18, Abyssal.DEEP, 0.35f * (1 - t));
+                Abyssal.glints(d, at, 7, 10, 0.8f * k, f.seed + 3);
             }
             case S2CFx.DOMAIN_CAST -> {
                 // 0-.22: a singularity forms (space pours into a point); .22: white-out; then the shell at lightspeed
@@ -397,32 +418,30 @@ public final class FxManager {
                 if (t < 0.22f) {
                     float k = t / 0.22f;
                     d.blackHole(c, 1f + k * 5f, true, Math.min(1, k * 2), 0);
-                    d.flat(Rt.RING, true, c, new Vec3(0.15, 1, 0.1), 5 - k * 3.4f, 0xD8C8FF, 0.9f, (float) d.time * 5);
-                    for (int i = 0; i < 40; i++) {
+                    Abyssal.pressure(d, c, new Vec3(0.15, 1, 0.1), 5.5f - k * 3.6f, 0.9f);
+                    for (int i = 0; i < 22; i++) {
                         Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                         float ph = (float) ((k * 3 + r.nextDouble()) % 1.0);
                         Vec3 from = c.add(dir.scale(14 * (1 - ph)));
-                        d.beam(Rt.STREAK, true, from, from.add(dir.scale(-2)), 0.1f, 0xB58CFF, ph);
+                        d.beam(Rt.STREAK, true, from, from.add(dir.scale(-2)), 0.06f, ph > 0.7f ? Abyssal.STAR : Abyssal.COLD, 0.7f * ph);
                     }
                 } else {
                     float k = (t - 0.22f) / 0.78f;
                     float rad = 1.5f + R0 * (1 - (float) Math.pow(1 - Math.min(1, k * 2.2f), 3));
                     float out = 1 - Math.max(0, (k - 0.45f) / 0.55f);
-                    if (k < 0.08f) d.billboard(Rt.GLOW, true, c, R0 * 0.8f, 0xFFFFFF, (1 - k / 0.08f) * d.near(c, 4), 0);
-                    d.glowShell(c, rad, 0xF0E8FF, 0.95f * out);
-                    d.glowShell(c, rad * 0.96, 0x8C55FF, 0.6f * out);
-                    for (int i = 0; i < 3; i++) d.flat(Rt.RING, true, c.subtract(0, 0.9, 0), new Vec3(0, 1, 0), rad * (1.05f + i * 0.08f), i == 0 ? 0xFFFFFF : 0x9C6BFF, 0.8f * out * (1 - i * 0.3f), 0);
-                    d.flat(Rt.RING, true, c, d.fwdVec(), rad * 0.7f, 0xD8C8FF, 0.5f * out, 0);
-                    for (int i = 0; i < 30; i++) {
-                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6, r.nextGaussian()).normalize();
-                        d.voidShard(c.add(dir.scale(rad * (0.85 + r.nextDouble() * 0.15))), dir, 1.2f * out, 0.12f, out);
-                    }
+                    if (k < 0.08f) d.billboard(Rt.GLOW, true, c, R0 * 0.35f, Abyssal.STAR, 0.8f * (1 - k / 0.08f) * d.near(c, 4), 0);
+                    d.glowShell(c, rad, Abyssal.EDGE, 0.6f * out);
+                    d.glowShell(c, rad * 0.96, Abyssal.DEEP, 0.5f * out);
+                    // the shell is a wall of pressure: a dark front over the ground, a second one behind it
+                    Abyssal.groundWave(d, c.subtract(0, 0.9, 0), rad * 1.06f, out);
+                    Abyssal.groundWave(d, c.subtract(0, 0.88, 0), rad * 0.85f, 0.5f * out);
+                    Abyssal.fracture(d, c.subtract(0, 0.9, 0), new Vec3(0, 1, 0), Math.min(R0, 24), Math.min(1, k * 3), out, f.seed);
                 }
             }
             case S2CFx.DOMAIN_PULSE -> {
                 float rad = p.a() * t;
-                d.flat(Rt.RING, true, c.add(0, -Math.min(p.a(), 3) + 0.15, 0), new Vec3(0, 1, 0), rad, 0xFFFFFF, (1 - t), 0);
-                d.glowShell(c, Math.max(0.5, rad), 0xC8A8FF, 0.7f * (1 - t));
+                Abyssal.groundWave(d, c.add(0, -Math.min(p.a(), 3) + 0.15, 0), Math.max(0.5f, rad), 1 - t);
+                d.glowShell(c, Math.max(0.5, rad), Abyssal.DEEP, 0.4f * (1 - t));
             }
             case S2CFx.COMBO -> combo(d, f, pt, t, r);
             case S2CFx.BEAM -> {
@@ -430,16 +449,17 @@ public final class FxManager {
                 Vec3 dir = Vec3.directionFromRotation(p.c(), p.b());
                 Vec3 a = c, b = c.add(dir.scale(len * Math.min(1, t * 5)));
                 float w = (t < 0.2f ? t / 0.2f : 1 - (t - 0.2f) / 0.8f);
-                // a tube of galaxy with a white core and violet sheath, rings travelling down it
-                d.voidRibbon(a, b, 1.3f * w, w);
-                d.beam(Rt.STREAK, true, a, b, 2.2f * w, 0x8C55FF, 0.8f * w);
-                d.beam(Rt.STREAK, true, a, b, 0.5f * w, 0xFFFFFF, w);
-                for (int i = 0; i < 6; i++) {
-                    float k = (float) ((t * 3 + i / 6.0) % 1.0);
-                    d.flat(Rt.RING, true, a.add(b.subtract(a).scale(k)), dir, 1.1f * w, 0xD8C8FF, 0.8f * w, 0);
+                // a shaft of abyss: an ink-black sheath, the abyss itself inside, a hairline of cold light at its heart,
+                // and pressure rings travelling down it
+                d.beam(Abyssal.SEAM, false, a, b, 1.9f * w, 0xFFFFFF, 0.85f * w);
+                d.voidRibbon(a, b, 1.1f * w, w);
+                d.beam(Rt.STREAK, true, a, b, 0.14f * w, Abyssal.STAR, 0.8f * w);
+                for (int i = 0; i < 3; i++) {
+                    float k = (float) ((t * 3 + i / 3.0) % 1.0);
+                    Abyssal.pressure(d, a.add(b.subtract(a).scale(k)), dir, 1.3f * w, 0.8f * w);
                 }
-                d.billboard(Rt.GLOW, true, a, 1.5f * w, 0xFFFFFF, w * d.near(a, 1.5f), 0);
-                d.voidSphere(b, 0.9 * w, w, 0.2f, 0xFFFFFF);
+                d.billboard(Rt.GLOW, true, a, 0.6f * w, Abyssal.STAR, 0.6f * w * d.near(a, 1.5f), 0);
+                Abyssal.eclipse(d, b, 0.5f * w, w, (float) d.time);
             }
             case S2CFx.PLUNGE -> {
                 float R0 = p.a();
@@ -447,16 +467,19 @@ public final class FxManager {
                 if (t < 0.25f) {
                     // the fold: a column of space collapsing downward
                     float k = t / 0.25f;
-                    d.beam(Rt.STREAK, true, top, c.add(0, 1, 0), 1.2f * (1 - k), 0xB48CFF, 0.9f);
-                    for (int i = 0; i < 8; i++) d.flat(Rt.RING, true, top.add(c.subtract(top).scale(i / 8.0 * k)), new Vec3(0, 1, 0), 1.6f - i * 0.1f, 0xE0D0FF, 0.7f, 0);
+                    d.beam(Abyssal.SEAM, false, top, c.add(0, 1, 0), 1.0f * (1 - k) + 0.1f, 0xFFFFFF, 0.9f);
+                    d.beam(Rt.STREAK, true, top, c.add(0, 1, 0), 0.12f, Abyssal.STAR, 0.6f);
+                    for (int i = 0; i < 3; i++) Abyssal.pressure(d, top.add(c.subtract(top).scale((i + 1) / 4.0 * k)), new Vec3(0, 1, 0), 1.5f - i * 0.2f, 0.7f);
                 }
-                d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), R0 * (0.3f + t * 1.2f), 0xFFFFFF, (1 - t), 0);
-                d.flat(Rt.RING, true, c.add(0, 0.05, 0), new Vec3(0, 1, 0), R0 * (0.2f + t), 0x7A40E0, 0.8f * (1 - t), 0);
-                d.voidSphere(c, R0 * 0.35 * (1 - t), 1 - t, 0.3f, 0xFFFFFF);
-                for (int i = 0; i < 18; i++) {
-                    double a = i * Math.PI * 2 / 18;
+                // impact: the ground caves into cracks, a dark wave rolls out
+                Abyssal.fracture(d, c, new Vec3(0, 1, 0), R0 * 1.3f, Math.min(1, (t - 0.2f) * 5), 1 - t, f.seed);
+                Abyssal.groundWave(d, c.add(0, 0.05, 0), R0 * (0.3f + t * 1.2f), 1 - t);
+                d.flat(Rt.RING, true, c.add(0, 0.06, 0), new Vec3(0, 1, 0), R0 * (0.2f + t), Abyssal.DEEP, 0.5f * (1 - t), 0);
+                d.voidSphere(c, R0 * 0.25 * (1 - t), 1 - t, 0.3f, 0xFFFFFF);
+                for (int i = 0; i < 7; i++) {
+                    double a = i * Math.PI * 2 / 7 + 0.3;
                     Vec3 dir = new Vec3(Math.cos(a), 0.6, Math.sin(a));
-                    d.voidShard(c.add(dir.scale(R0 * 0.6 * Math.min(1, t * 3))), new Vec3(-Math.cos(a) * 0.3, 1, -Math.sin(a) * 0.3), 1.2f * (1 - t), 0.14f, 1 - t);
+                    d.voidShard(c.add(dir.scale(R0 * 0.6 * Math.min(1, t * 3))), new Vec3(-Math.cos(a) * 0.3, 1, -Math.sin(a) * 0.3), 1.4f * (1 - t), 0.16f, 1 - t);
                 }
             }
             case S2CFx.LUNGE -> {
@@ -464,21 +487,16 @@ public final class FxManager {
                 float w = 1 - t;
                 d.voidBillboard(Rt.RIFT, c, 0.6f * w + 0.2f, 1.2f * w + 0.2f, w, 0);
                 d.voidBillboard(Rt.RIFT, to, 0.6f * w + 0.2f, 1.2f * w + 0.2f, w, 0);
-                d.beam(Rt.STREAK, true, c, to, 0.9f * w, 0x9B6BFF, w);
-                d.beam(Rt.STREAK, true, c, to, 0.25f * w, 0xFFFFFF, w);
-                for (int i = 0; i < 10; i++) {
-                    Vec3 q = c.add(to.subtract(c).scale(i / 10.0));
-                    d.voidShard(q, to.subtract(c), 0.5f * w, 0.06f, w * 0.8f);
-                }
+                // a black wake between the two tears, one hairline of light down its middle (the slivers are real dust)
+                d.beam(Abyssal.SEAM, false, c, to, 0.7f * w, 0xFFFFFF, 0.85f * w);
+                d.beam(Rt.STREAK, true, c, to, 0.08f * w, Abyssal.STAR, w);
             }
             case S2CFx.REFORM -> {
                 Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1, 0) : c;
-                for (int i = 0; i < 24; i++) {
-                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                    d.voidShard(at.add(dir.scale(2.5 * (1 - t))), dir.scale(-1), 0.4f, 0.08f, Math.min(1, (1 - t) * 2));
-                }
-                d.voidSphere(at, 1.1 * (1 - t), 1 - t, 0.5f, 0xFFFFFF);
-                d.glowShell(at, 0.5 + t * 3, 0xE8DCFF, 0.8f * (1 - t));
+                // darkness pours back together into a body (the ash streaming in is real dust)
+                Abyssal.ink(d, at, 1.8f, 1 - t, 0.7f * (1 - t), f.seed);
+                Abyssal.eclipse(d, at, 0.6f * (1 - t), 1 - t, (float) d.time);
+                d.glowShell(at, 0.5 + t * 3, Abyssal.EDGE, 0.4f * (1 - t));
             }
             case S2CFx.DOMAIN_SPEARS -> spears(d, f, pt, t, r);
             case S2CFx.DOMAIN_COLLAPSE -> collapse(d, f, t, r);
@@ -490,39 +508,36 @@ public final class FxManager {
                     Vec3 at = c.subtract(dir.scale(0.4 + i * 0.7)).add(0, -0.05, 0);
                     d.voidBillboard(Rt.BODY_CORE, at, 0.3f, 0.92f, 0.6f * (1 - k), 0);
                 }
-                d.beam(Rt.STREAK, true, c.subtract(dir.scale(3)), c, 0.6f * (1 - t), 0x9C6BFF, 0.7f * (1 - t));
-                d.flat(Rt.RING, true, c.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 0.6f + t * 1.6f, 0xB58CFF, 0.6f * (1 - t), 0);
+                d.beam(Abyssal.SEAM, false, c.subtract(dir.scale(3)), c, 0.4f * (1 - t), 0xFFFFFF, 0.6f * (1 - t));
+                Abyssal.groundWave(d, c.subtract(0, 0.95, 0), 0.6f + t * 1.6f, 0.6f * (1 - t));
             }
             case S2CFx.PERFECT_DODGE -> {
                 Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1, 0) : c;
                 float k = Mth.clamp(t * 2.2f, 0, 1);
-                d.glowShell(at, 0.8 + k * 9, 0xE8F4FF, 0.85f * (1 - t));
-                d.flat(Rt.RING, true, at.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 1 + k * 10, 0xFFFFFF, 0.9f * (1 - t), 0);
-                // a clock face of crystal ticks: time catching its breath
+                d.glowShell(at, 0.8 + k * 9, Abyssal.EDGE, 0.5f * (1 - t));
+                Abyssal.groundWave(d, at.subtract(0, 0.95, 0), 1 + k * 10, 0.9f * (1 - t));
+                // a clock face of cold hairline ticks: time catching its breath
                 for (int i = 0; i < 12; i++) {
                     double a = i * Math.PI / 6 + t * 0.6;
                     Vec3 q = at.add(Math.cos(a) * (2.2 + k), -0.4, Math.sin(a) * (2.2 + k));
-                    d.voidShard(q, new Vec3(Math.cos(a), 0.2, Math.sin(a)), 0.6f * (1 - t), 0.06f, 1 - t);
+                    d.beam(Rt.STREAK, true, q, q.add(Math.cos(a) * 0.5, 0.1, Math.sin(a) * 0.5), 0.04f, Abyssal.STAR, 0.8f * (1 - t));
                 }
                 d.voidBillboard(Rt.BODY_CORE, at.add(0, -0.05, 0), 0.33f, 0.95f, 0.8f * (1 - t), 0);
             }
             case S2CFx.FORGE -> {
                 Vec3 at = e1 != null ? e1.getPosition(pt).add(0, 1.2, 0) : c;
-                for (int i = 0; i < 20; i++) {
-                    Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                    Vec3 from = at.add(dir.scale(2.5 * (1 - t)));
-                    d.voidShard(from, dir.scale(-1), 0.3f, 0.05f, Math.min(1, t * 3) * (1 - t));
-                }
-                d.glowShell(at, 0.4 + t * 1.4, 0xD8C8FF, 0.6f * (1 - t));
+                // slivers of black crystal fly in (real dust) and a glint marks the moment it is whole
+                d.glowShell(at, 0.4 + t * 1.4, Abyssal.DEEP, 0.4f * (1 - t));
+                if (t > 0.5f) Abyssal.glint(d, at, 0.3f, (1 - t) * 1.6f);
             }
             case S2CFx.REALM_ENTER, S2CFx.REALM_EXIT -> realmGate(d, f, pt, t, r);
             case S2CFx.PEEK -> {
                 float open = p.a() == 2 ? 1 - t : t < 0.3f ? t / 0.3f : 1 - (t - 0.3f) / 0.7f;
                 Vec3 n = d.cam.subtract(c).normalize();
-                d.flat(Rt.RING, true, c, n, 0.9f * open + 0.2f, 0xE8DCFF, 0.8f * open, (float) d.time);
-                d.flat(Rt.RING, true, c, n, 1.5f * open + 0.2f, 0x7A45E0, 0.5f * open, (float) -d.time);
-                d.voidSphere(c, 0.35 * open, open, 0.15f, 0xFFFFFF);
-                d.billboard(Rt.GLOW, true, c, 0.25f * open, 0xFFFFFF, open, 0);
+                // an eye of the abyss: an eclipse looking back at you
+                Abyssal.eclipse(d, c, 0.45f * open + 0.02f, open, (float) d.time * 0.3f);
+                Abyssal.pressure(d, c, n, 1.5f * open + 0.2f, 0.5f * open);
+                Abyssal.glint(d, c.add(n.scale(0.05)), 0.12f * open, 0.8f * open);
             }
             case S2CFx.FORM_OPEN -> formOpen(d, f, pt, t, r);
             case S2CFx.GUARD -> {
@@ -530,9 +545,9 @@ public final class FxManager {
                 Vec3 fwd = e1 != null ? Vec3.directionFromRotation(0, e1.getYRot()) : d.fwdVec();
                 Vec3 front = at.add(fwd.scale(0.8));
                 if (p.a() == 2) {
-                    for (int i = 0; i < 3; i++) d.flat(Rt.RING, true, front, fwd, 0.4f + t * (1.6f + i * 0.6f), 0xFFFFFF, (1 - t) * (1 - i * 0.25f), 0);
-                    d.billboard(Rt.GLOW, true, front, 1.4f, 0xE8DCFF, (1 - t) * d.near(front, 1), 0);
-                } else d.flat(Rt.RING, true, front, fwd, p.a() == 1 ? 0.6f + t * 0.6f : 1.2f - t * 0.8f, 0xB58CFF, 0.8f * (1 - t), 0);
+                    for (int i = 0; i < 2; i++) Abyssal.pressure(d, front, fwd, 0.4f + t * (1.6f + i * 0.8f), (1 - t) * (1 - i * 0.3f));
+                    Abyssal.fracture(d, front, fwd, 0.9f, Math.min(1, t * 5), 1 - t, f.seed);
+                } else d.flat(Rt.RING, true, front, fwd, p.a() == 1 ? 0.6f + t * 0.6f : 1.2f - t * 0.8f, Abyssal.COLD, 0.5f * (1 - t), 0);
             }
             default -> {}
 
@@ -553,9 +568,9 @@ public final class FxManager {
                 float open = Math.min(1, t * 4);
                 d.voidBillboard(Rt.RIFT, tear, 0.35f * open * w + 0.05f, 0.8f * open * w + 0.05f, w, 0);
                 Vec3 fist = tear.add(c.subtract(tear).scale(Math.min(1, t * 3)));
-                d.beam(Rt.STREAK, true, tear, fist, 0.55f * w, 0x8C55FF, w);
-                d.voidShard(fist.subtract(c.subtract(tear).normalize().scale(0.3)), c.subtract(tear), 0.7f * w, 0.22f, w);
-                if (t > 0.3f) d.glowShell(c, 0.4 + (t - 0.3) * 2, 0xFFFFFF, 0.8f * w);
+                // a dark tendril lashes out of the tear; where it lands, space cracks
+                Abyssal.tendril(d, tear, fist, 0.45f * w + 0.05f, 0.15f, (float) d.time * 6, 1, w);
+                if (t > 0.3f) Abyssal.fracture(d, c, null, 0.9f, Math.min(1, (t - 0.3f) * 6), w, f.seed);
             }
             case 2 -> { // Fold Slash: a crescent of crystal
                 float yaw = (float) Math.toRadians(p.b());
@@ -568,19 +583,22 @@ public final class FxManager {
                     double a = -1.1 + 2.2 * i / n;
                     Vec3 dir = fwd.scale(Math.cos(a)).add(right.scale(Math.sin(a)));
                     Vec3 q = origin.add(dir.scale(3.2)).add(0, Math.sin(a) * 1.4, 0);
-                    d.voidShard(q, dir, 0.9f * w, 0.1f, w);
+                    // a crescent of ink: a black blade of fold with a hairline of light along its cutting edge
                     if (i > 0) {
                         double a0 = -1.1 + 2.2 * (i - 1) / n;
                         Vec3 q0 = origin.add(fwd.scale(Math.cos(a0)).add(right.scale(Math.sin(a0))).scale(3.6)).add(0, Math.sin(a0) * 1.4, 0);
-                        d.beam(Rt.STREAK, true, q0, origin.add(dir.scale(3.6)).add(0, Math.sin(a) * 1.4, 0), 0.35f * w, 0xE0D0FF, w);
+                        Vec3 q1 = origin.add(dir.scale(3.6)).add(0, Math.sin(a) * 1.4, 0);
+                        float mid = (float) Math.sin(Math.PI * i / n);
+                        d.beam(Abyssal.SEAM, false, q0.subtract(fwd.scale(0.2)), q1.subtract(fwd.scale(0.2)), (0.25f + 0.45f * mid) * w, 0xFFFFFF, w);
+                        d.beam(Rt.STREAK, true, q0, q1, 0.08f * w, Abyssal.STAR, 0.8f * w);
                     }
                 }
             }
             case 3 -> { // Rift Blink: a collapsing tear where you were / where you appear
                 float sz = p.b() == 0 ? w : Math.min(1, t * 3) * w;
                 d.voidBillboard(Rt.RIFT, c, 0.6f * sz + 0.05f, 1.3f * sz + 0.05f, w, 0);
-                d.glowShell(c, 0.8 + t * 1.5, 0x9B6BFF, 0.7f * w);
-                if (p.b() == 1 && tgt != null) d.beam(Rt.STREAK, true, c, tgt.getPosition(pt).add(0, tgt.getBbHeight() * 0.6, 0), 0.4f * w, 0xFFFFFF, w);
+                d.glowShell(c, 0.8 + t * 1.5, Abyssal.DEEP, 0.35f * w);
+                if (p.b() == 1 && tgt != null) d.beam(Rt.STREAK, true, c, tgt.getPosition(pt).add(0, tgt.getBbHeight() * 0.6, 0), 0.08f * w, Abyssal.STAR, w);
             }
             case 4 -> { // Void Lances from the ground
                 for (int i = 0; i < 7; i++) {
@@ -590,29 +608,29 @@ public final class FxManager {
                     float rise = Math.min(1, t * 5) * (t > 0.6f ? 1 - (t - 0.6f) / 0.4f : 1);
                     d.voidShard(base, new Vec3(Math.cos(a) * -0.15, 1, Math.sin(a) * -0.15), (i == 0 ? 3.2f : 1.8f + r.nextFloat()) * rise, i == 0 ? 0.32f : 0.18f, Math.max(0.1f, rise));
                 }
-                d.flat(Rt.RING, true, c.add(0, 0.05, 0), new Vec3(0, 1, 0), 1 + t * 3, 0xB48CFF, w, 0);
+                Abyssal.groundWave(d, c.add(0, 0.05, 0), 1 + t * 3, w);
+                Abyssal.fracture(d, c, new Vec3(0, 1, 0), 2.6f, Math.min(1, t * 6), w, f.seed);
             }
             case 5 -> { // Event Horizon: crush, then burst
                 Vec3 at = tgt != null && t < 0.4f ? tgt.getPosition(pt).add(0, tgt.getBbHeight() * 0.5, 0) : c;
                 if (t < 0.38f) {
                     float k = t / 0.38f;
-                    d.voidSphere(at, 0.4 + k * 1.2, 1, 0.2f, 0xFFFFFF);
-                    d.glowShell(at, 2.6 - k * 1.2, 0xE0D0FF, 0.9f);
-                    d.flat(Rt.RING, true, at, new Vec3(0.2, 1, 0.1), 3.5f - k * 2, 0xC8B0FF, 0.9f, (float) d.time * 3);
-                    for (int i = 0; i < 16; i++) {
+                    // crush: an eclipse closes on the target while the pressure tightens around it
+                    Abyssal.eclipse(d, at, 0.3f + k * 0.8f, 1, (float) d.time * 2);
+                    d.glowShell(at, 2.6 - k * 1.2, Abyssal.EDGE, 0.45f);
+                    Abyssal.pressure(d, at, new Vec3(0.2, 1, 0.1), 3.5f - k * 2, 0.8f);
+                    for (int i = 0; i < 8; i++) {
                         Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                         Vec3 from = at.add(dir.scale(4 * (1 - k)));
-                        d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.9)), 0.07f, 0xB48CFF, 0.9f);
+                        d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.7)), 0.04f, Abyssal.COLD, 0.7f);
                     }
                 } else {
+                    // burst: a wave of pressure at the eye, the air cracked around it (the pieces are real dust)
                     float k = (t - 0.38f) / 0.62f;
-                    d.glowShell(at, 0.5 + k * 5, 0xFFFFFF, 1 - k);
-                    d.flat(Rt.RING, true, at, d.fwdVec(), 1 + k * 6, 0xE8DCFF, 1 - k, 0);
-                    if (k < 0.15f) d.billboard(Rt.GLOW, true, at, 4, 0xFFFFFF, (1 - k / 0.15f) * d.near(at, 2), 0);
-                    for (int i = 0; i < 14; i++) {
-                        Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.6 + 0.2, r.nextGaussian()).normalize();
-                        d.voidShard(at.add(dir.scale(0.5 + k * 4)), dir, 0.8f * (1 - k), 0.12f, 1 - k);
-                    }
+                    d.glowShell(at, 0.5 + k * 5, Abyssal.EDGE, 0.5f * (1 - k));
+                    Abyssal.pressure(d, at, d.fwdVec(), 1 + k * 6, 1 - k);
+                    if (k < 0.12f) d.billboard(Rt.GLOW, true, at, 1.4f, Abyssal.STAR, 0.8f * (1 - k / 0.12f) * d.near(at, 2), 0);
+                    Abyssal.fracture(d, at, null, 2.4f, Math.min(1, k * 5), 1 - k, f.seed);
                 }
             }
         }
@@ -642,9 +660,9 @@ public final class FxManager {
             Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
             float k = (float) ((t * 3 + r.nextDouble()) % 1.0);
             Vec3 from = c.add(dir.scale(size * 4 * (1 - k)));
-            d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.9)), 0.07f, 0xFF4A9A, 0.6f * open);
+            if (i < 10) d.beam(Rt.STREAK, true, from, from.add(dir.scale(-0.7)), 0.045f, 0xA0405E, 0.5f * open);
         }
-        d.glowShell(c, size * 1.7, 0xFF4A9A, 0.5f * open);
+        d.glowShell(c, size * 1.7, 0x6A1A36, 0.35f * open);
     }
 
     // ------------------------------------------------------------------------------------------------- new effects
@@ -657,12 +675,13 @@ public final class FxManager {
         float size = Math.max(1, p.a());
         float age = t * f.life;
         float sig = Mth.clamp(age / 6, 0, 1) * (1 - Mth.clamp((age - 22) / 8, 0, 1));
-        d.flat(Rt.RING, true, base.add(0, 0.05, 0), new Vec3(0, 1, 0), size * 1.2f * sig, 0xE8DCFF, 0.9f * sig, (float) d.time * 2);
-        d.flat(Rt.RING, true, base.add(0, 0.06, 0), new Vec3(0, 1, 0), size * 0.8f * sig, 0x8C55FF, 0.8f * sig, (float) -d.time * 3);
+        d.flat(Abyssal.WAVE, false, base.add(0, 0.04, 0), new Vec3(0, 1, 0), size * 1.25f * sig, 0x000000, 0.7f * sig, 0);
+        d.flat(Rt.RING, true, base.add(0, 0.05, 0), new Vec3(0, 1, 0), size * 1.2f * sig, Abyssal.EDGE, 0.5f * sig, (float) d.time * 2);
+        d.flat(Rt.RING, true, base.add(0, 0.06, 0), new Vec3(0, 1, 0), size * 0.8f * sig, Abyssal.DEEP, 0.6f * sig, (float) -d.time * 3);
         for (int i = 0; i < 6; i++) {
             double a = i * Math.PI / 3 + d.time;
             Vec3 q0 = base.add(Math.cos(a) * size * 1.1 * sig, 0.07, Math.sin(a) * size * 1.1 * sig), q1 = base.add(Math.cos(a + Math.PI * 2 / 3) * size * 1.1 * sig, 0.07, Math.sin(a + Math.PI * 2 / 3) * size * 1.1 * sig);
-            d.beam(Rt.STREAK, true, q0, q1, 0.05f, 0xC8B0FF, 0.7f * sig);
+            d.beam(Rt.STREAK, true, q0, q1, 0.035f, Abyssal.EDGE, 0.5f * sig);
         }
         float rise = Mth.clamp((age - 6) / 2.5f, 0, 1) * (1 - Mth.clamp((age - 20) / 9, 0, 1));
         if (rise > 0) {
@@ -674,7 +693,8 @@ public final class FxManager {
                 Vec3 dir = new Vec3(-Math.cos(a) * rad * 0.25, 1, -Math.sin(a) * rad * 0.25);
                 d.voidShard(b, dir, (i == 0 ? 3.2f : 1.8f + r.nextFloat()) * size * 0.6f * rise, (i == 0 ? 0.24f : 0.13f) * size * 0.6f, rise);
             }
-            if (age < 10) d.billboard(Rt.GLOW, true, base.add(0, 1, 0), size * 2, 0xFFFFFF, Math.max(0, 1 - (age - 6) / 4) * d.near(base, 1), 0);
+            if (age < 10) d.billboard(Rt.GLOW, true, base.add(0, 1, 0), size * 0.8f, Abyssal.STAR, 0.7f * Math.max(0, 1 - (age - 6) / 4) * d.near(base, 1), 0);
+            Abyssal.fracture(d, base, new Vec3(0, 1, 0), size * 1.6f, Math.min(1, (age - 6) / 4f), rise, f.seed);
         }
     }
 
@@ -686,27 +706,24 @@ public final class FxManager {
         if (age < 32) {
             float k = age / 32, e = k * k;
             float rad = R0 * (1 - e) + 1;
-            d.glowShell(c, rad, 0xE8DCFF, 0.9f);
-            d.glowShell(c, rad * 0.97, 0x7A45E0, 0.6f);
-            d.flat(Rt.RING, true, c, new Vec3(0.1, 1, 0.05), rad * 1.1f, 0xFFFFFF, 0.8f, (float) d.time * (2 + k * 8));
-            for (int i = 0; i < 60; i++) {
+            d.glowShell(c, rad, Abyssal.EDGE, 0.6f);
+            d.glowShell(c, rad * 0.97, Abyssal.DEEP, 0.5f);
+            Abyssal.pressure(d, c, new Vec3(0.1, 1, 0.05), rad * 1.15f, 0.8f);
+            for (int i = 0; i < 28; i++) {
                 Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
                 float ph = (float) ((age * 0.06 + r.nextDouble()) % 1.0);
                 Vec3 from = c.add(dir.scale(rad * (1 - ph)));
-                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.08 - 0.4)), 0.09f, ph > 0.6f ? 0xFFFFFF : 0x9C6BFF, 0.85f);
+                d.beam(Rt.STREAK, true, from, from.add(dir.scale(-R0 * 0.08 - 0.4)), 0.06f, ph > 0.6f ? Abyssal.STAR : Abyssal.COLD, 0.65f);
             }
             d.blackHole(c.add(0, 6, 0).add(d.fwdVec().multiply(1, 0, 1).normalize().scale(16)), 1.5f + k * 9f, true, Math.min(1, k * 3), 0);
         } else {
             float k = Mth.clamp((age - 32) / 14, 0, 1);
             if (k < 0.35f) d.blackHole(c.add(0, 6, 0).add(d.fwdVec().multiply(1, 0, 1).normalize().scale(16)), 10.5f * (1 - k / 0.35f), true, 1, 0);
-            if (k < 0.2f) d.billboard(Rt.GLOW, true, c, R0 * 0.6f, 0xFFFFFF, (1 - k / 0.2f) * 0.6f * d.near(c, 6), 0);
-            d.glowShell(c, 2 + k * R0 * 1.3, 0xFFFFFF, 1 - k);
-            d.flat(Rt.RING, true, c, new Vec3(0, 1, 0), 2 + k * R0 * 1.6f, 0xF0E8FF, 1 - k, 0);
-            d.flat(Rt.RING, true, c, d.fwdVec(), 2 + k * R0, 0x9C6BFF, 0.8f * (1 - k), 0);
-            for (int i = 0; i < 40; i++) {
-                Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-                d.voidShard(c.add(dir.scale(2 + k * R0)), dir, 1.4f * (1 - k), 0.14f, 1 - k);
-            }
+            if (k < 0.2f) d.billboard(Rt.GLOW, true, c, R0 * 0.3f, Abyssal.STAR, (1 - k / 0.2f) * 0.6f * d.near(c, 6), 0);
+            d.glowShell(c, 2 + k * R0 * 1.3, Abyssal.EDGE, 0.6f * (1 - k));
+            Abyssal.groundWave(d, c, 2 + k * R0 * 1.6f, 1 - k);
+            Abyssal.pressure(d, c, d.fwdVec(), 2 + k * R0, 0.7f * (1 - k));
+            Abyssal.fracture(d, c, new Vec3(0, 1, 0), R0 * 1.2f, Math.min(1, k * 4), 1 - k, f.seed);
         }
     }
 
@@ -727,14 +744,15 @@ public final class FxManager {
             Vec3 dir = b[0].scale(Math.cos(a)).add(b[1].scale(Math.sin(a)));
             d.voidShard(maw.add(dir.scale(size * 1.25)), dir.scale(-1).add(look.scale(-0.5)), size * 0.6f, size * 0.09f, open);
         }
-        d.flat(Rt.RING, true, maw, look, size * 1.6f, 0xFF4A9A, 0.6f * open, (float) d.time * 2);
-        d.glowShell(maw, size * 1.6, 0xFF4A9A, 0.5f * open);
-        for (int i = 0; i < 50; i++) {
+        Abyssal.pressure(d, maw, look, size * 1.7f, 0.6f * open);
+        d.flat(Rt.RING, true, maw, look, size * 1.6f, 0xA0405E, 0.35f * open, (float) d.time * 2);
+        d.glowShell(maw, size * 1.6, 0x6A1A36, 0.35f * open);
+        for (int i = 0; i < 24; i++) {
             Vec3 o = look.scale(2 + r.nextDouble() * 12).add(b[0].scale(r.nextGaussian() * 3)).add(b[1].scale(r.nextGaussian() * 3));
             float ph = (float) ((age * 0.08 + r.nextDouble()) % 1.0);
             Vec3 from = maw.add(o.scale(1 - ph));
             Vec3 to = from.add(maw.subtract(from).normalize().scale(0.8 + ph));
-            d.beam(Rt.STREAK, true, from, to, 0.06f, ph > 0.7f ? 0xFFFFFF : 0xFF7AB8, 0.75f * open * ph);
+            d.beam(Rt.STREAK, true, from, to, 0.04f, ph > 0.7f ? Abyssal.STAR : 0x9A5070, 0.55f * open * ph);
         }
     }
 
@@ -744,16 +762,18 @@ public final class FxManager {
         Vec3 c = f.pos;
         float open = t < 0.3f ? (float) Math.pow(t / 0.3f, 0.6) : 1 - (float) Math.pow((t - 0.3f) / 0.7f, 2);
         d.voidBillboard(Rt.RIFT, c.add(0, 0.6, 0), 1.2f * open + 0.02f, 2.6f * open + 0.02f, open, 0);
-        d.billboard(Rt.GLOW, true, c.add(0, 0.6, 0), 3.2f * open, enter ? 0x7A45E0 : 0xE8DCFF, 0.6f * open, 0);
-        d.flat(Rt.RING, true, c.subtract(0, 0.95, 0), new Vec3(0, 1, 0), 0.6f + t * 5, enter ? 0x9C6BFF : 0xFFFFFF, 0.8f * (1 - t), 0);
-        boolean inward = enter != arrive;
-        for (int i = 0; i < 30; i++) {
-            Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian(), r.nextGaussian()).normalize();
-            float ph = (float) ((t * 2.5 + r.nextDouble()) % 1.0);
-            Vec3 from = c.add(dir.scale((inward ? 1 - ph : ph) * 4));
-            d.beam(Rt.STREAK, true, from, from.add(dir.scale(inward ? -0.6 : 0.6)), 0.06f, 0xC8B0FF, open);
+        d.billboard(Rt.GLOW, true, c.add(0, 0.6, 0), 1.4f * open, enter ? Abyssal.DEEP : Abyssal.EDGE, 0.35f * open, 0);
+        // the dark leaks out of the gate: tendrils feel along the edges, ink pools at its foot, the pressure rolls out
+        Vec3 g = c.add(0, 0.6, 0);
+        for (int i = 0; i < 4; i++) {
+            float side = i % 2 == 0 ? 1 : -1;
+            Vec3 a = g.add(Abyssal.left(d).scale(side * 1.0f * open)).add(0, (i < 2 ? 1.2 : -1.0) * open, 0);
+            Vec3 b = a.add(Abyssal.left(d).scale(side * (1.6 + r.nextDouble()))).add(0, (r.nextDouble() - 0.5) * 2, 0);
+            Abyssal.tendril(d, a, b, 0.22f, 0.4f, (float) d.time * 3 + i, open, open);
         }
-        if (arrive && t < 0.2f) d.glowShell(c, 0.5 + t * 12, 0xFFFFFF, 1 - t / 0.2f);
+        Abyssal.ink(d, c.subtract(0, 0.6, 0), 2.2f, open, 0.6f * open, f.seed);
+        Abyssal.groundWave(d, c.subtract(0, 0.95, 0), 0.6f + t * 5, 0.8f * (1 - t));
+        if (arrive && t < 0.2f) d.glowShell(c, 0.5 + t * 12, Abyssal.EDGE, 0.6f * (1 - t / 0.2f));
     }
 
     /** A form opens: its sigil rises around you in its colour; closing, the sigil breaks into shards. */
@@ -762,26 +782,19 @@ public final class FxManager {
         Entity e = mc.level.getEntity(f.p.e1());
         Vec3 feet = e != null ? e.getPosition(pt) : f.pos.subtract(0, 1, 0);
         Ability a = Ability.byIndex((int) f.p.a());
-        int col = a != null ? a.color : 0x9B6BFF;
+        int col = Abyssal.mute(a != null ? a.color : 0x9B6BFF, 0.5f);
         if (f.p.b() == 1) {
             float k = (float) (1 - Math.pow(1 - Math.min(1, t * 1.6), 3));
             float out = 1 - Mth.clamp((t - 0.55f) / 0.45f, 0, 1);
             for (int i = 0; i < 3; i++) {
                 float y = 0.05f + k * (0.3f + i * 0.75f);
-                d.flat(Rt.RING, true, feet.add(0, y, 0), new Vec3(0, 1, 0), 1.6f - i * 0.35f, i == 1 ? 0xFFFFFF : col, 0.85f * out, (float) d.time * (i % 2 == 0 ? 2 : -2.5f));
+                d.flat(Rt.RING, true, feet.add(0, y, 0), new Vec3(0, 1, 0), 1.6f - i * 0.35f, i == 1 ? Abyssal.EDGE : col, 0.55f * out, (float) d.time * (i % 2 == 0 ? 2 : -2.5f));
             }
-            for (int i = 0; i < 8; i++) {
-                double an = i * Math.PI / 4 + t * 2;
-                Vec3 q = feet.add(Math.cos(an) * 1.5, 0.1 + k * 1.8 * ((i % 3) / 2.0), Math.sin(an) * 1.5);
-                d.voidShard(q, new Vec3(-Math.cos(an), 0.4, -Math.sin(an)), 0.35f * out, 0.05f, out);
-            }
-            d.glowShell(feet.add(0, 1, 0), 0.6 + k * 1.2, col, 0.5f * out);
+            // the ground darkens under you as the form takes hold (the ash lifting off is real dust)
+            d.flat(Abyssal.WAVE, false, feet.add(0, 0.03, 0), new Vec3(0, 1, 0), 1.9f * k, 0x000000, 0.6f * out, 0);
+            d.glowShell(feet.add(0, 1, 0), 0.6 + k * 1.2, col, 0.3f * out);
         } else {
-            for (int i = 0; i < 18; i++) {
-                Vec3 dir = new Vec3(r.nextGaussian(), r.nextGaussian() * 0.5 + 0.4, r.nextGaussian()).normalize();
-                d.voidShard(feet.add(0, 1, 0).add(dir.scale(0.6 + t * 2.4)), dir, 0.35f * (1 - t), 0.05f, 1 - t);
-            }
-            d.flat(Rt.RING, true, feet.add(0, 0.05, 0), new Vec3(0, 1, 0), 1.6f + t * 2, col, 0.7f * (1 - t), 0);
+            Abyssal.groundWave(d, feet.add(0, 0.05, 0), 1.6f + t * 2, 0.7f * (1 - t));
         }
     }
 
@@ -807,8 +820,9 @@ public final class FxManager {
                         // in first person the motes orbit right past your eye: fade them before they smear over the view
                         float nf = self ? d.near(q, 1.6f) : 1f;
                         if (nf < 0.02f) continue;
-                        d.billboard(Rt.CORE, false, q, 0.06f, 0x07040C, 0.9f * nf, 0);
-                        d.billboard(Rt.GLOW, true, q, 0.16f, 0xD06AFF, 0.5f * nf, 0);
+                        // dark seeds circling, each with a hairline cold rim (not glowing blobs)
+                        if (i % 2 == 0) Abyssal.seed(d, q, 0.04f, 0.9f * nf, i);
+                        else d.sprite(Rt.P_FLECK, false, q, 0.04f, 0.07f, Dust.BLACK, 0.9f * nf, (float) time * 2 + i, 0, 1);
                     }
                 }
                 case AUTHORITY -> {
@@ -816,7 +830,7 @@ public final class FxManager {
                     Vec3 q = pos.add(back.scale(0.9)).add(0, 1.5, 0);
                     float br = 0.9f + 0.1f * (float) Math.sin(time * 2);
                     d.voidBillboard(Rt.RIFT, q, 0.55f * br, 1.5f * br, 0.95f, 0);
-                    d.billboard(Rt.GLOW, true, q, 2.2f, 0x7FA8FF, 0.35f, 0);
+                    d.billboard(Rt.GLOW, true, q, 0.9f, Abyssal.COLD, 0.15f, 0);
                 }
                 case BEELZEBUB -> {
                     if (self) break;
@@ -828,7 +842,7 @@ public final class FxManager {
                         Vec3 dir = b[0].scale(Math.cos(an)).add(b[1].scale(Math.sin(an)));
                         d.voidShard(q.add(dir.scale(0.45)), dir.scale(-1).add(fwd.scale(0.3)), 0.28f, 0.04f, 1);
                     }
-                    d.glowShell(q, 0.55, 0xFF4A9A, 0.5f);
+                    d.glowShell(q, 0.55, 0x6A1A36, 0.35f);
                 }
                 case BODIES -> {
                     for (int s = -1; s <= 1; s += 2) {
@@ -839,8 +853,9 @@ public final class FxManager {
                 case DOMAIN -> {
                     if (self) break;
                     Vec3 q = pos.add(0, e.getBbHeight() + 0.45, 0);
-                    d.flat(Rt.RING, true, q, new Vec3(0, 1, 0), 0.45f, 0x9B6BFF, 0.9f, (float) time);
-                    d.flat(Rt.RING, true, q, new Vec3(0, 1, 0), 0.3f, 0xFFFFFF, 0.7f, (float) -time * 1.5f);
+                    // a small eclipse crowning the head
+                    Abyssal.eclipse(d, q, 0.12f, 0.9f, (float) time * 0.5f);
+                    d.flat(Rt.RING, true, q, new Vec3(0, 1, 0), 0.4f, Abyssal.DEEP, 0.6f, (float) time);
                 }
                 default -> {}
             }
