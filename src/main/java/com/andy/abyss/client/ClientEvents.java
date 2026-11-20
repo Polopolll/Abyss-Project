@@ -264,21 +264,38 @@ public final class ClientEvents {
         if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) MoveFx.renderNumbers(e.getPoseStack(), e.getCamera(), e.getPartialTick());
     }
 
+    /** Debug: "!slowmo 0.1" in chat plays your moves' visuals in slow motion (for checking them frame by frame). */
+    @SubscribeEvent
+    public static void chat(net.minecraftforge.client.event.ClientChatEvent e) {
+        String m = e.getMessage().trim();
+        if (m.equals("!fxdebug")) { e.setCanceled(true); MoveFx.debug = !MoveFx.debug; return; }
+        if (!m.startsWith("!slowmo")) return;
+        e.setCanceled(true);
+        try { MoveFx.slowmo = Math.max(0.02f, Math.min(1, Float.parseFloat(m.substring(7).trim()))); } catch (Exception ex) { MoveFx.slowmo = 1; }
+    }
+
     @SubscribeEvent
     public static void camera(ViewportEvent.ComputeCameraAngles e) {
-        float s = FxManager.shake;
-        if (s < 0.01f) return;
+        float[] kk = MoveFx.kickNow((float) e.getPartialTick());
+        if (kk[0] != 0 || kk[1] != 0 || kk[2] != 0) {
+            e.setPitch(e.getPitch() + kk[0]); e.setYaw(e.getYaw() + kk[1]); e.setRoll(e.getRoll() + kk[2]);
+        }
+        float s = FxManager.shake((float) e.getPartialTick());
+        if (s < 0.01f) { com.andy.abyss.client.render.ViewDrive.worldRoll = e.getRoll(); return; }
         double t = ClientState.ticks + e.getPartialTick();
         e.setYaw(e.getYaw() + (float) (Math.sin(t * 2.1) * s * 1.6));
         e.setPitch(e.getPitch() + (float) (Math.cos(t * 2.7) * s * 1.2));
         e.setRoll(e.getRoll() + (float) (Math.sin(t * 1.7) * s * 0.8));
+        com.andy.abyss.client.render.ViewDrive.worldRoll = e.getRoll();
     }
 
     @SubscribeEvent
     public static void fov(ViewportEvent.ComputeFov e) {
-        double k = 1 - 0.06 * insideDomain - 0.03 * FxManager.pulse - MoveFx.fovKick();
+        double k = 1 - 0.06 * insideDomain - 0.03 * FxManager.pulse - MoveFx.fovKick((float) e.getPartialTick());
         if (ClientState.ticks < ClientState.slowUntil) k -= 0.05;
+        if (!e.usedConfiguredFov()) { com.andy.abyss.client.render.ViewDrive.handFov = (float) e.getFOV(); return; }
         if (k != 1) e.setFOV(e.getFOV() * k);
+        com.andy.abyss.client.render.ViewDrive.worldFov = (float) e.getFOV();
     }
 
     @SubscribeEvent

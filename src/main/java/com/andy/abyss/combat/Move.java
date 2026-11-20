@@ -22,37 +22,22 @@ public record Move(String id, String name, int pose, int duration, int recover, 
 
     /** Visual primitives (drawn by the client). */
     public enum Kind {
-        /** A rend: a crescent cut in space showing the galaxy behind. a radius, b span (deg), c yaw offset (deg), d tilt (deg), e thickness, f linger ticks. */
+        /** A rend: a crescent cut through the air. a radius, b span (deg, sign = sweep direction), c yaw offset (deg), d tilt (deg), e thickness, f linger ticks. */
         REND,
         /** A straight rend (thrust / sever line). a length, b start, c tilt, d yaw offset, e thickness, f linger. */
         REND_LINE,
-        /** A void arm out of a rift: a right offset, b up offset, c back offset, d curve, e thickness. Homes on the target. */
-        RIFT_ARM,
         /** Ground ring. a radius, b thickness. */
         SHOCK,
-        /** Ground fissure forward: a length, b width. */
-        FISSURE,
-        /** Crystal spikes from the ground: a radius, b count, c height, d forward distance (or on target if e = 1). */
-        SPIKES,
-        /** A small black star: a radius, b forward distance (target if c = 1), d life. */
-        STAR,
-        /** A beam/drill along the aim: a length, b width. */
-        BEAM,
-        /** A giant construct from a rift above: a size, b forward distance (target if c = 1). Kind of construct in d (0 blade, 1 hammer, 2 spear, 3 shield). */
-        GIANT,
         /** Many cuts across an area ahead: a count, b area radius, c forward distance. */
         REND_STORM,
-        /** A vortex / pull field: a radius, b forward distance, c life. */
-        VORTEX,
-        /** A thrown construct: a speed, b range, c returns (1 = boomerang), d kind (0 scythe, 1 spear). */
-        THROW,
-        /** A dome / shield wall in front: a radius, b life. */
-        BARRIER,
         /** Afterimages of the caster. a count. */
         GHOSTS,
-        /** Camera: a shake, b fov punch. */
+        /** Camera: a kick (the view recoils), b fov punch. */
         CAMERA,
-        /** A punch landing: a size (1 jab, 2 heavy, 3 colossal), b forward distance (on the target if c = 1), d which fist (-1 left, 1 right). */
+        /**
+         * A punch landing: a size (1 jab, 2 heavy, 3 colossal), b forward distance (on the target if c = 1),
+         * d which fist (-1 left, 1 right), e the path (0 straight, 1 hook, 2 uppercut, 3 hammer down).
+         */
         FIST,
         /** A punch rush: a count, b spread (blocks around the aim point), c forward distance, d duration (ticks), e = 1 on the target. */
         BARRAGE,
@@ -62,8 +47,8 @@ public record Move(String id, String name, int pose, int duration, int recover, 
         CRATER,
         /** A trench torn along the ground: a length, b half width, c depth, d start distance, e block power, f debris launch. */
         TRENCH,
-        /** Time stops around you (Augusta's Ruler's Realm): a radius, b ticks. */
-        FREEZE
+        /** The caster closes in: a the farthest it carries you (blocks), b how close to the target it stops, c over how many ticks. */
+        LUNGE
     }
 
     public record Fx(int tick, Kind kind, float a, float b, float c, float d, float e, float f) {

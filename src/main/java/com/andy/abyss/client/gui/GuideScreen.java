@@ -37,7 +37,7 @@ public class GuideScreen extends Screen {
     protected void init() {
         chapters.clear();
         chapters.add("basics");
-        for (Ability a : Ability.values()) if (a != Ability.GUIDE) chapters.add(a);
+        for (Ability a : Ability.values()) if (a != Ability.GUIDE && a.enabled()) chapters.add(a);
         for (Weapon w : Weapon.values()) chapters.add(w);
         opened = ClientState.ticks;
     }
@@ -173,27 +173,31 @@ public class GuideScreen extends Screen {
                     Gfx.arc(m, cx, cy, r - w, r + w * 0.3f, Math.min(a0, a1), Math.max(a0, a1), Gfx.argb(0.85f * alpha, 0xB48CFF));
                     Gfx.arc(m, cx, cy, r, r + 0.8f, Math.min(a0, a1), Math.max(a0, a1), Gfx.argb(alpha, 0xFFFFFF));
                 }
-                case REND_LINE, BEAM -> {
-                    float life = f.kind() == Move.Kind.BEAM ? 20 : 3 + f.f() + 8;
+                case REND_LINE -> {
+                    float life = 3 + f.f() + 8;
                     if (age > life) break;
                     float alpha = 1 - age / life;
                     float len = Math.min(60, f.a() * scale) * Math.min(1, age / 3f);
-                    float ang = (float) Math.toRadians(f.kind() == Move.Kind.BEAM ? 0 : f.d());
+                    float ang = (float) Math.toRadians(f.d());
                     for (int i = 0; i < 10; i++) {
                         float k = i / 10f * len;
-                        Gfx.ring(m, cx + Mth.sin(ang) * k, cy - Mth.cos(ang) * k, 0, f.kind() == Move.Kind.BEAM ? 2.5f : 1.5f, Gfx.argb(alpha, 0xE8DCFF));
+                        Gfx.ring(m, cx + Mth.sin(ang) * k, cy - Mth.cos(ang) * k, 0, 1.5f, Gfx.argb(alpha, 0xE8DCFF));
                     }
                 }
-                case SHOCK, VORTEX, STAR, SPIKES, BARRIER -> {
-                    float life = f.kind() == Move.Kind.STAR ? f.d() + 10 : f.kind() == Move.Kind.VORTEX ? f.c() + 6 : 18;
+                case SHOCK, CRATER -> {
+                    float life = 18;
                     if (age > life) break;
                     float k = age / life;
-                    float fwd = f.kind() == Move.Kind.STAR || f.kind() == Move.Kind.VORTEX ? f.b() : f.kind() == Move.Kind.SPIKES ? f.d() : f.kind() == Move.Kind.BARRIER ? 1.4f : 1.5f;
-                    float r = Math.min(58, f.a() * scale * (f.kind() == Move.Kind.SHOCK ? k : 1));
-                    float px = cx, py = cy - Math.min(55, fwd * scale);
-                    int col = f.kind() == Move.Kind.STAR ? 0xFFFFFF : f.kind() == Move.Kind.BARRIER ? 0xC8B0FF : 0x8C55FF;
-                    if (f.kind() == Move.Kind.BARRIER) Gfx.arc(m, cx, cy, 10, 12, -0.9f, 0.9f, Gfx.argb(1 - k, col));
-                    else Gfx.ring(m, px, py, Math.max(0, r - 2), r, Gfx.argb(0.9f * (1 - k), col));
+                    float r = Math.min(58, f.a() * scale * k);
+                    float py = cy - Math.min(55, (f.kind() == Move.Kind.CRATER ? f.c() : 1.5f) * scale);
+                    Gfx.ring(m, cx, py, Math.max(0, r - 2), r, Gfx.argb(0.9f * (1 - k), 0x8C90C8));
+                }
+                case FIST, BARRAGE -> {
+                    float life = f.kind() == Move.Kind.BARRAGE ? f.d() + 8 : 8;
+                    if (age > life) break;
+                    float k = age / life;
+                    float py = cy - Math.min(55, (f.kind() == Move.Kind.BARRAGE ? f.c() : f.b()) * scale);
+                    Gfx.ring(m, cx + f.d() * 4, py, 0, 3 + 4 * k * Math.max(1, f.a()), Gfx.argb(1 - k, 0xE8E6F4));
                 }
                 case REND_STORM -> {
                     float life = f.a() * 0.8f + 18;
@@ -205,12 +209,12 @@ public class GuideScreen extends Screen {
                         Gfx.arc(m, px, py, 6, 7.2f, a, a + 1.4f, Gfx.argb(1 - age / life, 0xE8DCFF));
                     }
                 }
-                case GIANT, THROW, RIFT_ARM, FISSURE, GHOSTS -> {
+                case GHOSTS, TRENCH, LUNGE -> {
                     if (age > 20) break;
                     float k = age / 20f;
-                    float d = f.kind() == Move.Kind.GIANT ? f.b() : f.kind() == Move.Kind.THROW ? f.b() * Math.min(1, k * 2) : f.kind() == Move.Kind.FISSURE ? f.a() * k : 3;
+                    float d = f.kind() == Move.Kind.TRENCH ? f.a() * k : 3;
                     float py = cy - Math.min(55, d * scale);
-                    Gfx.ring(m, cx, py, 0, f.kind() == Move.Kind.GIANT ? 8 : 3, Gfx.argb(1 - k, 0xD8C8FF));
+                    Gfx.ring(m, cx, py, 0, 3, Gfx.argb(1 - k, 0xD8C8FF));
                 }
                 default -> {}
             }

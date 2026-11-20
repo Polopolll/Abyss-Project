@@ -26,6 +26,9 @@ public final class FxManager {
     private static final List<Fx> ACTIVE = new ArrayList<>();
     private static final Random R = new Random();
     public static float shake, flash, pulse;
+    private static float shakeO;
+    /** The shake at this frame (interpolated between ticks, so it fades out smoothly). */
+    public static float shake(float pt) { return shakeO + (shake - shakeO) * pt; }
     public static int flashColor = 0xFFFFFF;
 
     public static void receive(S2CFx p) {
@@ -83,6 +86,7 @@ public final class FxManager {
         for (Fx f : ACTIVE) FxEmit.tick(f);
         FxEmit.ambient();
         com.andy.abyss.client.InfectionClient.tick();
+        shakeO = shake;
         shake *= 0.86f;
         pulse *= 0.9f;
         flash *= 0.82f;

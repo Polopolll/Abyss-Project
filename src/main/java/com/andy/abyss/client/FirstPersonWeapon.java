@@ -2,12 +2,14 @@ package com.andy.abyss.client;
 
 import com.andy.abyss.Abyss;
 import com.andy.abyss.client.render.MoveFx;
+import com.andy.abyss.client.render.ViewDrive;
 import com.andy.abyss.client.render.WeaponModel;
 import com.andy.abyss.combat.Weapon;
 import com.andy.abyss.data.Ability;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderHandEvent;
@@ -25,9 +27,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * First person: the construct as a view model. It rests low on the right with the blade angled up and in; during a
- * move it follows the move's swing keyframes in view space (a slash sweeps across the screen, a thrust drives toward
- * the crosshair, a slam comes down from the top), so the blade and the cut it leaves line up.
+ * First person. Both weapons are driven by {@link ViewDrive}: the blade rides the head of the light it is cutting,
+ * each fist lands on the point where its punch flashes, on the tick it flashes. Your own arms reach from off-screen
+ * shoulders to the grip / fist.
  */
 @Mod.EventBusSubscriber(modid = Abyss.MODID, value = Dist.CLIENT)
 public final class FirstPersonWeapon {
@@ -38,53 +40,46 @@ public final class FirstPersonWeapon {
         Weapon w = Weapon.byIndex(ClientState.weaponOf(mc.player.getId()));
         PoseStack ps = e.getPoseStack();
         float pt = e.getPartialTick();
-        float[] sw = MoveFx.swingOf(mc.player.getId(), pt, true);
+        float forge = MoveFx.swingOf(mc.player.getId(), pt, true)[4];
         float glow = 0.95f + 0.25f * (float) Math.sin((ClientState.ticks + pt) * 0.15);
         boolean main = e.getHand() == InteractionHand.MAIN_HAND;
-        if (!main) {
-            if (w == Weapon.BULWARK) { e.setCanceled(true); shield(ps, e, sw[4], glow); }
-            else if (w == Weapon.GAUNTLETS) { e.setCanceled(true); gauntlet(ps, e, sw, glow, true); }
-            return;
-        }
+        if (w == Weapon.GAUNTLETS) { e.setCanceled(true); gauntlet(ps, e, forge, glow, !main); return; }
+        if (!main) return;
         e.setCanceled(true);
-        if (w == Weapon.GAUNTLETS) { gauntlet(ps, e, sw, glow, false); return; }
-        if (sw[3] == 1) return; // thrown
-        // never past ~70° up: an overhead wind-up would swing the construct over the camera and fill the screen
-        // the scythe rests diagonally across the view: shaft from your right hand up to the left, blade hanging out over the field
-        if (w == Weapon.SCYTHE && sw[5] == 0) { sw[0] = -34; sw[1] = 30; }
-        double yaw = Math.toRadians(sw[0]), pitch = Math.toRadians(Math.max(-80, Math.min(68, sw[1])));
-        Vector3f dir = new Vector3f((float) (Math.sin(yaw) * Math.cos(pitch)), (float) Math.sin(pitch), (float) (-Math.cos(yaw) * Math.cos(pitch))).normalize();
-        // the fist: low right at rest, drawn toward the centre as it swings
-        float swingK = sw[5] == 0 ? 0 : 1;
-        Vector3f grip = new Vector3f(0.46f - 0.16f * swingK, -0.48f + 0.06f * swingK, -0.72f).add(new Vector3f(dir).mul(0.12f + sw[2]));
+        sword(ps, e, forge, glow);
+    }
+
+    /** The edge's last direction, so the blade never flips over between frames (its two edges are alike). */
+    private static Vector3f lastEdge;
+
+    private static void sword(PoseStack ps, RenderHandEvent e, float forge, float glow) {
+        var mc = Minecraft.getInstance();
+        ViewDrive.Blade b = ViewDrive.sword(mc.player.getId(), e.getPartialTick());
+        Vector3f dir = b.dir(), grip = b.grip();
+        // the blade's width runs along the cut (its edge leads), never flipping sides from one frame to the next
+        Vector3f edge = new Vector3f(b.edge()).sub(new Vector3f(dir).mul(b.edge().dot(dir)));
+        if (edge.lengthSquared() < 1e-6f) edge = new Vector3f(dir).cross(0, 0, -1);
+        if (edge.lengthSquared() < 1e-6f) edge.set(1, 0, 0);
+        edge.normalize();
+        if (lastEdge != null && edge.dot(lastEdge) < 0) edge.negate();
+        if (lastEdge != null) { edge = new Vector3f(lastEdge).lerp(edge, 0.5f); edge.sub(new Vector3f(dir).mul(edge.dot(dir))).normalize(); }
+        lastEdge = new Vector3f(edge);
+        Vector3f face = new Vector3f(edge).cross(dir).normalize();
+        // the model: +Y along the blade, +X across its width, +Z out of its face
+        org.joml.Matrix3f basis = new org.joml.Matrix3f(edge, dir, face);
+        Quaternionf q = new Quaternionf().setFromNormalized(basis);
         ps.pushPose();
         ps.translate(grip.x, grip.y, grip.z);
-        Quaternionf q = new Quaternionf().rotationTo(new Vector3f(0, 1, 0), dir);
-        // roll the flat so the edge leads (faces along the swing, i.e. across the view)
-        Vector3f bx = new Vector3f(1, 0, 0).rotate(q);
-        Vector3f want = new Vector3f(dir).cross(0, 0, -1);
-        if (want.lengthSquared() > 1e-4f) {
-            want.normalize();
-            float ang = (float) Math.atan2(new Vector3f(bx).cross(want).dot(dir), bx.dot(want));
-            q = new Quaternionf().rotateAxis(ang + (float) Math.PI / 2, dir).mul(q);
-        }
         ps.mulPose(q);
-        // turn the flat a little toward you so blades show their face, not just their edge
-        // the roll leaves the weapon's width pointing at you: turn it so blades show their face (a little of the
-        // edge too), and the scythe crescent, spear wings and maul head lie across the view
-        if (w == Weapon.SWORD || w == Weapon.GREATSWORD || w == Weapon.BULWARK) ps.mulPose(Axis.YP.rotationDegrees(62));
-        else if (w == Weapon.SPEAR || w == Weapon.HAMMER) ps.mulPose(Axis.YP.rotationDegrees(90));
-        else if (w == Weapon.SCYTHE) ps.mulPose(Axis.YP.rotationDegrees(-90)); // the crescent sweeps out to the left, face on
-        float sc = switch (w) { case GREATSWORD -> 0.62f; case HAMMER -> 0.8f; case SPEAR, SCYTHE -> 0.7f; case BULWARK -> 0.8f; default -> 0.75f; };
-        ps.scale(sc, sc, sc);
-        WeaponModel.render(ps, e.getMultiBufferSource(), w, sw[4], glow);
+        ps.mulPose(Axis.YP.rotationDegrees(40)); // turn the flat toward you a little: you see the blade, not a line
+        ps.scale(0.75f, 0.75f, 0.75f);
+        WeaponModel.render(ps, e.getMultiBufferSource(), Weapon.SWORD, forge, glow);
         ps.popPose();
-        // your arms on the weapon: the right fist on the grip, and on two-handed weapons the left hand on the grip
-        // or shaft (further along the weapon's own axis, so it follows every swing)
-        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, false, grip, dir, sw[4]);
-        float on = ArsenalPose.stance(w).leftOn();
-        if (on != 0) arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, true, new Vector3f(dir).mul(on * sc).add(grip), dir, sw[4]);
+        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, false, grip, dir, forge);
     }
+
+    /** How much the next arm may stretch to reach its shoulder (0 = never: a guard; 1 = fully: a punch thrown out). */
+    private static float stretchK;
 
     /** Shoulders, off the bottom corners of the screen. */
     private static final Vector3f SHOULDER_R = new Vector3f(0.62f, -1.45f, -0.2f), SHOULDER_L = new Vector3f(-0.62f, -1.45f, -0.2f);
@@ -124,10 +119,14 @@ public final class FirstPersonWeapon {
         boolean va = a.visible, vs = sl.visible;
         a.setPos(0, 0, 0); a.setRotation(0, 0, 0); sl.setPos(0, 0, 0); sl.setRotation(0, 0, 0); a.visible = true; sl.visible = true;
         ps.pushPose();
-        Vector3f pivot = new Vector3f(hand).sub(new Vector3f(u).mul(8.5f / 16f * ARM)); // the fist (the arm's last 3 px) closes on the grip
+        // the arm runs all the way back to its shoulder: stretched along its length when the hand is far out (a
+        // view-model arm is shorter than the reach of a full punch), never shorter than it is
+        float reach = new Vector3f(hand).sub(from).length();
+        float stretch = Math.max(1, 1 + (reach / (10.5f / 16f * ARM) - 1) * stretchK);
+        Vector3f pivot = new Vector3f(hand).sub(new Vector3f(u).mul(8.5f / 16f * ARM * stretch)); // the fist (the arm's last 3 px) closes on the grip
         ps.translate(pivot.x, pivot.y, pivot.z);
         ps.mulPose(q);
-        ps.scale(ARM, ARM, ARM);
+        ps.scale(ARM, ARM * stretch, ARM);
         ps.translate(-cx / 16f, 0, 0);
         boolean crystal = ClientState.awakened(p.getId()) && com.andy.abyss.Config.crystalSkin.get() && com.andy.abyss.client.render.AbyssShaders.VOID != null;
         RenderType skin = crystal ? com.andy.abyss.client.render.Rt.voidEntity(com.andy.abyss.client.render.Rt.BODY) : RenderType.entitySolid(p.getSkinTextureLocation());
@@ -142,21 +141,6 @@ public final class FirstPersonWeapon {
         }
         ps.popPose();
         a.loadPose(pa); sl.loadPose(ps2); a.visible = va; sl.visible = vs;
-    }
-
-    private static void shield(PoseStack ps, RenderHandEvent e, float forge, float glow) {
-        boolean guard = ClientState.me.getBoolean("guarding");
-        Vector3f c = guard ? new Vector3f(-0.1f, -0.22f, -0.75f) : new Vector3f(-0.5f, -0.33f, -0.85f);
-        ps.pushPose();
-        ps.translate(c.x, c.y, c.z);
-        ps.mulPose(Axis.YP.rotationDegrees(guard ? 0 : 25)); // the boss faces you
-        ps.mulPose(Axis.ZP.rotationDegrees((ClientState.ticks + e.getPartialTick()) * 0.5f));
-        float s = guard ? 0.55f : 0.38f;
-        ps.scale(s, s, s);
-        WeaponModel.renderShield(ps, e.getMultiBufferSource(), forge, glow);
-        ps.popPose();
-        // strapped to your left forearm: the fist grips the strap just behind the boss
-        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), Minecraft.getInstance().player, true, new Vector3f(c).add(0.02f, -0.02f, 0.05f), new Vector3f(1, 0.2f, 0).normalize(), forge);
     }
 
     /** Asura's extra arms: pairs of phantom arms from higher and wider shoulders, hammering around the crosshair. */
@@ -191,28 +175,48 @@ public final class FirstPersonWeapon {
         }
     }
 
-    private static void gauntlet(PoseStack ps, RenderHandEvent e, float[] sw, float glow, boolean left) {
+    /**
+     * One fist. At rest it's up in a guard (forearm rising into it, knuckles up, the back of the hand toward you, like
+     * a boxer's); as it punches the knuckles turn to lead along the path and the back of the hand rolls up.
+     */
+    private static void gauntlet(PoseStack ps, RenderHandEvent e, float forge, float glow, boolean left) {
         var mc = Minecraft.getInstance();
         if (!left) phantoms(ps, e, glow);
-        float[] drive = MoveFx.fistDrive(mc.player.getId(), e.getPartialTick());
-        float push = left ? drive[0] : drive[1], lift = left ? drive[2] : drive[3];
-        float bob = (float) Math.sin((ClientState.ticks + e.getPartialTick()) * 0.12f + (left ? 1.6f : 0)) * 0.012f;
-        // a guard: fists up, a little apart; a punch drives the fist to the crosshair, an uppercut drives it up through it
-        Vector3f guard = new Vector3f(left ? -0.32f : 0.32f, -0.36f + bob, -0.66f);
-        Vector3f strike = new Vector3f(left ? -0.06f : 0.06f, -0.14f + lift * 0.18f, -1.25f);
-        float k = Math.max(-0.2f, Math.min(1.1f, push));
-        Vector3f hand = new Vector3f(guard).lerp(strike, Math.max(0, k));
-        if (k < 0) hand.add(0, -k * 0.1f, -k * 0.12f); // wind-up: the fist cocks back a little
-        Vector3f from = new Vector3f(left ? SHOULDER_L : SHOULDER_R);
-        Vector3f u = new Vector3f(hand).sub(from).normalize();
-        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, left, hand, new Vector3f(left ? 1 : -1, 0, 0), sw[4]);
+        ViewDrive.Fist f = ViewDrive.fists(mc.player.getId(), e.getPartialTick())[left ? 0 : 1];
+        Vector3f wrist = f.hand();
+        float ext = Mth.clamp(f.ext(), 0, 1);
+        // the shoulder: below the screen in the guard (forearms rise into the fists), drawn back behind you as the
+        // arm extends (so a punch is the whole arm driving out from the bottom corner along the line of sight)
+        Vector3f from = new Vector3f(left ? SHOULDER_L : SHOULDER_R).lerp(new Vector3f(left ? -0.3f : 0.3f, -0.6f, 0.2f), MoveFx.smoothPublic(ext));
+        // knuckles: up and a touch forward in the guard, at the target as the punch lands
+        Vector3f guardK = new Vector3f(left ? 0.08f : -0.08f, 1, -0.35f).normalize();
+        // (a touch up, so you see the back of your hand and the knuckles over it, not just the cuff end-on)
+        Vector3f aimK = new Vector3f(wrist).normalize().add(left ? 0.1f : -0.1f, 0.38f, 0).normalize();
+        Vector3f y = new Vector3f(guardK).lerp(aimK, ext).normalize();
+        // back of the hand: toward you in the guard, up when the arm is out
+        Vector3f back = new Vector3f(left ? 0.3f : -0.3f, 0.15f, 1).lerp(new Vector3f(0, 1, 0.25f), ext);
+        back.sub(new Vector3f(y).mul(back.dot(y)));
+        if (back.lengthSquared() < 1e-5f) back.set(0, 0, 1);
+        back.normalize();
+        if (f.roll() != 0) back.rotateAxis((float) Math.toRadians(f.roll()), y.x, y.y, y.z);
+        // an idle holding the hand its own way (knuckle cracking, shaking, looking it over): blend to that
+        if (f.hold() > 0 && f.knuckles() != null) {
+            y.lerp(f.knuckles(), f.hold()).normalize();
+            back.lerp(f.back(), f.hold());
+            back.sub(new Vector3f(y).mul(back.dot(y)));
+            if (back.lengthSquared() < 1e-5f) back.set(0, 0, 1);
+            back.normalize();
+        }
+        Vector3f x = new Vector3f(y).cross(back).normalize();
+        stretchK = MoveFx.smoothPublic(ext);
+        arm(ps, e.getMultiBufferSource(), e.getPackedLight(), mc.player, left, wrist, x, forge, from, 0);
+        stretchK = 0;
         ps.pushPose();
-        Vector3f at = new Vector3f(hand).add(new Vector3f(u).mul(-0.02f));
-        ps.translate(at.x, at.y, at.z);
-        ps.mulPose(new Quaternionf().rotationTo(new Vector3f(0, 1, 0), u));
-        ps.mulPose(Axis.YP.rotationDegrees(left ? -90 : 90)); // the gem on the back of the hand faces up/out
-        ps.scale(left ? -0.7f : 0.7f, 0.7f, 0.7f);
-        WeaponModel.render(ps, e.getMultiBufferSource(), Weapon.GAUNTLETS, sw[4], glow + k * 0.6f);
+        ps.translate(wrist.x, wrist.y, wrist.z);
+        ps.mulPose(new Quaternionf().setFromNormalized(new org.joml.Matrix3f(x, y, back)));
+        float sc = 0.52f;
+        ps.scale(left ? -sc : sc, sc, sc);
+        WeaponModel.renderFist(ps, e.getMultiBufferSource(), forge, glow + ext * 0.6f, f.grip() != null ? f.grip() : WeaponModel.Grip.of(0, 0, 0));
         ps.popPose();
     }
     private FirstPersonWeapon() {}

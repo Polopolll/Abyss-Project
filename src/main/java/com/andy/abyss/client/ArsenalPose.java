@@ -22,13 +22,6 @@ public final class ArsenalPose {
         return switch (w) {
             // one-handed: arm a little forward, blade raised and angled ahead
             case SWORD -> new Stance(new float[]{-0.5f, -0.12f, 0.08f, 0.15f, 0.1f, -0.1f}, -125, 0);
-            case BULWARK -> new Stance(new float[]{-0.45f, -0.1f, 0.08f, -1.05f, 0.45f, 0}, -120, 0);
-            // two-handed: held across the body, point up and to the left; left hand lower on the grip
-            case GREATSWORD -> new Stance(new float[]{-0.85f, -0.5f, 0, 0, 0, 0}, -150, -0.27f);
-            case HAMMER -> new Stance(new float[]{-0.7f, -0.45f, 0, 0, 0, 0}, -150, 0.45f);
-            // polearms: shaft forward and up, left hand forward on the shaft
-            case SCYTHE -> new Stance(new float[]{-0.55f, -0.35f, 0, 0, 0, 0}, -125, 0.55f);
-            case SPEAR -> new Stance(new float[]{-0.6f, -0.3f, 0, 0, 0, 0}, -100, 0.6f);
             // fists up in a guard
             case GAUNTLETS -> new Stance(new float[]{-1.25f, -0.25f, 0.1f, -1.35f, 0.35f, -0.1f}, -90, 0);
         };
@@ -37,7 +30,7 @@ public final class ArsenalPose {
     public static boolean twoHanded(Weapon w) { return stance(w).leftOn() != 0; }
 
     /** The scale the third-person layer draws each weapon at (kept here so the hand solve matches the drawing). */
-    public static float layerScale(Weapon w) { return switch (w) { case GREATSWORD -> 0.95f; case HAMMER, SCYTHE, SPEAR -> 1.0f; default -> 1.05f; }; }
+    public static float layerScale(Weapon w) { return 1.05f; }
 
     /** 0..1: how strongly a move pose currently drives the arms (same timing as the pose blend). */
     public static float poseWeight(int id) {

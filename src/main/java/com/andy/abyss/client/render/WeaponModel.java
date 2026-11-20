@@ -20,8 +20,8 @@ import java.util.Map;
  * along every crystal edge.
  */
 public final class WeaponModel {
-    record Tri(Vector3f a, Vector3f b, Vector3f c, float galaxy) {}
-    record Edge(Vector3f a, Vector3f b) {}
+    record Tri(Vector3f a, Vector3f b, Vector3f c, float galaxy, int group) { Tri(Vector3f a, Vector3f b, Vector3f c, float galaxy) { this(a, b, c, galaxy, 0); } }
+    record Edge(Vector3f a, Vector3f b, int group) { Edge(Vector3f a, Vector3f b) { this(a, b, 0); } }
     static final class Mesh { final List<Tri> tris = new ArrayList<>(); final List<Edge> edges = new ArrayList<>(); }
     private static final Map<Weapon, Mesh> MESHES = new EnumMap<>(Weapon.class);
     private static Mesh SHIELD;
@@ -83,6 +83,69 @@ public final class WeaponModel {
             tri(m, top, p0, p1, g); tri(m, bot, p1, p0, g);
             m.edges.add(new Edge(p0, p1)); m.edges.add(new Edge(top, p0)); m.edges.add(new Edge(bot, p0));
         }
+    }
+
+    /**
+     * Load a mesh exported from Blender: "v x y z" vertices, "f a b c g" triangles (g = 1 galaxy body, 0 dark
+     * crystal), "e a b" glow lines along the sharp creases. Returns false if it isn't there.
+     */
+    static boolean load(Mesh m, String name) {
+        try (var in = WeaponModel.class.getResourceAsStream("/assets/abyss/models/mesh/" + name + ".mesh")) {
+            if (in == null) return false;
+            List<Vector3f> vs = new ArrayList<>();
+            for (String line : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).split("\n")) {
+                String[] t = line.trim().split("\\s+");
+                if (t.length < 3) continue;
+                switch (t[0]) {
+                    case "v" -> vs.add(v(Float.parseFloat(t[1]), Float.parseFloat(t[2]), Float.parseFloat(t[3])));
+                    case "f" -> m.tris.add(new Tri(vs.get(Integer.parseInt(t[1])), vs.get(Integer.parseInt(t[2])), vs.get(Integer.parseInt(t[3])),
+                            t.length > 4 && t[4].equals("1") ? GALAXY : DARK, t.length > 5 ? Integer.parseInt(t[5]) : 0));
+                    case "e" -> m.edges.add(new Edge(vs.get(Integer.parseInt(t[1])), vs.get(Integer.parseInt(t[2])), t.length > 3 ? Integer.parseInt(t[3]) : 0));
+                    default -> {}
+                }
+            }
+            return !m.tris.isEmpty();
+        } catch (Exception ex) {
+            com.andy.abyss.Abyss.LOG.warn("Abyss: couldn't load mesh {}", name, ex);
+            m.tris.clear(); m.edges.clear();
+            return false;
+        }
+    }
+
+    /** The hand-built fist (used if the Blender mesh is missing). */
+    private static void proceduralFist(Mesh m) {
+        prism(m, ID, 8, -0.2f, -0.02f, 0.16f, 0.17f, (float) Math.PI / 8, DARK, true);
+        box(m, -0.15f, 0.15f, -0.01f, 0.25f, -0.08f, 0.08f, GALAXY, true);
+        for (int i = 0; i < 4; i++) {
+            float x0 = -0.15f + i * 0.0755f, x1 = x0 + 0.07f;
+            box(m, x0, x1, 0.24f, 0.335f, -0.07f, 0.085f, GALAXY, true);
+            box(m, x0 + 0.004f, x1 - 0.004f, 0.17f, 0.31f, -0.165f, -0.07f, GALAXY, true);
+        }
+    }
+
+    /** An axis-aligned box (in the mesh's own frame). */
+    private static void box(Mesh m, float x0, float x1, float y0, float y1, float z0, float z1, float g, boolean edges) {
+        boxT(m, ID, x0, x1, y0, y1, z0, z1, g);
+        if (!edges) return;
+        Vector3f[] c = corners(ID, x0, x1, y0, y1, z0, z1);
+        int[][] e = {{0,1},{1,3},{3,2},{2,0},{4,5},{5,7},{7,6},{6,4},{0,4},{1,5},{2,6},{3,7}};
+        for (int[] q : e) m.edges.add(new Edge(c[q[0]], c[q[1]]));
+    }
+
+    private static Vector3f[] corners(Matrix4f t, float x0, float x1, float y0, float y1, float z0, float z1) {
+        return new Vector3f[]{at(t, x0, y0, z0), at(t, x1, y0, z0), at(t, x0, y1, z0), at(t, x1, y1, z0),
+                at(t, x0, y0, z1), at(t, x1, y0, z1), at(t, x0, y1, z1), at(t, x1, y1, z1)};
+    }
+
+    /** A box under a transform (closed, outward faces). */
+    private static void boxT(Mesh m, Matrix4f t, float x0, float x1, float y0, float y1, float z0, float z1, float g) {
+        Vector3f[] c = corners(t, x0, x1, y0, y1, z0, z1);
+        quad(m, c[0], c[2], c[3], c[1], g); // -z
+        quad(m, c[4], c[5], c[7], c[6], g); // +z
+        quad(m, c[0], c[4], c[6], c[2], g); // -x
+        quad(m, c[1], c[3], c[7], c[5], g); // +x
+        quad(m, c[0], c[1], c[5], c[4], g); // -y
+        quad(m, c[2], c[6], c[7], c[3], g); // +y
     }
 
     private static Matrix4f tr(float x, float y, float z) { return new Matrix4f().translation(x, y, z); }
@@ -147,93 +210,9 @@ public final class WeaponModel {
                         return new float[]{wl, wr, 0.035f * kk * kk, 0.03f * (1 - 0.6f * kk)};
                     }, 14, GALAXY);
                 }
-                case GREATSWORD -> {
-                    grip(m, -0.46f, 0.0f, 0.038f, 4);
-                    int n = 11; float[][] gs = new float[n][]; float[] gl = new float[n], gr = new float[n], gt = new float[n];
-                    for (int i = 0; i < n; i++) { float x = -0.38f + 0.76f * i / (n - 1), q = Math.abs(x) / 0.38f; gs[i] = new float[]{x, 0.04f + 0.12f * (float) Math.pow(q, 2.2)}; gl[i] = 0.05f * (1 - 0.85f * q * q); gr[i] = gl[i]; gt[i] = 0.06f * (1 - 0.5f * q); }
-                    curvedPlate(m, ID, gs, gl, gr, gt, 0, DARK);
-                    // broad blade: a narrow ricasso, shoulders, a long straight edge, and a chisel point
-                    blade(m, ID, 0.08f, 2.05f, kk -> {
-                        float wdt = kk < 0.07f ? 0.1f : kk < 0.11f ? 0.1f + 0.075f * (kk - 0.07f) / 0.04f : 0.175f - 0.02f * kk;
-                        float wl = wdt, wr = wdt;
-                        if (kk > 0.8f) { float q = (kk - 0.8f) / 0.2f; wl = wdt * (1 - q); wr = wdt * (1 - q * q); }
-                        return new float[]{wl, wr, 0, 0.055f * (1 - 0.5f * kk)};
-                    }, 16, GALAXY);
-                    // a dark spine bar up the middle of the blade, with a gem set in it
-                    blade(m, ID, 0.1f, 1.45f, kk -> new float[]{0.035f * (1 - kk * 0.7f), 0.035f * (1 - kk * 0.7f), 0, 0.072f * (1 - 0.6f * kk)}, 6, DARK);
-                    gem(m, new Matrix4f().translation(0, 0.3f, 0).rotateX((float) Math.PI / 2), 4, 0.055f, 0.085f, GALAXY);
-                }
-                case HAMMER -> {
-                    prism(m, ID, 8, -0.36f, 1.02f, 0.034f, 0.034f, 0, DARK, false);
-                    for (float y : new float[]{-0.36f, -0.05f, 0.25f, 0.55f, 1.0f}) prism(m, ID, 8, y - 0.015f, y + 0.015f, 0.047f, 0.047f, 0, DARK, false);
-                    gem(m, tr(0, -0.42f, 0), 6, 0.05f, 0.07f, GALAXY);
-                    // the head: an octagonal drum on its side, bevelled faces, banded in dark crystal
-                    Matrix4f head = new Matrix4f().translation(0, 1.2f, 0).rotateZ((float) -Math.PI / 2);
-                    prism(m, head, 8, -0.36f, -0.3f, 0.11f, 0.17f, (float) Math.PI / 8, GALAXY, true);
-                    prism(m, head, 8, -0.3f, 0.3f, 0.17f, 0.17f, (float) Math.PI / 8, GALAXY, true);
-                    prism(m, head, 8, 0.3f, 0.36f, 0.17f, 0.11f, (float) Math.PI / 8, GALAXY, true);
-                    for (float y : new float[]{-0.18f, 0.18f}) prism(m, head, 8, y - 0.035f, y + 0.035f, 0.185f, 0.185f, (float) Math.PI / 8, DARK, true);
-                    prism(m, head, 4, 0.36f, 0.44f, 0.08f, 0.0f, 0, DARK, true);
-                    prism(m, head, 4, -0.36f, -0.44f, 0.08f, 0.0f, 0, DARK, true);
-                    prism(m, ID, 6, 0.95f, 1.05f, 0.05f, 0.07f, 0, DARK, true);
-                    prism(m, ID, 4, 1.34f, 1.52f, 0.07f, 0.0f, (float) Math.PI / 4, DARK, true);
-                }
-                case SCYTHE -> {
-                    prism(m, ID, 8, -0.62f, 1.4f, 0.028f, 0.028f, 0, DARK, false);
-                    for (float y : new float[]{-0.62f, -0.2f, 0.45f, 0.65f, 1.38f}) prism(m, ID, 8, y - 0.015f, y + 0.015f, 0.04f, 0.04f, 0, DARK, false);
-                    gem(m, tr(0, -0.69f, 0), 6, 0.04f, 0.07f, GALAXY);
-                    prism(m, ID, 6, 1.36f, 1.5f, 0.05f, 0.04f, 0, DARK, true);
-                    // the crescent: a thick back that thins to a long inner edge, sweeping out and down to a point
-                    int n = 18; float[][] sp = new float[n][]; float[] lo = new float[n], li = new float[n], th = new float[n];
-                    for (int i = 0; i < n; i++) {
-                        float q = i / (float) (n - 1);
-                        sp[i] = new float[]{bez(0.02f, -0.5f, -1.05f, q), bez(1.46f, 1.78f, 1.08f, q)};
-                        lo[i] = 0.025f * (1 - q);
-                        li[i] = 0.2f * (float) Math.sin(Math.PI * Math.min(1, 0.25f + q * 0.8f)) * (1 - q * 0.2f);
-                        th[i] = 0.03f * (1 - q * 0.8f);
-                    }
-                    curvedPlate(m, ID, sp, lo, li, th, -0.35f, GALAXY);
-                    // a back spike balancing the blade
-                    curvedPlate(m, ID, new float[][]{{0.02f, 1.45f}, {0.13f, 1.5f}, {0.25f, 1.6f}}, new float[]{0.025f, 0.015f, 0}, new float[]{0.025f, 0.015f, 0}, new float[]{0.02f, 0.012f, 0.002f}, 0, DARK);
-                }
-                case SPEAR -> {
-                    prism(m, ID, 8, -0.78f, 1.42f, 0.025f, 0.025f, 0, DARK, false);
-                    for (float y : new float[]{-0.7f, -0.1f, 0.35f, 1.0f}) prism(m, ID, 8, y - 0.014f, y + 0.014f, 0.036f, 0.036f, 0, DARK, false);
-                    prism(m, ID, 4, -0.78f, -0.95f, 0.035f, 0.0f, (float) Math.PI / 4, GALAXY, true);
-                    prism(m, ID, 6, 1.4f, 1.53f, 0.035f, 0.05f, 0, DARK, true);
-                    // a leaf head with a raised midrib
-                    blade(m, ID, 1.52f, 2.12f, kk -> {
-                        float wdt = kk < 0.3f ? 0.11f * (float) Math.sin(kk / 0.3f * Math.PI / 2) : 0.11f * (1 - (kk - 0.3f) / 0.7f);
-                        return new float[]{Math.max(0.012f, wdt) * (kk >= 0.999f ? 0 : 1), Math.max(0.012f, wdt) * (kk >= 0.999f ? 0 : 1), 0, 0.035f * (1 - 0.7f * kk)};
-                    }, 12, GALAXY);
-                    // two hooked wings below the head
-                    for (int s = -1; s <= 1; s += 2) {
-                        float[][] sp = new float[6][]; float[] wl = new float[6], wr = new float[6], th = new float[6];
-                        for (int i = 0; i < 6; i++) { float q = i / 5f; sp[i] = new float[]{s * bez(0.04f, 0.17f, 0.15f, q), bez(1.5f, 1.52f, 1.7f, q)}; wl[i] = 0.02f * (1 - q); wr[i] = wl[i]; th[i] = 0.018f * (1 - q * 0.8f); }
-                        curvedPlate(m, ID, sp, wl, wr, th, 0, DARK);
-                    }
-                }
-                case BULWARK -> {
-                    grip(m, -0.2f, 0.0f, 0.026f, 2);
-                    curvedPlate(m, ID, new float[][]{{-0.13f, 0.03f}, {0, 0.03f}, {0.13f, 0.03f}}, new float[]{0.02f, 0.03f, 0.02f}, new float[]{0.02f, 0.03f, 0.02f}, new float[]{0.025f, 0.035f, 0.025f}, 0, DARK);
-                    // a broad, straight shard with a long angular point
-                    blade(m, ID, 0.05f, 0.92f, kk -> {
-                        float wdt = 0.085f - 0.01f * kk;
-                        if (kk > 0.68f) wdt *= 1 - (kk - 0.68f) / 0.32f;
-                        return new float[]{wdt, wdt, 0, 0.032f * (1 - 0.5f * kk)};
-                    }, 10, GALAXY);
-                }
                 case GAUNTLETS -> {
-                    // cuff, an armoured back of the hand, a gem, and four knuckle spikes
-                    prism(m, ID, 8, -0.24f, -0.05f, 0.1f, 0.115f, (float) Math.PI / 8, DARK, true);
-                    prism(m, ID, 8, -0.06f, -0.03f, 0.13f, 0.13f, (float) Math.PI / 8, DARK, true);
-                    prism(m, ID, 4, -0.03f, 0.14f, 0.135f, 0.12f, (float) Math.PI / 4, GALAXY, true);
-                    prism(m, ID, 4, 0.14f, 0.18f, 0.12f, 0.1f, (float) Math.PI / 4, DARK, true);
-                    gem(m, new Matrix4f().translation(0, 0.05f, 0.1f).rotateX((float) Math.PI / 2), 6, 0.045f, 0.04f, GALAXY);
-                    for (int i = 0; i < 4; i++) {
-                        float x = -0.072f + 0.048f * i;
-                        prism(m, new Matrix4f().translation(x, 0.17f, 0.035f).rotateX(0.25f), 4, 0, 0.11f, 0.026f, 0, (float) Math.PI / 4, GALAXY, true);
-                    }
+                    // modelled in Blender (assets/abyss/models/mesh/fist.mesh); the procedural fist is the fallback
+                    if (!load(m, "fist")) proceduralFist(m);
                 }
             }
             return m;
@@ -260,6 +239,45 @@ public final class WeaponModel {
     }
 
     static Mesh shield() { if (SHIELD == null) { SHIELD = new Mesh(); hexShield(SHIELD, 0.42f, 0.06f); } return SHIELD; }
+
+    /**
+     * How the fist's hand is held: open 0 (clenched) … 1 (flat, fingers out) per finger (index first), squeeze 0..1
+     * (clenched tighter, knuckles rolled in), thumb 0 (folded across) … 1 (out).
+     */
+    public record Grip(float[] open, float squeeze, float thumb) {
+        public static Grip of(float open, float squeeze, float thumb) { return new Grip(new float[]{open, open, open, open}, squeeze, thumb); }
+        public Grip mix(Grip o, float k) {
+            float[] f = new float[4];
+            for (int i = 0; i < 4; i++) f[i] = open[i] + (o.open[i] - open[i]) * k;
+            return new Grip(f, squeeze + (o.squeeze - squeeze) * k, thumb + (o.thumb - thumb) * k);
+        }
+    }
+
+    /** The fist's joints (from the Blender rig): per finger the knuckle-row pivot and the curled-tip pivot. */
+    private static final float[] FX = {-0.112f, -0.037f, 0.038f, 0.113f}, DROP = {0.01f, 0, 0, 0.028f};
+
+    /** Draw the fist with its fingers posed. */
+    public static void renderFist(PoseStack ps, MultiBufferSource buf, float alpha, float glow, Grip g) {
+        Matrix4f[] xf = new Matrix4f[11];
+        for (int i = 0; i < 4; i++) {
+            float o = Math.max(0, Math.min(1, g.open()[i])), sq = Math.max(0, Math.min(1, g.squeeze()));
+            float py = 0.24f - DROP[i], dy = 0.335f - DROP[i];
+            // the knuckle row: rolls in when squeezed, lifts and fans out as the hand opens
+            Matrix4f prox = new Matrix4f().translate(FX[i], py, 0)
+                    .rotateZ((float) Math.toRadians((1.5f - i) * 7 * o))
+                    .rotateX((float) Math.toRadians(-14 * sq + 6 * o))
+                    .translate(-FX[i], -py, 0);
+            // the curled tips swing out from under the palm to straighten the finger
+            Matrix4f dist = new Matrix4f(prox).translate(FX[i], dy, -0.07f)
+                    .rotateX((float) Math.toRadians(150 * o - 8 * sq))
+                    .translate(-FX[i], -dy, 0.07f);
+            xf[1 + i] = prox; xf[5 + i] = dist;
+        }
+        float th = Math.max(0, Math.min(1, g.thumb()));
+        xf[9] = new Matrix4f().translate(-0.13f, 0.08f, -0.06f).rotateZ((float) Math.toRadians(25 * th)).translate(0.13f, -0.08f, 0.06f);
+        xf[10] = new Matrix4f(xf[9]).translate(-0.13f, 0.14f, -0.13f).rotateZ((float) Math.toRadians(55 * th)).rotateX((float) Math.toRadians(-20 * th)).translate(0.13f, -0.14f, 0.13f);
+        render(ps, buf, mesh(Weapon.GAUNTLETS), alpha, glow, xf);
+    }
 
     /** Draw a weapon with the pose stack's current transform. alpha fades it in and out (forging). */
     public static void render(PoseStack ps, MultiBufferSource buf, Weapon w, float alpha, float glow) { render(ps, buf, mesh(w), alpha, glow); }
@@ -297,12 +315,21 @@ public final class WeaponModel {
         }
     }
 
-    private static void render(PoseStack ps, MultiBufferSource buf, Mesh m, float alpha, float glow) {
+    private static void render(PoseStack ps, MultiBufferSource buf, Mesh m, float alpha, float glow) { render(ps, buf, m, alpha, glow, null); }
+
+    /** A vertex through its group's joint transform (null = the mesh as modelled). */
+    private static Vector3f px(Vector3f p, int group, Matrix4f[] xf) {
+        if (xf == null || group <= 0 || group >= xf.length || xf[group] == null) return p;
+        return xf[group].transformPosition(new Vector3f(p));
+    }
+
+    private static void render(PoseStack ps, MultiBufferSource buf, Mesh m, float alpha, float glow, Matrix4f[] xf) {
         if (AbyssShaders.VOID == null || alpha <= 0.01f) return;
         Matrix4f mat = ps.last().pose();
         Matrix3f nm = ps.last().normal();
         VertexConsumer vc = buf.getBuffer(Rt.voidSolid(Rt.BODY_CORE));
-        for (Tri t : m.tris) {
+        for (Tri t0 : m.tris) {
+            Tri t = xf == null || t0.group() == 0 ? t0 : new Tri(px(t0.a(), t0.group(), xf), px(t0.b(), t0.group(), xf), px(t0.c(), t0.group(), xf), t0.galaxy(), t0.group());
             Vector3f n = new Vector3f(t.b()).sub(t.a()).cross(new Vector3f(t.c()).sub(t.a()));
             if (n.lengthSquared() < 1e-12f) continue;
             n.normalize();
@@ -315,7 +342,8 @@ public final class WeaponModel {
         }
         VertexConsumer g = buf.getBuffer(Rt.add(Rt.WHITE));
         float a = alpha * glow;
-        for (Edge e : m.edges) {
+        for (Edge e0 : m.edges) {
+            Edge e = xf == null || e0.group() == 0 ? e0 : new Edge(px(e0.a(), e0.group(), xf), px(e0.b(), e0.group(), xf), e0.group());
             Vector3f d = new Vector3f(e.b()).sub(e.a());
             Vector3f side = new Vector3f(d).cross(0, 0, 1);
             if (side.lengthSquared() < 1e-6f) side.set(1, 0, 0);

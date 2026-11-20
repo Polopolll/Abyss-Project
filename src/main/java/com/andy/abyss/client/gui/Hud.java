@@ -72,7 +72,7 @@ public final class Hud {
         // neighbours on the wheel, fading out to the left
         List<Ability> order = WheelOrder.get();
         int idx = Math.max(0, order.indexOf(sel));
-        for (int k = 1; k <= 3; k++) {
+        for (int k = 1; k <= Math.min(3, order.size() - 1); k++) {
             Ability a = order.get(Math.floorMod(idx + k, order.size()));
             float x = cx - 26 - k * 20;
             Gfx.icon(g, Icons.of(a), x, cy + 6, 18, 0.9f, a.color, 0, 0.75f - k * 0.17f);
@@ -112,7 +112,7 @@ public final class Hud {
             int sh = (int) ((time * 1.6f) % (bw + 30)) - 15;
             if (sh > 0 && sh < fw) g.fill(bx + Math.max(0, sh - 3), by, bx + Math.min(fw, sh + 3), by + bh, 0x70FFFFFF);
         }
-        String out = (inf ? "∞" : String.valueOf((int) ClientState.output())) + "  §8" + ClientState.me.getInt("spores") + " spores" + (ClientState.me.getInt("negDown") > 0 ? " §c· negation broken" : "");
+        String out = (inf ? "∞" : String.valueOf((int) ClientState.output())) ;
         g.pose().pushPose();
         g.pose().translate(bx, by - 8, 0);
         g.pose().scale(0.7f, 0.7f, 1);
@@ -230,7 +230,7 @@ public final class Hud {
             Gfx.arc(m, w / 2f, h / 2f, 9, 10.5f, 0, Mth.TWO_PI, Gfx.argb(a, 0xFFFFFF));
         }
         if (ClientState.me.getBoolean("guarding")) g.drawCenteredString(f, "§7GUARD", w / 2, h / 2 + 22, 0xFFFFFFFF);
-        if (ClientState.heavyHeld > 8 && wpn != Weapon.BULWARK) {
+        if (ClientState.heavyHeld > 8) {
             float c = Math.min(1, (ClientState.heavyHeld - 8) / 12f);
             Gfx.arc(m, w / 2f, h / 2f, 12, 14, 0, Mth.TWO_PI * c, Gfx.argb(0.9f, c >= 1 ? 0xFFFFFF : 0xB48CFF));
         }

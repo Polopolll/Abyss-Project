@@ -45,8 +45,6 @@ public final class Arsenal {
                 if (phase == C2SInput.PRESS) {
                     if ((flags & C2SInput.AIR) != 0 && !p.onGround()) request(p, PLUNGE);
                     else if (now <= d.counterUntil) { d.counterUntil = 0; request(p, COUNTER); }
-                } else if (phase == C2SInput.HOLD && weapon(d) == Weapon.BULWARK) {
-                    guard(p, true);
                 } else if (phase == C2SInput.RELEASE) {
                     if (d.guardSince >= 0) { guard(p, false); request(p, HEAVY); return; }
                     if ((flags & C2SInput.AIR) != 0 && !p.onGround()) return; // the plunge already went on the press
@@ -148,7 +146,7 @@ public final class Arsenal {
         }
         // the physical part of the move: craters, trenches, the time-stop (same ticks the clients draw them)
         for (Move.Fx f : m.fx()) {
-            if (f.kind() != Move.Kind.CRATER && f.kind() != Move.Kind.TRENCH && f.kind() != Move.Kind.FREEZE) continue;
+            if (f.kind() != Move.Kind.CRATER && f.kind() != Move.Kind.TRENCH && f.kind() != Move.Kind.LUNGE) continue;
             Scheduler.later(f.tick(), () -> { if (p.isAlive() && p.level() == p.serverLevel()) physical(p, f, yaw, target, groundY); });
         }
         d.busyUntil = now + Math.max(4, m.duration() - m.recover());
@@ -177,8 +175,36 @@ public final class Arsenal {
                 Vec3 start = new Vec3(o.x + fwd.x * f.d(), groundY - 0.5, o.z + fwd.z * f.d());
                 keepFooting(p, () -> Destruction.trench(l, start, fwd, f.a(), f.b(), f.c(), f.e() <= 0 ? 6 : f.e(), f.f() <= 0 ? 0.4f : f.f()));
             }
-            case FREEZE -> TimeStop.start(p, f.a(), (int) f.b());
+            case LUNGE -> lunge(p, f, yaw, target);
             default -> {}
+        }
+    }
+
+    /**
+     * Close the distance: carried toward the target (or straight ahead) over a few ticks, stopping short of it. The
+     * push is spread over the ticks so the camera glides instead of jolting.
+     */
+    private static void lunge(ServerPlayer p, Move.Fx f, float yaw, LivingEntity target) {
+        Vec3 dir;
+        double dist;
+        if (target != null && target.isAlive()) {
+            Vec3 to = target.position().subtract(p.position()).multiply(1, 0, 1);
+            dist = Math.min(f.a(), to.length() - f.b());
+            dir = to.lengthSqr() < 1e-4 ? Vec3.directionFromRotation(0, yaw) : to.normalize();
+        } else { dir = Vec3.directionFromRotation(0, yaw); dist = f.a() * 0.5; }
+        if (dist < 0.3) return;
+        int n = Math.max(1, (int) f.c());
+        // blocks per tick for n ticks, with ground friction undone (~0.546 kept per tick on the ground)
+        double per = dist / n;
+        for (int i = 0; i < n; i++) {
+            int k = i;
+            Scheduler.later(k, () -> {
+                if (!p.isAlive()) return;
+                double ease = 1.15 - 0.3 * k / Math.max(1, n - 1); // a touch faster at the start
+                Vec3 v = dir.scale(per * ease / (p.onGround() ? 0.91 : 0.98));
+                p.setDeltaMovement(v.x, Math.max(p.getDeltaMovement().y, p.onGround() ? 0.02 : p.getDeltaMovement().y), v.z);
+                p.hurtMarked = true;
+            });
         }
     }
 
@@ -266,8 +292,6 @@ public final class Arsenal {
             if (!Util.hurt(p.getUUID(), p, e, dmg, "abyss")) continue;
             landed++;
             Corrosion.add(e, 1, 160);
-            // the Reaper harvests: a little of every cut comes back as life
-            if (w == Weapon.SCYTHE) p.heal(Math.min(4, dmg * 0.06f));
             knock(p, e, h, o, fwd);
             Net.around(e, new S2CHit(p.getId(), e.getId(), dmg, hitKind));
         }

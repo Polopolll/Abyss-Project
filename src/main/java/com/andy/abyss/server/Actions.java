@@ -31,11 +31,14 @@ public final class Actions {
         if (action == C2SAction.CLASH_PUSH) { Triangle.push(p); return; }
         if (action == C2SAction.CP_QUERY) { cpQuery(p, arg); return; }
         if (!d.awakened || p.isSpectator()) return;
+        // the cut abilities: only the Arsenal (and the manual) answer
+        if (action != C2SAction.CAST_START && action != C2SAction.CAST_RELEASE && action != C2SAction.SELECT && action != C2SAction.CAST_SLOT) return;
         switch (action) {
             case C2SAction.CAST_START -> {
                 if (Triangle.of(p) != null) { Triangle.push(p); return; }
                 Ability a = Ability.byIndex(d.selected);
-                if (a == null || a.type == Ability.Type.CLIENT || !ready(p, a)) return;
+                if (a == null || !a.enabled()) { d.selected = Ability.ARSENAL.ordinal(); d.dirty = true; a = Ability.ARSENAL; }
+                if (a.type == Ability.Type.CLIENT || !ready(p, a)) return;
                 if (a == Ability.DOMAIN && Domains.ownedBy(p.getUUID()) != null) { Forms.toggle(p, Ability.DOMAIN); return; }
                 if (a.charged()) {
                     d.chargeAbility = a.ordinal(); d.charge = 0; d.dirty = true;
@@ -43,7 +46,7 @@ public final class Actions {
                 } else cast(p, a);
             }
             case C2SAction.CAST_RELEASE -> { d.domainVariant = Math.max(0, Math.min(1, arg)); release(p); }
-            case C2SAction.SELECT -> { if (Ability.byIndex(arg) != null) { d.selected = arg; d.dirty = true; } }
+            case C2SAction.SELECT -> { Ability s = Ability.byIndex(arg); if (s != null && s.enabled()) { d.selected = arg; d.dirty = true; } }
             case C2SAction.SPREAD_START -> {
                 if (d.sporeMode == AbyssData.SPREAD) {
                     if (!d.spend(20)) { noOutput(p); return; }
@@ -69,7 +72,7 @@ public final class Actions {
             case C2SAction.RECALL_ONE -> Bodies.recall(p, arg);
             case C2SAction.SEND_CLONE -> sendClone(p);
             case C2SAction.DESCEND -> Bodies.descend(p);
-            case C2SAction.CAST_SLOT -> { if (Ability.byIndex(arg) != null) { d.selected = arg; d.dirty = true; handle(p, C2SAction.CAST_START, 0); } }
+            case C2SAction.CAST_SLOT -> { Ability s = Ability.byIndex(arg); if (s != null && s.enabled()) { d.selected = arg; d.dirty = true; handle(p, C2SAction.CAST_START, 0); } }
             default -> {}
         }
     }
@@ -174,6 +177,12 @@ public final class Actions {
     public static void tickPlayer(ServerPlayer p) {
         AbyssData d = AbyssData.get(p);
         if (!d.awakened) return;
+        // the cut abilities: anything left open from before is closed, and the selection lands on the Arsenal
+        Ability open = Ability.byIndex(d.form);
+        if (d.form >= 0 && open != null && !open.enabled()) Forms.toggle(p, open);
+        Ability sel = Ability.byIndex(d.selected);
+        if (sel == null || !sel.enabled()) { d.selected = Ability.ARSENAL.ordinal(); d.dirty = true; }
+        if (d.negation) { d.negation = false; d.dirty = true; }
         long gt = p.level().getGameTime();
         float cap = d.outputCap();
         if (d.chargeAbility >= 0) {

@@ -14,6 +14,7 @@ public final class Config {
     public static ForgeConfigSpec.DoubleValue outputBase, outputPerMastery, outputRefillPerSecond, masteryRate, damageMultiplier, pvpMultiplier;
     public static ForgeConfigSpec.BooleanValue singleUser, griefing, cooldownsEnabled, allowInfiniteOutput;
     public static ForgeConfigSpec.DoubleValue cooldownMultiplier;
+    public static ForgeConfigSpec.DoubleValue previewSlowmo;
     public static ForgeConfigSpec.BooleanValue sovereignty, vesselImmunities, beamCarves;
     public static ForgeConfigSpec.DoubleValue vesselStrength, comboDamage;
     public static ForgeConfigSpec.IntValue reformSeconds;
@@ -124,6 +125,7 @@ public final class Config {
         ForgeConfigSpec.Builder c = new ForgeConfigSpec.Builder();
         fxDensity = putC(c.defineInRange("fxDensity", 1.0, 0.1, 3.0), "fxDensity");
         screenShake = putC(c.defineInRange("screenShake", 1.0, 0.0, 3.0), "screenShake");
+        previewSlowmo = putC(c.comment("Debug: play your Arsenal moves' visuals slower than real time (1 = normal)").defineInRange("previewSlowmo", 1.0, 0.05, 1.0), "previewSlowmo");
         bloom = putC(c.comment("Real glow: abyss light bleeds a soft halo past its shape").define("bloom", true), "bloom");
         bloomStrength = putC(c.defineInRange("bloomStrength", 0.75, 0.0, 3.0), "bloomStrength");
         crystalSkin = putC(c.comment("Show Abyss users as the crystalline void body").define("crystalSkin", true), "crystalSkin");

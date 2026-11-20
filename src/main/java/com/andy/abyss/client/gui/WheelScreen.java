@@ -26,7 +26,7 @@ import java.util.List;
  */
 public class WheelScreen extends Screen {
     private static final float INNER = 38, OUTER = 98, ICON_R = 68;
-    private static final int N = Ability.values().length;
+    private int N = WheelOrder.get().size();
     private int age, hovered = -1;
     private boolean sticky;
     private final float[] hoverAnim = new float[N];

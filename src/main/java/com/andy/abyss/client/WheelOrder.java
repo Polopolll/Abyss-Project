@@ -14,10 +14,10 @@ public final class WheelOrder {
             for (String s : Config.wheelOrder.get().split(",")) {
                 if (s.isBlank()) continue;
                 Ability a = Ability.valueOf(s.trim());
-                if (!out.contains(a)) out.add(a);
+                if (!out.contains(a) && a.enabled()) out.add(a);
             }
         } catch (Exception ignored) {}
-        for (Ability a : Ability.values()) if (!out.contains(a)) out.add(a);
+        for (Ability a : Ability.values()) if (!out.contains(a) && a.enabled()) out.add(a);
         return out;
     }
 

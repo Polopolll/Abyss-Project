@@ -63,6 +63,12 @@ public enum Ability {
         this.title = title; this.type = type; this.color = color; this.cooldownSec = cd; this.desc = desc; this.sub = sub; this.subDesc = subDesc;
     }
 
+    /**
+     * What's in the game right now. Everything else is cut while the Arsenal is rebuilt from the ground up (the code
+     * stays, unreachable: no wheel slot, no key, no command cast).
+     */
+    public boolean enabled() { return this == ARSENAL || this == GUIDE; }
+
     public boolean isForm() { return type == Type.FORM || this == DOMAIN; }
     public boolean charged() { return type == Type.CHARGE; }
     public static Ability byIndex(int i) { Ability[] v = values(); return i >= 0 && i < v.length ? v[i] : null; }

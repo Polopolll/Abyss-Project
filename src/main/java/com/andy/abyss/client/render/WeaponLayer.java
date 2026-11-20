@@ -44,16 +44,6 @@ public class WeaponLayer<T extends LivingEntity, M extends HumanoidModel<T>> ext
             WeaponModel.render(ps, buf, w, forge, glow);
             ps.popPose();
         }
-        if (w == Weapon.BULWARK) {
-            ps.pushPose();
-            m.leftArm.translateAndRotate(ps);
-            ps.translate(3 / 16f, 7 / 16f, 0);              // outside of the left forearm
-            ps.mulPose(Axis.YP.rotationDegrees(90));         // facing out from the arm
-            ps.mulPose(Axis.ZP.rotationDegrees((ClientState.ticks + pt) * 0.5f));
-            ps.scale(0.85f, 0.85f, 0.85f);
-            WeaponModel.renderShield(ps, buf, forge, glow);
-            ps.popPose();
-        }
     }
 
     private static void fist(PoseStack ps, MultiBufferSource buf, net.minecraft.client.model.geom.ModelPart arm, Weapon w, float forge, float glow, boolean left) {
